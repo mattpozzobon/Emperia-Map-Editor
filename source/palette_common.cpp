@@ -393,6 +393,7 @@ BEGIN_EVENT_TABLE(BrushToolPanel, PalettePanel)
 	EVT_TOGGLEBUTTON(PALETTE_TERRAIN_NOPVP_TOOL,BrushToolPanel::OnClickNOPVPBrushButton)
 	EVT_TOGGLEBUTTON(PALETTE_TERRAIN_NOLOGOUT_TOOL,BrushToolPanel::OnClickNoLogoutBrushButton)
 	EVT_TOGGLEBUTTON(PALETTE_TERRAIN_PVPZONE_TOOL,BrushToolPanel::OnClickPVPZoneBrushButton)
+	EVT_TOGGLEBUTTON(PALETTE_TERRAIN_TRADEZONE_TOOL,BrushToolPanel::OnClickTradeZoneBrushButton)
 END_EVENT_TABLE()
 
 BrushToolPanel::BrushToolPanel(wxWindow* parent) :
@@ -410,7 +411,8 @@ BrushToolPanel::BrushToolPanel(wxWindow* parent) :
 	pzBrushButton(nullptr),
 	nopvpBrushButton(nullptr),
 	nologBrushButton(nullptr),
-	pvpzoneBrushButton(nullptr)
+	pvpzoneBrushButton(nullptr),
+	tradezoneBrushButton(nullptr)
 {
 	////
 }
@@ -490,6 +492,10 @@ void BrushToolPanel::LoadAllContents()
 		ASSERT(g_gui.pvp_brush);
 		sub_sizer->Add(pvpzoneBrushButton = newd BrushButton(this, g_gui.pvp_brush, RENDER_SIZE_32x32, PALETTE_TERRAIN_PVPZONE_TOOL));
 			pvpzoneBrushButton->SetToolTip("PVP Zone Tool");
+
+		ASSERT(g_gui.trade_brush);
+		sub_sizer->Add(tradezoneBrushButton = newd BrushButton(this, g_gui.trade_brush, RENDER_SIZE_32x32, PALETTE_TERRAIN_TRADEZONE_TOOL));
+			tradezoneBrushButton->SetToolTip("Trade Zone Tool");
 
 		// New row
 		size_sizer->Add(sub_sizer);
@@ -576,6 +582,10 @@ void BrushToolPanel::LoadAllContents()
 		ASSERT(g_gui.pvp_brush);
 		sub_sizer->Add(pvpzoneBrushButton = newd BrushButton(this, g_gui.pvp_brush, RENDER_SIZE_16x16, PALETTE_TERRAIN_PVPZONE_TOOL));
 			pvpzoneBrushButton->SetToolTip("PVP Zone Tool");
+
+		ASSERT(g_gui.trade_brush);
+		sub_sizer->Add(tradezoneBrushButton = newd BrushButton(this, g_gui.trade_brush, RENDER_SIZE_16x16, PALETTE_TERRAIN_TRADEZONE_TOOL));
+			tradezoneBrushButton->SetToolTip("Trade Zone Tool");
 	}
 
 	size_sizer->Add(sub_sizer);
@@ -639,6 +649,8 @@ Brush* BrushToolPanel::GetSelectedBrush() const
 		return g_gui.nolog_brush;
 	if(pvpzoneBrushButton->GetValue())
 		return g_gui.pvp_brush;
+	if(tradezoneBrushButton->GetValue())
+		return g_gui.trade_brush;
 	return nullptr;
 }
 
@@ -669,6 +681,8 @@ bool BrushToolPanel::SelectBrush(const Brush* whatbrush)
 		button = nologBrushButton;
 	} else if(whatbrush == g_gui.pvp_brush) {
 		button = pvpzoneBrushButton;
+	} else if(whatbrush == g_gui.trade_brush) {
+		button = tradezoneBrushButton;
 	}
 
 	DeselectAll();
@@ -755,6 +769,12 @@ void BrushToolPanel::OnClickPVPZoneBrushButton(wxCommandEvent& event)
 {
 	g_gui.ActivatePalette(GetParentPalette());
 	g_gui.SelectBrush(g_gui.pvp_brush);
+}
+
+void BrushToolPanel::OnClickTradeZoneBrushButton(wxCommandEvent& event)
+{
+	g_gui.ActivatePalette(GetParentPalette());
+	g_gui.SelectBrush(g_gui.trade_brush);
 }
 
 // ============================================================================

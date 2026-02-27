@@ -30,6 +30,7 @@
 #include "../icons/position_go.xpm"
 #include "../icons/protected_zone.xpm"
 #include "../icons/pvp_zone.xpm"
+#include "../icons/trade_zone.xpm"
 #include "../icons/rectangular_1.xpm"
 #include "../icons/rectangular_2.xpm"
 #include "../icons/rectangular_3.xpm"
@@ -90,6 +91,8 @@ wxBitmap ArtProvider::CreateBitmap(const wxArtID& id, const wxArtClient& client,
 			return wxBitmap(pvp_zone_xpm);
 		else if(id == ART_PZ_BRUSH)
 			return wxBitmap(protected_zone_xpm);
+		else if(id == ART_TRADE_BRUSH)
+			return wxBitmap(trade_zone_xpm);
 		else if(id == ART_RECTANGULAR)
 			return wxBitmap(rectangular_4_xpm);
 		else if(id == ART_RECTANGULAR_1)

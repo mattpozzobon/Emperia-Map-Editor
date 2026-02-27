@@ -180,7 +180,7 @@ AboutWindow::AboutWindow(wxWindow* parent) :
 	compiler = "unknown";
 #endif
 
-	about << "This is an OpenTibia Map Editor created by Remere.\n";
+	about << "Emperia Map Editor - based on Remere's Map Editor.\n";
 	about << "Version " << __W_RME_VERSION__ << " for ";
 	about <<
 #ifdef __WINDOWS__
@@ -466,7 +466,7 @@ void TetrisPanel::AddScore(int lines_added)
 {
 	lines += lines_added;
 	score += lines_added*lines_added * 10;
-	wxString title = "Remere's Tetris : ";
+	wxString title = "Emperia Tetris : ";
 	title << score << " points  ";
 	title << lines << " lines";
 	((wxTopLevelWindow*)GetParent())->SetTitle(title);
@@ -769,7 +769,7 @@ void SnakePanel::NewGame()
 
 void SnakePanel::UpdateTitle()
 {
-	wxString title = "Remere's Snake : ";
+	wxString title = "Emperia Snake : ";
 	title << length << " segments";
 	((wxTopLevelWindow*)GetParent())->SetTitle(title);
 }

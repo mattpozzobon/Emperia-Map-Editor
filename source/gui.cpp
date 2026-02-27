@@ -1475,22 +1475,22 @@ void GUI::SetTitle(wxString title)
 #endif
 #ifdef __EXPERIMENTAL__
 	if(title != "") {
-		g_gui.root->SetTitle(title << " - Remere's Map Editor BETA" << TITLE_APPEND);
+		g_gui.root->SetTitle(title << " - Emperia Map Editor BETA" << TITLE_APPEND);
 	} else {
-		g_gui.root->SetTitle(wxString("Remere's Map Editor BETA") << TITLE_APPEND);
+		g_gui.root->SetTitle(wxString("Emperia Map Editor BETA") << TITLE_APPEND);
 	}
 #elif __SNAPSHOT__
 	if(title != "") {
-		g_gui.root->SetTitle(title << " - Remere's Map Editor - SNAPSHOT" << TITLE_APPEND);
+		g_gui.root->SetTitle(title << " - Emperia Map Editor - SNAPSHOT" << TITLE_APPEND);
 	}
 	else {
-		g_gui.root->SetTitle(wxString("Remere's Map Editor - SNAPSHOT") << TITLE_APPEND);
+		g_gui.root->SetTitle(wxString("Emperia Map Editor - SNAPSHOT") << TITLE_APPEND);
 	}
 #else
 	if(!title.empty()) {
-		g_gui.root->SetTitle(title << " - Remere's Map Editor" << TITLE_APPEND);
+		g_gui.root->SetTitle(title << " - Emperia Map Editor" << TITLE_APPEND);
 	} else {
-		g_gui.root->SetTitle(wxString("Remere's Map Editor") << TITLE_APPEND);
+		g_gui.root->SetTitle(wxString("Emperia Map Editor") << TITLE_APPEND);
 	}
 #endif
 }

@@ -296,6 +296,11 @@ bool GraphicManager::loadEditorSprites()
 			loadPNGFile(no_pvp_small_png),
 			loadPNGFile(no_pvp_png)
 		);
+	sprite_space[EDITOR_SPRITE_TRADE_TOOL] =
+		newd EditorSprite(
+			loadPNGFile(pvp_zone_small_png),
+			loadPNGFile(pvp_zone_png)
+		);
 
 	sprite_space[EDITOR_SPRITE_DOOR_NORMAL] =
 		newd EditorSprite(

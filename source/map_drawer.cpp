@@ -453,6 +453,10 @@ void MapDrawer::DrawSecondaryMap(int map_z)
 				if(options.show_special_tiles && tile->getMapFlags() & TILESTATE_NOPVP) {
 					g /= 2;
 				}
+				if(options.show_special_tiles && tile->getMapFlags() & TILESTATE_REFRESH) {
+					r /= 3;
+					g = g / 3 * 2;
+				}
 				BlitItem(draw_x, draw_y, tile, tile->ground, true, r, g, b, 160);
 			}
 
@@ -632,11 +636,26 @@ void MapDrawer::DrawHigherFloors()
 			getDrawPosition(tile->getPosition(), draw_x, draw_y);
 
 			if(tile->ground) {
+				uint8_t r = 255, g = 255, b = 255;
 				if(tile->isPZ()) {
-					BlitItem(draw_x, draw_y, tile, tile->ground, false, 128,255,128, 96);
-				} else {
-					BlitItem(draw_x, draw_y, tile, tile->ground, false, 255,255,255, 96);
+					r /= 2;
+					b /= 2;
 				}
+				if(tile->getMapFlags() & TILESTATE_PVPZONE) {
+					g = r / 4;
+					b = b / 3 * 2;
+				}
+				if(tile->getMapFlags() & TILESTATE_NOLOGOUT) {
+					b /= 2;
+				}
+				if(tile->getMapFlags() & TILESTATE_NOPVP) {
+					g /= 2;
+				}
+				if(tile->getMapFlags() & TILESTATE_REFRESH) {
+					r /= 3;
+					g = g / 3 * 2;
+				}
+				BlitItem(draw_x, draw_y, tile, tile->ground, false, r, g, b, 96);
 			}
 
 			bool hidden = options.hide_items_when_zoomed && zoom > 10.f;
@@ -1497,6 +1516,11 @@ void MapDrawer::DrawTile(TileLocation* location)
 
 			if(showspecial && tile->getMapFlags() & TILESTATE_NOPVP) {
 				g /= 2;
+			}
+
+			if(showspecial && tile->getMapFlags() & TILESTATE_REFRESH) {
+				r /= 3;
+				g = g / 3 * 2;
 			}
 		}
 
