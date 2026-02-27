@@ -450,18 +450,35 @@ bool ClientVersion::hasValidPaths()
 
 	wxDir dir(client_path.GetPath(wxPATH_GET_VOLUME | wxPATH_GET_SEPARATOR));
 	wxString otfi_file;
-	metadata_path = wxFileName(client_path.GetFullPath(), wxString(ASSETS_NAME) + ".dat");
-	sprites_path = wxFileName(client_path.GetFullPath(), wxString(ASSETS_NAME) + ".spr");
+	metadata_path = wxFileName(client_path.GetFullPath(), wxString(ASSETS_NAME) + ".eobj");
+	sprites_path = wxFileName(client_path.GetFullPath(), wxString(ASSETS_NAME) + ".espr");
 
-	if(dir.GetFirst(&otfi_file, "*.otfi", wxDIR_FILES)) {
+	// Try emperia.easset manifest first
+	wxFileName eassetPath(client_path.GetFullPath(), "emperia.easset");
+	if(eassetPath.FileExists()) {
+		metadata_path = wxFileName(client_path.GetFullPath(), wxString(ASSETS_NAME) + ".eobj");
+		sprites_path = wxFileName(client_path.GetFullPath(), wxString(ASSETS_NAME) + ".espr");
+	}
+	// Fallback: try legacy .otfi
+	else if(dir.GetFirst(&otfi_file, "*.otfi", wxDIR_FILES)) {
 		wxFileName otfi(client_path.GetFullPath(), otfi_file);
 		OTMLDocumentPtr doc = OTMLDocument::parse(otfi.GetFullPath().ToStdString());
 		if(doc->size() != 0 && doc->hasChildAt("DatSpr")) {
 			OTMLNodePtr node = doc->get("DatSpr");
-			std::string metadata = node->valueAt<std::string>("metadata-file", std::string(ASSETS_NAME) + ".dat");
-			std::string sprites = node->valueAt<std::string>("sprites-file", std::string(ASSETS_NAME) + ".spr");
+			std::string metadata = node->valueAt<std::string>("metadata-file", std::string(ASSETS_NAME) + ".eobj");
+			std::string sprites = node->valueAt<std::string>("sprites-file", std::string(ASSETS_NAME) + ".espr");
 			metadata_path = wxFileName(client_path.GetFullPath(), wxString(metadata));
 			sprites_path = wxFileName(client_path.GetFullPath(), wxString(sprites));
+		}
+	}
+
+	// If Emperia files don't exist, try legacy .dat/.spr as final fallback
+	if(!metadata_path.FileExists() || !sprites_path.FileExists()) {
+		wxFileName legacyDat(client_path.GetFullPath(), "Tibia.dat");
+		wxFileName legacySpr(client_path.GetFullPath(), "Tibia.spr");
+		if(legacyDat.FileExists() && legacySpr.FileExists()) {
+			metadata_path = legacyDat;
+			sprites_path = legacySpr;
 		}
 	}
 
@@ -480,8 +497,20 @@ bool ClientVersion::hasValidPaths()
 		return false;
 	}
 
-	uint32_t datSignature;
-	dat_file.getU32(datSignature);
+	uint32_t datMagic1, datMagic2;
+	dat_file.getU32(datMagic1);
+	dat_file.getU32(datMagic2);
+
+	const uint32_t EMPERIA_MAGIC1 = 0x45504D45; // "EMPE" LE
+	const uint32_t EMPERIA_MAGIC2 = 0x00414952; // "RIA\0" LE
+
+	// If Emperia format, skip signature check (header validates itself)
+	if(datMagic1 == EMPERIA_MAGIC1 && datMagic2 == EMPERIA_MAGIC2) {
+		dat_file.close();
+		return true;
+	}
+
+	uint32_t datSignature = datMagic1;
 	dat_file.close();
 
 	FileReadHandle spr_file(static_cast<const char*>(sprites_path.GetFullPath().mb_str()));

@@ -360,7 +360,21 @@ bool GraphicManager::loadOTFI(const FileName& filename, wxString& error, wxArray
 
 	otfi_found = false;
 
-	if(dir.GetFirst(&otfi_file, "*.otfi", wxDIR_FILES)) {
+	// Try emperia.easset JSON manifest first
+	wxFileName eassetPath(filename.GetFullPath(), "emperia.easset");
+	if(eassetPath.FileExists()) {
+		// Emperia JSON manifest found — read features from it
+		is_extended = true;
+		has_transparency = true;
+		has_frame_durations = true;
+		has_frame_groups = true;
+		metadata_file = wxFileName(filename.GetFullPath(), wxString(ASSETS_NAME) + ".eobj");
+		sprites_file = wxFileName(filename.GetFullPath(), wxString(ASSETS_NAME) + ".espr");
+		otfi_found = true;
+	}
+
+	// Fallback: try legacy .otfi
+	if(!otfi_found && dir.GetFirst(&otfi_file, "*.otfi", wxDIR_FILES)) {
 		wxFileName otfi(filename.GetFullPath(), otfi_file);
 		OTMLDocumentPtr doc = OTMLDocument::parse(otfi.GetFullPath().ToStdString());
 		if(doc->size() == 0 || !doc->hasChildAt("DatSpr")) {
@@ -373,8 +387,8 @@ bool GraphicManager::loadOTFI(const FileName& filename, wxString& error, wxArray
 		has_transparency = node->valueAt<bool>("transparency");
 		has_frame_durations = node->valueAt<bool>("frame-durations");
 		has_frame_groups = node->valueAt<bool>("frame-groups");
-		std::string metadata = node->valueAt<std::string>("metadata-file", std::string(ASSETS_NAME) + ".dat");
-		std::string sprites = node->valueAt<std::string>("sprites-file", std::string(ASSETS_NAME) + ".spr");
+		std::string metadata = node->valueAt<std::string>("metadata-file", std::string(ASSETS_NAME) + ".eobj");
+		std::string sprites = node->valueAt<std::string>("sprites-file", std::string(ASSETS_NAME) + ".espr");
 		metadata_file = wxFileName(filename.GetFullPath(), wxString(metadata));
 		sprites_file = wxFileName(filename.GetFullPath(), wxString(sprites));
 		otfi_found = true;
@@ -385,8 +399,18 @@ bool GraphicManager::loadOTFI(const FileName& filename, wxString& error, wxArray
 		has_transparency = false;
 		has_frame_durations = false;
 		has_frame_groups = false;
-		metadata_file = wxFileName(filename.GetFullPath(), wxString(ASSETS_NAME) + ".dat");
-		sprites_file = wxFileName(filename.GetFullPath(), wxString(ASSETS_NAME) + ".spr");
+		metadata_file = wxFileName(filename.GetFullPath(), wxString(ASSETS_NAME) + ".eobj");
+		sprites_file = wxFileName(filename.GetFullPath(), wxString(ASSETS_NAME) + ".espr");
+
+		// If Emperia files don't exist, fall back to legacy Tibia files
+		if(!metadata_file.FileExists() || !sprites_file.FileExists()) {
+			wxFileName legacyDat(filename.GetFullPath(), "Tibia.dat");
+			wxFileName legacySpr(filename.GetFullPath(), "Tibia.spr");
+			if(legacyDat.FileExists() && legacySpr.FileExists()) {
+				metadata_file = legacyDat;
+				sprites_file = legacySpr;
+			}
+		}
 	}
 
 	return true;
@@ -404,8 +428,36 @@ bool GraphicManager::loadSpriteMetadata(const FileName& datafile, wxString& erro
 
 	uint16_t effect_count, distance_count;
 
+	// Detect Emperia header: first 8 bytes = "EMPERIA\0"
+	uint32_t magic1, magic2;
+	file.getU32(magic1);
+	file.getU32(magic2);
+
+	const uint32_t EMPERIA_MAGIC1 = 0x45504D45; // "EMPE" LE
+	const uint32_t EMPERIA_MAGIC2 = 0x00414952; // "RIA\0" LE
+
 	uint32_t datSignature;
-	file.getU32(datSignature);
+	if(magic1 == EMPERIA_MAGIC1 && magic2 == EMPERIA_MAGIC2) {
+		// Emperia format: skip remaining 12 bytes of 20-byte header (already read 8)
+		file.skip(12);
+		// Use the client version's default dat format for Emperia files
+		dat_format = client_version->getDatFormatForSignature(0);
+		if(dat_format == DAT_FORMAT_UNKNOWN) {
+			// Emperia files default to latest format
+			dat_format = DAT_FORMAT_1057;
+		}
+	} else {
+		// Legacy format: first 4 bytes were the signature, second 4 bytes is start of payload
+		// Seek back to offset 4 (after the 4-byte legacy signature)
+		file.seek(4);
+		datSignature = magic1;
+		dat_format = client_version->getDatFormatForSignature(datSignature);
+		if(dat_format == DAT_FORMAT_UNKNOWN) {
+			error += "Failed to open " + datafile.GetFullPath() + " for reading\nCould not locate datSignature (0x" << wxString::Format(wxT("%02x"), datSignature) << ") compatible with client version " << client_version->getName();
+			return false;
+		}
+	}
+
 	//get max id
 	file.getU16(item_count);
 	file.getU16(creature_count);
@@ -415,13 +467,6 @@ bool GraphicManager::loadSpriteMetadata(const FileName& datafile, wxString& erro
 	uint32_t minID = 100; // items start with id 100
 	// We don't load distance/effects, if we would, just add effect_count & distance_count here
 	uint32_t maxID = item_count + creature_count;
-
-	dat_format = client_version->getDatFormatForSignature(datSignature);
-
-	if(dat_format == DAT_FORMAT_UNKNOWN) {
-		error += "Failed to open " + datafile.GetFullPath() + " for reading\nCould not locate datSignature (0x" << wxString::Format(wxT("%02x"), datSignature) << ") compatible with client version " << client_version->getName();
-		return false;
-	}
 
 	if(!otfi_found) {
 		is_extended = dat_format >= DAT_FORMAT_96;
@@ -728,8 +773,21 @@ bool GraphicManager::loadSpriteData(const FileName& datafile, wxString& error, w
 	} while(false)
 
 
-	uint32_t sprSignature;
-	safe_get(U32, sprSignature);
+	// Detect Emperia header: first 8 bytes = "EMPERIA\0"
+	uint32_t spr_magic1, spr_magic2;
+	safe_get(U32, spr_magic1);
+	safe_get(U32, spr_magic2);
+
+	const uint32_t EMPERIA_MAGIC1 = 0x45504D45; // "EMPE" LE
+	const uint32_t EMPERIA_MAGIC2 = 0x00414952; // "RIA\0" LE
+
+	if(spr_magic1 == EMPERIA_MAGIC1 && spr_magic2 == EMPERIA_MAGIC2) {
+		// Emperia format: skip remaining 12 bytes of 20-byte header (already read 8)
+		fh.skip(12);
+	} else {
+		// Legacy format: seek back past the second uint32 we read
+		fh.seek(4);
+	}
 
 	uint32_t total_pics = 0;
 	if(is_extended) {
@@ -806,12 +864,24 @@ bool GraphicManager::loadSpriteDump(uint8_t*& target, uint16_t& size, int sprite
 		return false;
 	unloaded = false;
 
-	if(!fh.seek((is_extended ? 4 : 2) + sprite_id * sizeof(uint32_t)))
+	// Detect Emperia header to determine base offset
+	uint32_t detect1 = 0, detect2 = 0;
+	fh.getU32(detect1);
+	fh.getU32(detect2);
+
+	const uint32_t EMPERIA_MAGIC1 = 0x45504D45; // "EMPE" LE
+	const uint32_t EMPERIA_MAGIC2 = 0x00414952; // "RIA\0" LE
+	// Emperia header = 20 bytes, then sprite count, then addresses
+	// Legacy header = 4 bytes signature, then sprite count, then addresses
+	uint32_t header_size = (detect1 == EMPERIA_MAGIC1 && detect2 == EMPERIA_MAGIC2) ? 20 : 4;
+	uint32_t count_field_size = is_extended ? 4 : 2;
+
+	if(!fh.seek(header_size + count_field_size + sprite_id * sizeof(uint32_t)))
 		return false;
 
 	uint32_t to_seek = 0;
 	if(fh.getU32(to_seek)) {
-		fh.seek(to_seek+3);
+		fh.seek(to_seek + 3);
 		uint16_t sprite_size;
 		if(fh.getU16(sprite_size)) {
 			target = newd uint8_t[sprite_size];
