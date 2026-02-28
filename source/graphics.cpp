@@ -28,6 +28,8 @@
 #include <wx/mstream.h>
 #include <wx/stopwatch.h>
 #include <wx/dir.h>
+#include <zlib.h>
+#include <wx/filename.h>
 #include <wx/rawbmp.h>
 #include "pngfiles.h"
 
@@ -756,9 +758,48 @@ bool GraphicManager::loadSpriteMetadataFlags(FileReadHandle& file, GameSprite* s
 	return true;
 }
 
+// Decompress a gzip file to a temp file. Returns the temp path, or empty string if not gzip.
+static std::string maybeDecompressGzip(const std::string& filepath)
+{
+	FILE* f = fopen(filepath.c_str(), "rb");
+	if(!f) return "";
+	uint8_t magic[2] = {0, 0};
+	fread(magic, 1, 2, f);
+	fclose(f);
+
+	// Check gzip magic bytes
+	if(magic[0] != 0x1f || magic[1] != 0x8b)
+		return ""; // Not gzip, use original
+
+	gzFile gz = gzopen(filepath.c_str(), "rb");
+	if(!gz) return "";
+
+	wxString tempPath = wxFileName::CreateTempFileName("espr_");
+	FILE* out = fopen(tempPath.ToStdString().c_str(), "wb");
+	if(!out) { gzclose(gz); return ""; }
+
+	uint8_t buf[65536];
+	int bytesRead;
+	while((bytesRead = gzread(gz, buf, sizeof(buf))) > 0) {
+		fwrite(buf, 1, bytesRead, out);
+	}
+
+	gzclose(gz);
+	fclose(out);
+	return tempPath.ToStdString();
+}
+
 bool GraphicManager::loadSpriteData(const FileName& datafile, wxString& error, wxArrayString& warnings)
 {
-	FileReadHandle fh(nstr(datafile.GetFullPath()));
+	// Decompress gzip'd .espr to a temp file if needed
+	std::string actualPath = nstr(datafile.GetFullPath());
+	std::string decompressedPath = maybeDecompressGzip(actualPath);
+	if(!decompressedPath.empty()) {
+		actualPath = decompressedPath;
+		// Also update spritefile so loadSpriteDump uses the decompressed version
+	}
+
+	FileReadHandle fh(actualPath);
 
 	if(!fh.isOk()) {
 		error = "Failed to open file for reading";
@@ -799,7 +840,7 @@ bool GraphicManager::loadSpriteData(const FileName& datafile, wxString& error, w
 	}
 
 	if(!g_settings.getInteger(Config::USE_MEMCACHED_SPRITES)) {
-		spritefile = nstr(datafile.GetFullPath());
+		spritefile = actualPath; // Use decompressed path if gzip was detected
 		unloaded = false;
 		return true;
 	}
