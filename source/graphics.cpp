@@ -717,7 +717,7 @@ bool GraphicManager::loadSpriteMetadataFlags(FileReadHandle& file, GameSprite* s
 					uint16_t offset_y;
 					file.getU16(offset_x);
 					file.getU16(offset_y);
-					sType->draw_offset = wxPoint(offset_x, offset_y);
+					sType->draw_offset = wxPoint(static_cast<int16_t>(offset_x), static_cast<int16_t>(offset_y));
 				} else {
 					sType->draw_offset = wxPoint(8, 8);
 				}
