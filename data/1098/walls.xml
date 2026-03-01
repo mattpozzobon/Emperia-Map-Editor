@@ -4,6 +4,8 @@
 			<item id="1050" chance="500"/>
 			<item id="1052" chance="0"/> <!-- This needs to be here for backwards compatibility -->
 			<item id="1058" chance="0"/> <!-- This needs to be here for backwards compatibility -->
+			<item id="26399" chance="0"/>
+			<item id="26400" chance="0"/>
 			<door id="6253" type="normal" open="false"/>
 			<door id="6254" type="normal" open="true"/>
 			<door id="6257" type="locked" open="false"/>
@@ -20,6 +22,8 @@
 			<item id="1049" chance="400"/>
 			<item id="1054" chance="0"/> <!-- This needs to be here for backwards compatibility -->
 			<item id="1056" chance="0"/> <!-- This needs to be here for backwards compatibility -->
+			<item id="26401" chance="0"/>
+			<item id="26402" chance="0"/>
 			<door id="6250" type="normal" open="false"/>
 			<door id="6251" type="normal" open="true"/>
 			<door id="6255" type="locked" open="false"/>
@@ -37,9 +41,11 @@
 			<item id="1055" chance="0"/> <!-- This needs to be here for backwards compatibility -->
 			<item id="1057" chance="0"/> <!-- This needs to be here for backwards compatibility -->
 			<item id="1059" chance="0"/> <!-- This needs to be here for backwards compatibility -->
+			<item id="26403" chance="0"/>
 		</wall>
 		<wall type="pole">
 			<item id="1051" chance="1000"/>
+			<item id="26404" chance="0"/>
 		</wall>
 	</brush>
 
