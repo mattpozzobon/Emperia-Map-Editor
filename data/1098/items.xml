@@ -45737,7 +45737,7 @@
 	<item id="23866" name="lava" />
 	<item id="23867" name="lava" />
 	<item id="23868" name="lava" />
-	<item id="23869" article="a" name="water vortex">
+	<item id="23869" article="a" name="123">
 		<attribute key="description" value="It draws you nearer." />
 	</item>
 	<item id="23870" article="a" name="dirt floor">
@@ -50602,7 +50602,7 @@
 	<item id="26388" name="red essence" />
 	<item id="26389" name="green essence" />
 	<item id="26390" name="pink essence" />
-	<item id="26391" />
+	<item id="26391" name="bigorna" />
 	<item id="26392" />
 	<item id="26393" />
 	<item id="26394" />
@@ -50629,4 +50629,82 @@
 	<item id="26415" />
 	<item id="26416" />
 	<item id="26417" />
+	<item id="26418" name="teste" />
+	<item id="26419" name="bigorna 2" />
+	<item id="26420" />
+	<item id="26421" />
+	<item id="26422" />
+	<item id="26423" />
+	<item id="26424" />
+	<item id="26425" />
+	<item id="26426" />
+	<item id="26427" />
+	<item id="26428" />
+	<item id="26429" />
+	<item id="26430" />
+	<item id="26431" />
+	<item id="26432" />
+	<item id="26433" />
+	<item id="26434" />
+	<item id="26435" />
+	<item id="26436" />
+	<item id="26437" />
+	<item id="26438" />
+	<item id="26439" />
+	<item id="26440" />
+	<item id="26441" />
+	<item id="26442" />
+	<item id="26443" />
+	<item id="26444" />
+	<item id="26445" />
+	<item id="26446" />
+	<item id="26447" />
+	<item id="26448" />
+	<item id="26449" />
+	<item id="26450" />
+	<item id="26451" />
+	<item id="26452" />
+	<item id="26453" />
+	<item id="26454" />
+	<item id="26455" />
+	<item id="26456" />
+	<item id="26457" />
+	<item id="26458" />
+	<item id="26459" />
+	<item id="26460" />
+	<item id="26461" />
+	<item id="26462" />
+	<item id="26463" />
+	<item id="26464" />
+	<item id="26465" />
+	<item id="26466" />
+	<item id="26467" />
+	<item id="26468" />
+	<item id="26469" />
+	<item id="26470" />
+	<item id="26471" />
+	<item id="26472" />
+	<item id="26473" />
+	<item id="26474" />
+	<item id="26475" />
+	<item id="26476" />
+	<item id="26477" />
+	<item id="26478" />
+	<item id="26479" />
+	<item id="26480" />
+	<item id="26481" />
+	<item id="26482" />
+	<item id="26483" />
+	<item id="26484" />
+	<item id="26485" />
+	<item id="26486" />
+	<item id="26487" />
+	<item id="26488" />
+	<item id="26489" />
+	<item id="26490" />
+	<item id="26491" />
+	<item id="26492" />
+	<item id="26493" />
+	<item id="26494" />
+	<item id="26495" />
 </items>
