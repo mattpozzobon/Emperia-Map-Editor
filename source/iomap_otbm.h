@@ -141,6 +141,9 @@ protected:
 	bool saveSpawns(Map& map, pugi::xml_document& doc);
 	bool saveHouses(Map& map, const FileName& dir);
 	bool saveHouses(Map& map, pugi::xml_document& doc);
+
+	bool loadZones(Map& map, const FileName& dir);
+	bool saveZones(Map& map, const FileName& dir);
 };
 
 #endif

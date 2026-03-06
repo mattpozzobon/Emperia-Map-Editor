@@ -38,6 +38,7 @@
 #include "materials.h"
 #include "live_client.h"
 #include "live_server.h"
+#include "common_windows.h"
 
 BEGIN_EVENT_TABLE(MainMenuBar, wxEvtHandler)
 END_EVENT_TABLE()
@@ -119,6 +120,7 @@ MainMenuBar::MainMenuBar(MainFrame *frame) : frame(frame)
 	MAKE_ACTION(MAP_CLEANUP, wxITEM_NORMAL, OnMapCleanup);
 	MAKE_ACTION(MAP_CLEAN_HOUSE_ITEMS, wxITEM_NORMAL, OnMapCleanHouseItems);
 	MAKE_ACTION(MAP_PROPERTIES, wxITEM_NORMAL, OnMapProperties);
+	MAKE_ACTION(MAP_ZONE_CONFIG, wxITEM_NORMAL, OnMapZoneConfig);
 	MAKE_ACTION(MAP_STATISTICS, wxITEM_NORMAL, OnMapStatistics);
 
 	MAKE_ACTION(VIEW_TOOLBARS_BRUSHES, wxITEM_CHECK, OnToolbars);
@@ -149,6 +151,7 @@ MainMenuBar::MainMenuBar(MainFrame *frame) : frame(frame)
 	MAKE_ACTION(SHOW_ONLY_COLORS, wxITEM_CHECK, OnChangeViewSettings);
 	MAKE_ACTION(SHOW_ONLY_MODIFIED, wxITEM_CHECK, OnChangeViewSettings);
 	MAKE_ACTION(SHOW_HOUSES, wxITEM_CHECK, OnChangeViewSettings);
+	MAKE_ACTION(SHOW_ZONES, wxITEM_CHECK, OnChangeViewSettings);
 	MAKE_ACTION(SHOW_PATHING, wxITEM_CHECK, OnChangeViewSettings);
 	MAKE_ACTION(SHOW_TOOLTIPS, wxITEM_CHECK, OnChangeViewSettings);
 	MAKE_ACTION(SHOW_PREVIEW, wxITEM_CHECK, OnChangeViewSettings);
@@ -374,6 +377,7 @@ void MainMenuBar::Update()
 
 	EnableItem(MAP_CLEANUP, is_local);
 	EnableItem(MAP_PROPERTIES, is_local);
+	EnableItem(MAP_ZONE_CONFIG, is_local);
 	EnableItem(MAP_STATISTICS, is_local);
 
 	EnableItem(NEW_VIEW, has_map);
@@ -454,6 +458,7 @@ void MainMenuBar::LoadValues()
 	CheckItem(SHOW_ONLY_COLORS, g_settings.getBoolean(Config::SHOW_ONLY_TILEFLAGS));
 	CheckItem(SHOW_ONLY_MODIFIED, g_settings.getBoolean(Config::SHOW_ONLY_MODIFIED_TILES));
 	CheckItem(SHOW_HOUSES, g_settings.getBoolean(Config::SHOW_HOUSES));
+	CheckItem(SHOW_ZONES, g_settings.getBoolean(Config::SHOW_ZONES));
 	CheckItem(SHOW_PATHING, g_settings.getBoolean(Config::SHOW_BLOCKING));
 	CheckItem(SHOW_TOOLTIPS, g_settings.getBoolean(Config::SHOW_TOOLTIPS));
 	CheckItem(SHOW_PREVIEW, g_settings.getBoolean(Config::SHOW_PREVIEW));
@@ -1808,6 +1813,15 @@ void MainMenuBar::OnMapProperties(wxCommandEvent& WXUNUSED(event))
 	properties->Destroy();
 }
 
+void MainMenuBar::OnMapZoneConfig(wxCommandEvent& WXUNUSED(event))
+{
+	if(!g_gui.IsEditorOpen())
+		return;
+
+	ZoneConfigDialog dlg(frame, *g_gui.GetCurrentEditor());
+	dlg.ShowModal();
+}
+
 void MainMenuBar::OnToolbars(wxCommandEvent& event)
 {
 	using namespace MenuBar;
@@ -1908,6 +1922,7 @@ void MainMenuBar::OnChangeViewSettings(wxCommandEvent& event)
 	g_settings.setInteger(Config::SHOW_CREATURES, IsItemChecked(MenuBar::SHOW_CREATURES));
 	g_settings.setInteger(Config::SHOW_SPAWNS, IsItemChecked(MenuBar::SHOW_SPAWNS));
 	g_settings.setInteger(Config::SHOW_HOUSES, IsItemChecked(MenuBar::SHOW_HOUSES));
+	g_settings.setInteger(Config::SHOW_ZONES, IsItemChecked(MenuBar::SHOW_ZONES));
 	g_settings.setInteger(Config::HIGHLIGHT_ITEMS, IsItemChecked(MenuBar::HIGHLIGHT_ITEMS));
 	g_settings.setInteger(Config::SHOW_BLOCKING, IsItemChecked(MenuBar::SHOW_PATHING));
 	g_settings.setInteger(Config::SHOW_TOOLTIPS, IsItemChecked(MenuBar::SHOW_TOOLTIPS));

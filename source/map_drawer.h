@@ -71,6 +71,7 @@ public:
 	bool show_houses;
 	bool show_shade;
 	bool show_special_tiles;
+	bool show_zones;
 	bool show_items;
 
 	bool highlight_items;

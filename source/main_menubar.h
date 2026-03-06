@@ -87,6 +87,7 @@ namespace MenuBar
 		MAP_REMOVE_EMPTY_SPAWNS,
 		MAP_CLEAN_HOUSE_ITEMS,
 		MAP_PROPERTIES,
+		MAP_ZONE_CONFIG,
 		MAP_STATISTICS,
 		VIEW_TOOLBARS_BRUSHES,
 		VIEW_TOOLBARS_POSITION,
@@ -114,6 +115,7 @@ namespace MenuBar
 		SHOW_ONLY_COLORS,
 		SHOW_ONLY_MODIFIED,
 		SHOW_HOUSES,
+		SHOW_ZONES,
 		SHOW_PATHING,
 		SHOW_TOOLTIPS,
 		SHOW_PREVIEW,
@@ -252,6 +254,7 @@ public:
 	void OnMapCleanHouseItems(wxCommandEvent& event);
 	void OnMapCleanup(wxCommandEvent& event);
 	void OnMapProperties(wxCommandEvent& event);
+	void OnMapZoneConfig(wxCommandEvent& event);
 	void OnMapStatistics(wxCommandEvent& event);
 
 	// View Menu

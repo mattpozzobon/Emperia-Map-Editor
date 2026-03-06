@@ -87,6 +87,14 @@ void Brushes::init()
 	addBrush(g_gui.nolog_brush = newd FlagBrush(TILESTATE_NOLOGOUT));
 	addBrush(g_gui.pvp_brush = newd FlagBrush(TILESTATE_PVPZONE));
 	addBrush(g_gui.trade_brush = newd FlagBrush(TILESTATE_REFRESH));
+	addBrush(g_gui.city_zone_brush = newd FlagBrush(TILESTATE_ZONE_CITY));
+	addBrush(g_gui.town_zone_brush = newd FlagBrush(TILESTATE_ZONE_TOWN));
+	addBrush(g_gui.forest_zone_brush = newd FlagBrush(TILESTATE_ZONE_FOREST));
+	addBrush(g_gui.plains_zone_brush = newd FlagBrush(TILESTATE_ZONE_PLAINS));
+	addBrush(g_gui.mountain_zone_brush = newd FlagBrush(TILESTATE_ZONE_MOUNTAIN));
+	addBrush(g_gui.cave_zone_brush = newd FlagBrush(TILESTATE_ZONE_CAVE));
+	addBrush(g_gui.water_zone_brush = newd FlagBrush(TILESTATE_ZONE_WATER));
+	addBrush(g_gui.desert_zone_brush = newd FlagBrush(TILESTATE_ZONE_DESERT));
 
 	GroundBrush::init();
 	WallBrush::init();
@@ -267,6 +275,14 @@ std::string FlagBrush::getName() const
 		case TILESTATE_NOLOGOUT: return "No logout zone brush (0x08)";
 		case TILESTATE_PVPZONE: return "PVP Zone brush (0x10)";
 		case TILESTATE_REFRESH: return "Trade Zone brush (0x20)";
+		case TILESTATE_ZONE_CITY: return "City Zone";
+		case TILESTATE_ZONE_TOWN: return "Town Zone";
+		case TILESTATE_ZONE_FOREST: return "Forest Zone";
+		case TILESTATE_ZONE_PLAINS: return "Plains Zone";
+		case TILESTATE_ZONE_MOUNTAIN: return "Mountain Zone";
+		case TILESTATE_ZONE_CAVE: return "Cave Zone";
+		case TILESTATE_ZONE_WATER: return "Water Zone";
+		case TILESTATE_ZONE_DESERT: return "Desert Zone";
 	}
 	return "Unknown flag brush";
 }
@@ -279,6 +295,14 @@ int FlagBrush::getLookID() const
 		case TILESTATE_NOLOGOUT: return EDITOR_SPRITE_NOLOG_TOOL;
 		case TILESTATE_PVPZONE: return EDITOR_SPRITE_PVPZ_TOOL;
 		case TILESTATE_REFRESH: return EDITOR_SPRITE_TRADE_TOOL;
+		case TILESTATE_ZONE_CITY: return EDITOR_SPRITE_PZ_TOOL;
+		case TILESTATE_ZONE_TOWN: return EDITOR_SPRITE_PZ_TOOL;
+		case TILESTATE_ZONE_FOREST: return EDITOR_SPRITE_PZ_TOOL;
+		case TILESTATE_ZONE_PLAINS: return EDITOR_SPRITE_PZ_TOOL;
+		case TILESTATE_ZONE_MOUNTAIN: return EDITOR_SPRITE_PZ_TOOL;
+		case TILESTATE_ZONE_CAVE: return EDITOR_SPRITE_PZ_TOOL;
+		case TILESTATE_ZONE_WATER: return EDITOR_SPRITE_PZ_TOOL;
+		case TILESTATE_ZONE_DESERT: return EDITOR_SPRITE_PZ_TOOL;
 	}
 	return 0;
 }
@@ -297,6 +321,9 @@ void FlagBrush::undraw(BaseMap* map, Tile* tile)
 void FlagBrush::draw(BaseMap* map, Tile* tile, void* parameter)
 {
 	if(tile->hasGround()) {
+		if(flag & TILESTATE_ZONE_MASK) {
+			tile->unsetMapFlags(TILESTATE_ZONE_MASK);
+		}
 		tile->setMapFlags(flag);
 	}
 }

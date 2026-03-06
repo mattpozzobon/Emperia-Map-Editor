@@ -24,6 +24,7 @@
 #include "tileset.h"
 #include "gui_ids.h"
 #include "common_windows.h"
+#include <wx/choice.h>
 
 class GUI;
 class BrushButton;
@@ -192,6 +193,7 @@ public:
 	void OnClickNoLogoutBrushButton(wxCommandEvent& event);
 	void OnClickPVPZoneBrushButton(wxCommandEvent& event);
 	void OnClickTradeZoneBrushButton(wxCommandEvent& event);
+	void OnSelectZoneDropdown(wxCommandEvent& event);
 public:
 	void DeselectAll();
 
@@ -213,6 +215,7 @@ public:
 	BrushButton* nologBrushButton;
 	BrushButton* pvpzoneBrushButton;
 	BrushButton* tradezoneBrushButton;
+	wxChoice* zoneDropdown;
 
 	DECLARE_EVENT_TABLE()
 };

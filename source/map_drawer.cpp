@@ -65,6 +65,7 @@ void DrawingOptions::SetDefault()
 	show_houses = true;
 	show_shade = true;
 	show_special_tiles = true;
+	show_zones = true;
 	show_items = true;
 
 	highlight_items = false;
@@ -96,6 +97,7 @@ void DrawingOptions::SetIngame()
 	show_houses = false;
 	show_shade = false;
 	show_special_tiles = false;
+	show_zones = false;
 	show_items = true;
 
 	highlight_items = false;
@@ -457,6 +459,18 @@ void MapDrawer::DrawSecondaryMap(int map_z)
 					r /= 3;
 					g = g / 3 * 2;
 				}
+				// World zone category overlays
+				if(options.show_zones) {
+					uint16_t mf = tile->getMapFlags();
+					if(mf & TILESTATE_ZONE_CITY)     { r = r/3;     g = g/3;     b = 200; }
+					else if(mf & TILESTATE_ZONE_TOWN)     { r = r/3;     g = 180;     b = 200; }
+					else if(mf & TILESTATE_ZONE_FOREST)   { r = r/4;     g = 180;     b = b/4; }
+					else if(mf & TILESTATE_ZONE_PLAINS)   { r = 180;     g = 200;     b = b/4; }
+					else if(mf & TILESTATE_ZONE_MOUNTAIN) { r = 140;     g = 140;     b = 140; }
+					else if(mf & TILESTATE_ZONE_CAVE)     { r = 160;     g = 100;     b = 60;  }
+					else if(mf & TILESTATE_ZONE_WATER)    { r = r/4;     g = g/4;     b = 220; }
+					else if(mf & TILESTATE_ZONE_DESERT)   { r = 200;     g = 160;     b = 60;  }
+				}
 				BlitItem(draw_x, draw_y, tile, tile->ground, true, r, g, b, 160);
 			}
 
@@ -654,6 +668,18 @@ void MapDrawer::DrawHigherFloors()
 				if(tile->getMapFlags() & TILESTATE_REFRESH) {
 					r /= 3;
 					g = g / 3 * 2;
+				}
+				// World zone category overlays
+				if(options.show_zones) {
+					uint16_t mf = tile->getMapFlags();
+					if(mf & TILESTATE_ZONE_CITY)     { r = r/3;     g = g/3;     b = 200; }
+					else if(mf & TILESTATE_ZONE_TOWN)     { r = r/3;     g = 180;     b = 200; }
+					else if(mf & TILESTATE_ZONE_FOREST)   { r = r/4;     g = 180;     b = b/4; }
+					else if(mf & TILESTATE_ZONE_PLAINS)   { r = 180;     g = 200;     b = b/4; }
+					else if(mf & TILESTATE_ZONE_MOUNTAIN) { r = 140;     g = 140;     b = 140; }
+					else if(mf & TILESTATE_ZONE_CAVE)     { r = 160;     g = 100;     b = 60;  }
+					else if(mf & TILESTATE_ZONE_WATER)    { r = r/4;     g = g/4;     b = 220; }
+					else if(mf & TILESTATE_ZONE_DESERT)   { r = 200;     g = 160;     b = 60;  }
 				}
 				BlitItem(draw_x, draw_y, tile, tile->ground, false, r, g, b, 96);
 			}
@@ -1521,6 +1547,19 @@ void MapDrawer::DrawTile(TileLocation* location)
 			if(showspecial && tile->getMapFlags() & TILESTATE_REFRESH) {
 				r /= 3;
 				g = g / 3 * 2;
+			}
+
+			// World zone category overlays
+			if(options.show_zones) {
+				uint16_t mf = tile->getMapFlags();
+				if(mf & TILESTATE_ZONE_CITY)     { r = r/3;     g = g/3;     b = 200; }
+				else if(mf & TILESTATE_ZONE_TOWN)     { r = r/3;     g = 180;     b = 200; }
+				else if(mf & TILESTATE_ZONE_FOREST)   { r = r/4;     g = 180;     b = b/4; }
+				else if(mf & TILESTATE_ZONE_PLAINS)   { r = 180;     g = 200;     b = b/4; }
+				else if(mf & TILESTATE_ZONE_MOUNTAIN) { r = 140;     g = 140;     b = 140; }
+				else if(mf & TILESTATE_ZONE_CAVE)     { r = 160;     g = 100;     b = 60;  }
+				else if(mf & TILESTATE_ZONE_WATER)    { r = r/4;     g = g/4;     b = 220; }
+				else if(mf & TILESTATE_ZONE_DESERT)   { r = 200;     g = 160;     b = 60;  }
 			}
 		}
 

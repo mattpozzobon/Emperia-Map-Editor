@@ -26,6 +26,7 @@
 
 #include <wx/artprov.h>
 #include <wx/mstream.h>
+#include <wx/choice.h>
 
 const wxString MainToolBar::STANDARD_BAR_NAME = "standard_toolbar";
 const wxString MainToolBar::BRUSHES_BAR_NAME = "brushes_toolbar";
@@ -101,6 +102,20 @@ MainToolBar::MainToolBar(wxWindow* parent, wxAuiManager* manager)
 	brushes_toolbar->AddTool(PALETTE_TERRAIN_QUEST_DOOR, wxEmptyString, *quest_bitmap, wxNullBitmap, wxITEM_CHECK, "Quest Door", wxEmptyString, NULL);
 	brushes_toolbar->AddTool(PALETTE_TERRAIN_HATCH_DOOR, wxEmptyString, *hatch_bitmap, wxNullBitmap, wxITEM_CHECK, "Hatch Window", wxEmptyString, NULL);
 	brushes_toolbar->AddTool(PALETTE_TERRAIN_WINDOW_DOOR, wxEmptyString, *window_bitmap, wxNullBitmap, wxITEM_CHECK, "Window", wxEmptyString, NULL);
+	brushes_toolbar->AddSeparator();
+	zone_dropdown = newd wxChoice(brushes_toolbar, TOOLBAR_ZONE_DROPDOWN, wxDefaultPosition, FROM_DIP(parent, wxSize(110, 22)));
+	zone_dropdown->Append("-- Zone --");
+	zone_dropdown->Append("City");
+	zone_dropdown->Append("Town");
+	zone_dropdown->Append("Forest");
+	zone_dropdown->Append("Plains");
+	zone_dropdown->Append("Mountain");
+	zone_dropdown->Append("Cave");
+	zone_dropdown->Append("Water");
+	zone_dropdown->Append("Desert");
+	zone_dropdown->SetSelection(0);
+	zone_dropdown->SetToolTip("Select World Zone Brush");
+	brushes_toolbar->AddControl(zone_dropdown);
 	brushes_toolbar->Realize();
 
 	wxBitmap go_bitmap = wxArtProvider::GetBitmap(ART_POSITION_GO, wxART_TOOLBAR, icon_size);
@@ -170,6 +185,7 @@ MainToolBar::MainToolBar(wxWindow* parent, wxAuiManager* manager)
 
 	standard_toolbar->Bind(wxEVT_COMMAND_MENU_SELECTED, &MainToolBar::OnStandardButtonClick, this);
 	brushes_toolbar->Bind(wxEVT_COMMAND_MENU_SELECTED, &MainToolBar::OnBrushesButtonClick, this);
+	zone_dropdown->Bind(wxEVT_CHOICE, &MainToolBar::OnZoneDropdownSelect, this);
 	x_control->Bind(wxEVT_TEXT_PASTE, &MainToolBar::OnPastePositionText, this);
 	x_control->Bind(wxEVT_KEY_UP, &MainToolBar::OnPositionKeyUp, this);
 	y_control->Bind(wxEVT_TEXT_PASTE, &MainToolBar::OnPastePositionText, this);
@@ -187,6 +203,7 @@ MainToolBar::~MainToolBar()
 {
 	standard_toolbar->Unbind(wxEVT_COMMAND_MENU_SELECTED, &MainToolBar::OnStandardButtonClick, this);
 	brushes_toolbar->Unbind(wxEVT_COMMAND_MENU_SELECTED, &MainToolBar::OnBrushesButtonClick, this);
+	zone_dropdown->Unbind(wxEVT_CHOICE, &MainToolBar::OnZoneDropdownSelect, this);
 	x_control->Unbind(wxEVT_TEXT_PASTE, &MainToolBar::OnPastePositionText, this);
 	x_control->Unbind(wxEVT_KEY_UP, &MainToolBar::OnPositionKeyUp, this);
 	y_control->Unbind(wxEVT_TEXT_PASTE, &MainToolBar::OnPastePositionText, this);
@@ -233,6 +250,7 @@ void MainToolBar::UpdateButtons()
 	brushes_toolbar->EnableTool(PALETTE_TERRAIN_QUEST_DOOR, has_map);
 	brushes_toolbar->EnableTool(PALETTE_TERRAIN_HATCH_DOOR, has_map);
 	brushes_toolbar->EnableTool(PALETTE_TERRAIN_WINDOW_DOOR, has_map);
+	zone_dropdown->Enable(has_map);
 	brushes_toolbar->Refresh();
 
 	position_toolbar->EnableTool(TOOLBAR_POSITION_GO, has_map);
@@ -274,6 +292,18 @@ void MainToolBar::UpdateBrushButtons()
 		brushes_toolbar->ToggleTool(PALETTE_TERRAIN_QUEST_DOOR, brush == g_gui.quest_door_brush);
 		brushes_toolbar->ToggleTool(PALETTE_TERRAIN_HATCH_DOOR, brush == g_gui.hatch_door_brush);
 		brushes_toolbar->ToggleTool(PALETTE_TERRAIN_WINDOW_DOOR, brush == g_gui.window_door_brush);
+
+		// Update zone dropdown selection to match current brush
+		int zoneIdx = 0; // "-- Zone --"
+		if(brush == g_gui.city_zone_brush) zoneIdx = 1;
+		else if(brush == g_gui.town_zone_brush) zoneIdx = 2;
+		else if(brush == g_gui.forest_zone_brush) zoneIdx = 3;
+		else if(brush == g_gui.plains_zone_brush) zoneIdx = 4;
+		else if(brush == g_gui.mountain_zone_brush) zoneIdx = 5;
+		else if(brush == g_gui.cave_zone_brush) zoneIdx = 6;
+		else if(brush == g_gui.water_zone_brush) zoneIdx = 7;
+		else if(brush == g_gui.desert_zone_brush) zoneIdx = 8;
+		zone_dropdown->SetSelection(zoneIdx);
 	} else {
 		brushes_toolbar->ToggleTool(PALETTE_TERRAIN_OPTIONAL_BORDER_TOOL, false);
 		brushes_toolbar->ToggleTool(PALETTE_TERRAIN_ERASER, false);
@@ -636,6 +666,24 @@ void MainToolBar::OnIndicatorsButtonClick(wxCommandEvent& event)
 			break;
 		default:
 			break;
+	}
+}
+
+void MainToolBar::OnZoneDropdownSelect(wxCommandEvent& event)
+{
+	if(!g_gui.IsEditorOpen())
+		return;
+
+	switch(zone_dropdown->GetSelection()) {
+		case 1: g_gui.SelectBrush(g_gui.city_zone_brush); break;
+		case 2: g_gui.SelectBrush(g_gui.town_zone_brush); break;
+		case 3: g_gui.SelectBrush(g_gui.forest_zone_brush); break;
+		case 4: g_gui.SelectBrush(g_gui.plains_zone_brush); break;
+		case 5: g_gui.SelectBrush(g_gui.mountain_zone_brush); break;
+		case 6: g_gui.SelectBrush(g_gui.cave_zone_brush); break;
+		case 7: g_gui.SelectBrush(g_gui.water_zone_brush); break;
+		case 8: g_gui.SelectBrush(g_gui.desert_zone_brush); break;
+		default: break;
 	}
 }
 

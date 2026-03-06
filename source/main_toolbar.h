@@ -21,6 +21,7 @@
 #include <wx/wx.h>
 #include <wx/aui/aui.h>
 #include <wx/aui/auibar.h>
+#include <wx/choice.h>
 
 #include "gui_ids.h"
 #include "numbertextctrl.h"
@@ -43,6 +44,7 @@ public:
 
 	void OnStandardButtonClick(wxCommandEvent& event);
 	void OnBrushesButtonClick(wxCommandEvent& event);
+	void OnZoneDropdownSelect(wxCommandEvent& event);
 	void OnPositionButtonClick(wxCommandEvent& event);
 	void OnPositionKeyUp(wxKeyEvent& event);
 	void OnPastePositionText(wxClipboardTextEvent& event);
@@ -65,6 +67,7 @@ private:
 	wxButton* go_button;
 	wxAuiToolBar* sizes_toolbar;
 	wxAuiToolBar* indicators_toolbar;
+	wxChoice* zone_dropdown;
 };
 
 #endif // RME_MAINTOOLBAR_H_

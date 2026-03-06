@@ -206,6 +206,7 @@ void Settings::IO(IOMode mode)
 	Int(HIGHLIGHT_ITEMS, 0);
 	Int(SHOW_CREATURES, 1);
 	Int(SHOW_HOUSES, 1);
+	Int(SHOW_ZONES, 1);
 	Int(SHOW_BLOCKING, 0);
 	Int(SHOW_TOOLTIPS, 1);
 	Int(SHOW_ONLY_TILEFLAGS, 0);

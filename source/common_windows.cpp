@@ -35,6 +35,9 @@
 
 #include "iominimap.h"
 
+#include <wx/statline.h>
+#include <wx/tokenzr.h>
+
 #ifdef _MSC_VER
 	#pragma warning(disable:4018) // signed/unsigned mismatch
 #endif
@@ -1465,4 +1468,441 @@ void GotoPositionDialog::OnClickOK(wxCommandEvent &)
 {
 	g_gui.SetScreenCenterPosition(posctrl->GetPosition());
 	EndModal(1);
+}
+
+// ============================================================================
+// Zone Configuration Dialog
+
+BEGIN_EVENT_TABLE(ZoneConfigDialog, wxDialog)
+	EVT_LISTBOX(ZONE_CONFIG_LIST, ZoneConfigDialog::OnListSelect)
+	EVT_BUTTON(ZONE_CONFIG_ADD, ZoneConfigDialog::OnAddZone)
+	EVT_BUTTON(ZONE_CONFIG_REMOVE, ZoneConfigDialog::OnRemoveZone)
+	EVT_BUTTON(wxID_OK, ZoneConfigDialog::OnClickOK)
+	EVT_BUTTON(wxID_CANCEL, ZoneConfigDialog::OnClickCancel)
+	EVT_CHECKBOX(ZONE_CONFIG_HAS_RESOURCES, ZoneConfigDialog::OnResourcesCheck)
+	EVT_BUTTON(ZONE_CONFIG_SPAWN_ADD, ZoneConfigDialog::OnSpawnAdd)
+	EVT_BUTTON(ZONE_CONFIG_SPAWN_REMOVE, ZoneConfigDialog::OnSpawnRemove)
+END_EVENT_TABLE()
+
+ZoneConfigDialog::ZoneConfigDialog(wxWindow* parent, Editor& editor) :
+	wxDialog(parent, wxID_ANY, "Zone Configuration", wxDefaultPosition, wxSize(620, 560)),
+	editor(editor),
+	currentIndex(-1)
+{
+	// Copy configs and resource definitions from map
+	configs = editor.getMap().zoneConfigs;
+	resourceDefs = editor.getMap().zoneResourceDefs;
+
+	wxBoxSizer* topSizer = newd wxBoxSizer(wxHORIZONTAL);
+
+	// Left panel: zone list + add/remove
+	wxBoxSizer* leftSizer = newd wxBoxSizer(wxVERTICAL);
+	leftSizer->Add(newd wxStaticText(this, wxID_ANY, "Zones:"), 0, wxBOTTOM, 4);
+	zone_listbox = newd wxListBox(this, ZONE_CONFIG_LIST, wxDefaultPosition, wxSize(160, 300));
+	leftSizer->Add(zone_listbox, 1, wxEXPAND);
+
+	leftSizer->Add(newd wxStaticText(this, wxID_ANY, "Add from waypoint:"), 0, wxTOP, 6);
+	waypoint_picker = newd wxChoice(this, wxID_ANY, wxDefaultPosition, wxSize(160, -1));
+	leftSizer->Add(waypoint_picker, 0, wxEXPAND | wxTOP, 2);
+
+	wxBoxSizer* btnSizer = newd wxBoxSizer(wxHORIZONTAL);
+	btnSizer->Add(newd wxButton(this, ZONE_CONFIG_ADD, "Add"), 1, wxRIGHT, 4);
+	btnSizer->Add(newd wxButton(this, ZONE_CONFIG_REMOVE, "Remove"), 1);
+	leftSizer->Add(btnSizer, 0, wxEXPAND | wxTOP, 4);
+
+	topSizer->Add(leftSizer, 0, wxEXPAND | wxALL, 8);
+
+	// Right panel: zone config fields
+	wxBoxSizer* rightSizer = newd wxBoxSizer(wxVERTICAL);
+	wxFlexGridSizer* grid = newd wxFlexGridSizer(2, 4, 4);
+	grid->AddGrowableCol(1);
+
+	grid->Add(newd wxStaticText(this, wxID_ANY, "Waypoint:"), 0, wxALIGN_CENTER_VERTICAL);
+	name_field = newd wxTextCtrl(this, wxID_ANY, "", wxDefaultPosition, wxSize(200, -1), wxTE_READONLY);
+	grid->Add(name_field, 1, wxEXPAND);
+
+	grid->Add(newd wxStaticText(this, wxID_ANY, "Display Name:"), 0, wxALIGN_CENTER_VERTICAL);
+	display_name_field = newd wxTextCtrl(this, wxID_ANY, "", wxDefaultPosition, wxSize(200, -1));
+	grid->Add(display_name_field, 1, wxEXPAND);
+
+	grid->Add(newd wxStaticText(this, wxID_ANY, "Category:"), 0, wxALIGN_CENTER_VERTICAL);
+	wxArrayString categories;
+	categories.Add("(none)");
+	categories.Add("city");
+	categories.Add("town");
+	categories.Add("forest");
+	categories.Add("plains");
+	categories.Add("mountain");
+	categories.Add("cave");
+	categories.Add("water");
+	categories.Add("desert");
+	category_choice = newd wxChoice(this, wxID_ANY, wxDefaultPosition, wxSize(200, -1), categories);
+	category_choice->SetSelection(0);
+	grid->Add(category_choice, 1, wxEXPAND);
+
+	grid->Add(newd wxStaticText(this, wxID_ANY, "Difficulty:"), 0, wxALIGN_CENTER_VERTICAL);
+	difficulty_field = newd wxTextCtrl(this, wxID_ANY, "", wxDefaultPosition, wxSize(200, -1));
+	grid->Add(difficulty_field, 1, wxEXPAND);
+
+	grid->Add(newd wxStaticText(this, wxID_ANY, "Music:"), 0, wxALIGN_CENTER_VERTICAL);
+	music_field = newd wxTextCtrl(this, wxID_ANY, "", wxDefaultPosition, wxSize(200, -1));
+	grid->Add(music_field, 1, wxEXPAND);
+
+	rightSizer->Add(grid, 0, wxEXPAND);
+
+	// Resources section
+	rightSizer->Add(newd wxStaticLine(this), 0, wxEXPAND | wxTOP | wxBOTTOM, 8);
+	has_resources_check = newd wxCheckBox(this, ZONE_CONFIG_HAS_RESOURCES, "Has Resources");
+	rightSizer->Add(has_resources_check, 0, wxBOTTOM, 4);
+
+	wxFlexGridSizer* resGrid = newd wxFlexGridSizer(2, 4, 4);
+	resGrid->AddGrowableCol(1);
+
+	resGrid->Add(newd wxStaticText(this, wxID_ANY, "Max Nodes:"), 0, wxALIGN_CENTER_VERTICAL);
+	max_nodes_spin = newd wxSpinCtrl(this, wxID_ANY, "0", wxDefaultPosition, wxSize(80, -1), wxSP_ARROW_KEYS, 0, 9999);
+	resGrid->Add(max_nodes_spin);
+
+	resGrid->Add(newd wxStaticText(this, wxID_ANY, "Min Distance:"), 0, wxALIGN_CENTER_VERTICAL);
+	min_distance_spin = newd wxSpinCtrl(this, wxID_ANY, "0", wxDefaultPosition, wxSize(80, -1), wxSP_ARROW_KEYS, 0, 999);
+	resGrid->Add(min_distance_spin);
+
+	resGrid->Add(newd wxStaticText(this, wxID_ANY, "Spawn Interval (s):"), 0, wxALIGN_CENTER_VERTICAL);
+	spawn_interval_spin = newd wxSpinCtrl(this, wxID_ANY, "0", wxDefaultPosition, wxSize(80, -1), wxSP_ARROW_KEYS, 0, 99999);
+	resGrid->Add(spawn_interval_spin);
+
+	rightSizer->Add(resGrid, 0, wxEXPAND);
+
+	// Spawn table section
+	rightSizer->Add(newd wxStaticText(this, wxID_ANY, "Spawn Table:"), 0, wxTOP, 6);
+	spawn_list = newd wxListBox(this, ZONE_CONFIG_SPAWN_LIST, wxDefaultPosition, wxSize(200, 80));
+	rightSizer->Add(spawn_list, 0, wxEXPAND | wxTOP, 2);
+
+	wxBoxSizer* spawnAddSizer = newd wxBoxSizer(wxHORIZONTAL);
+	resource_picker = newd wxChoice(this, wxID_ANY, wxDefaultPosition, wxSize(120, -1));
+	spawnAddSizer->Add(resource_picker, 1, wxRIGHT, 4);
+	spawnAddSizer->Add(newd wxStaticText(this, wxID_ANY, "Chance:"), 0, wxALIGN_CENTER_VERTICAL | wxRIGHT, 2);
+	chance_spin = newd wxSpinCtrl(this, wxID_ANY, "10", wxDefaultPosition, wxSize(60, -1), wxSP_ARROW_KEYS, 1, 9999);
+	spawnAddSizer->Add(chance_spin, 0, wxRIGHT, 4);
+	spawnAddSizer->Add(newd wxButton(this, ZONE_CONFIG_SPAWN_ADD, "+"), 0, wxRIGHT, 2);
+	spawnAddSizer->Add(newd wxButton(this, ZONE_CONFIG_SPAWN_REMOVE, "-"), 0);
+	rightSizer->Add(spawnAddSizer, 0, wxEXPAND | wxTOP, 4);
+
+	topSizer->Add(rightSizer, 1, wxEXPAND | wxALL, 8);
+
+	// Main layout
+	wxBoxSizer* mainSizer = newd wxBoxSizer(wxVERTICAL);
+
+	wxStaticText* infoLabel = newd wxStaticText(this, wxID_ANY,
+		"1. Paint a zone category on tiles using the zone brush.\n"
+		"2. Place a waypoint inside the painted area.\n"
+		"3. Select the waypoint below and click Add to configure it.");
+	infoLabel->SetForegroundColour(wxColour(100, 100, 100));
+	mainSizer->Add(infoLabel, 0, wxALL, 8);
+
+	mainSizer->Add(topSizer, 1, wxEXPAND);
+
+	wxBoxSizer* okCancelSizer = newd wxBoxSizer(wxHORIZONTAL);
+	okCancelSizer->AddStretchSpacer();
+	okCancelSizer->Add(newd wxButton(this, wxID_OK, "OK"), 0, wxRIGHT, 4);
+	okCancelSizer->Add(newd wxButton(this, wxID_CANCEL, "Cancel"), 0);
+	mainSizer->Add(okCancelSizer, 0, wxEXPAND | wxALL, 8);
+
+	SetSizer(mainSizer);
+
+	// Populate resource picker from loaded definitions
+	for(const auto& def : resourceDefs) {
+		resource_picker->Append(wxstr(def.id) + " (" + wxstr(def.name) + ")");
+	}
+	if(resource_picker->GetCount() > 0)
+		resource_picker->SetSelection(0);
+
+	// Disable right panel until a zone is selected
+	name_field->Disable();
+	display_name_field->Disable();
+	category_choice->Disable();
+	difficulty_field->Disable();
+	music_field->Disable();
+	has_resources_check->Disable();
+	max_nodes_spin->Disable();
+	min_distance_spin->Disable();
+	spawn_interval_spin->Disable();
+	spawn_list->Disable();
+	resource_picker->Disable();
+	chance_spin->Disable();
+
+	RefreshList();
+	RefreshWaypointPicker();
+	Centre(wxBOTH);
+}
+
+ZoneConfigDialog::~ZoneConfigDialog()
+{
+}
+
+void ZoneConfigDialog::RefreshList()
+{
+	zone_listbox->Clear();
+	for(const auto& zc : configs) {
+		wxString label = wxstr(zc.name);
+		if(!zc.category.empty())
+			label += " [" + wxstr(zc.category) + "]";
+		zone_listbox->Append(label);
+	}
+}
+
+void ZoneConfigDialog::RefreshWaypointPicker()
+{
+	waypoint_picker->Clear();
+
+	// Collect names already used by configs
+	std::set<std::string> usedNames;
+	for(const auto& zc : configs) {
+		usedNames.insert(zc.name);
+	}
+
+	// Add only waypoints not already configured
+	const Waypoints& wps = editor.getMap().waypoints;
+	for(auto it = wps.begin(); it != wps.end(); ++it) {
+		if(usedNames.find(it->first) == usedNames.end()) {
+			waypoint_picker->Append(wxstr(it->first));
+		}
+	}
+
+	if(waypoint_picker->GetCount() > 0)
+		waypoint_picker->SetSelection(0);
+}
+
+void ZoneConfigDialog::LoadZoneToUI(int index)
+{
+	if(index < 0 || index >= (int)configs.size()) {
+		name_field->SetValue("");
+		display_name_field->SetValue("");
+		category_choice->SetSelection(0);
+		difficulty_field->SetValue("");
+		music_field->SetValue("");
+		has_resources_check->SetValue(false);
+		max_nodes_spin->SetValue(0);
+		min_distance_spin->SetValue(0);
+		spawn_interval_spin->SetValue(0);
+		spawn_list->Clear();
+
+		name_field->Disable();
+		display_name_field->Disable();
+		category_choice->Disable();
+		difficulty_field->Disable();
+		music_field->Disable();
+		has_resources_check->Disable();
+		max_nodes_spin->Disable();
+		min_distance_spin->Disable();
+		spawn_interval_spin->Disable();
+		spawn_list->Disable();
+		resource_picker->Disable();
+		chance_spin->Disable();
+		return;
+	}
+
+	const ZoneConfig& zc = configs[index];
+	name_field->Enable();
+	display_name_field->Enable();
+	category_choice->Enable();
+	difficulty_field->Enable();
+	music_field->Enable();
+	has_resources_check->Enable();
+
+	name_field->SetValue(wxstr(zc.name));
+	display_name_field->SetValue(wxstr(zc.displayName));
+
+	// Set category dropdown
+	int catIdx = 0;
+	if(zc.category == "city") catIdx = 1;
+	else if(zc.category == "town") catIdx = 2;
+	else if(zc.category == "forest") catIdx = 3;
+	else if(zc.category == "plains") catIdx = 4;
+	else if(zc.category == "mountain") catIdx = 5;
+	else if(zc.category == "cave") catIdx = 6;
+	else if(zc.category == "water") catIdx = 7;
+	else if(zc.category == "desert") catIdx = 8;
+	category_choice->SetSelection(catIdx);
+
+	difficulty_field->SetValue(wxstr(zc.difficulty));
+	music_field->SetValue(wxstr(zc.music));
+	has_resources_check->SetValue(zc.hasResources);
+
+	max_nodes_spin->Enable(zc.hasResources);
+	min_distance_spin->Enable(zc.hasResources);
+	spawn_interval_spin->Enable(zc.hasResources);
+	spawn_list->Enable(zc.hasResources);
+	resource_picker->Enable(zc.hasResources);
+	chance_spin->Enable(zc.hasResources);
+
+	if(zc.hasResources) {
+		max_nodes_spin->SetValue(zc.resources.maxNodes);
+		min_distance_spin->SetValue(zc.resources.minDistanceBetweenNodes);
+		spawn_interval_spin->SetValue(zc.resources.spawnIntervalSeconds);
+	} else {
+		max_nodes_spin->SetValue(0);
+		min_distance_spin->SetValue(0);
+		spawn_interval_spin->SetValue(0);
+	}
+
+	RefreshSpawnList();
+}
+
+void ZoneConfigDialog::SaveCurrentZone()
+{
+	if(currentIndex < 0 || currentIndex >= (int)configs.size())
+		return;
+
+	ZoneConfig& zc = configs[currentIndex];
+	zc.name = nstr(name_field->GetValue());
+	zc.displayName = nstr(display_name_field->GetValue());
+
+	// Save category from dropdown
+	int catSel = category_choice->GetSelection();
+	static const char* catNames[] = {"", "city", "town", "forest", "plains", "mountain", "cave", "water", "desert"};
+	zc.category = (catSel > 0 && catSel <= 8) ? catNames[catSel] : "";
+
+	zc.difficulty = nstr(difficulty_field->GetValue());
+	zc.music = nstr(music_field->GetValue());
+	zc.hasResources = has_resources_check->GetValue();
+
+	if(zc.hasResources) {
+		zc.resources.maxNodes = max_nodes_spin->GetValue();
+		zc.resources.minDistanceBetweenNodes = min_distance_spin->GetValue();
+		zc.resources.spawnIntervalSeconds = spawn_interval_spin->GetValue();
+		// spawnTable is managed directly by OnSpawnAdd/OnSpawnRemove
+	} else {
+		zc.resources.spawnTable.clear();
+		zc.resources.maxNodes = 0;
+		zc.resources.minDistanceBetweenNodes = 0;
+		zc.resources.spawnIntervalSeconds = 0;
+	}
+}
+
+void ZoneConfigDialog::OnListSelect(wxCommandEvent& event)
+{
+	SaveCurrentZone();
+	currentIndex = zone_listbox->GetSelection();
+	LoadZoneToUI(currentIndex);
+}
+
+void ZoneConfigDialog::OnAddZone(wxCommandEvent& event)
+{
+	if(waypoint_picker->GetCount() == 0 || waypoint_picker->GetSelection() == wxNOT_FOUND) {
+		wxMessageBox("No available waypoints. Place a waypoint on the map first.", "No Waypoints", wxOK | wxICON_INFORMATION);
+		return;
+	}
+
+	SaveCurrentZone();
+
+	wxString wpName = waypoint_picker->GetStringSelection();
+	ZoneConfig zc;
+	zc.name = nstr(wpName);
+	configs.push_back(zc);
+
+	RefreshList();
+	RefreshWaypointPicker();
+
+	currentIndex = (int)configs.size() - 1;
+	zone_listbox->SetSelection(currentIndex);
+	LoadZoneToUI(currentIndex);
+}
+
+void ZoneConfigDialog::OnRemoveZone(wxCommandEvent& event)
+{
+	if(currentIndex < 0 || currentIndex >= (int)configs.size())
+		return;
+
+	configs.erase(configs.begin() + currentIndex);
+	currentIndex = -1;
+	RefreshList();
+	RefreshWaypointPicker();
+	LoadZoneToUI(-1);
+}
+
+void ZoneConfigDialog::OnResourcesCheck(wxCommandEvent& event)
+{
+	bool checked = has_resources_check->GetValue();
+	max_nodes_spin->Enable(checked);
+	min_distance_spin->Enable(checked);
+	spawn_interval_spin->Enable(checked);
+	spawn_list->Enable(checked);
+	resource_picker->Enable(checked);
+	chance_spin->Enable(checked);
+}
+
+void ZoneConfigDialog::RefreshSpawnList()
+{
+	spawn_list->Clear();
+	if(currentIndex < 0 || currentIndex >= (int)configs.size())
+		return;
+
+	const auto& table = configs[currentIndex].resources.spawnTable;
+	for(const auto& se : table) {
+		// Try to find display name from resourceDefs
+		wxString label = wxstr(se.resourceId);
+		for(const auto& def : resourceDefs) {
+			if(def.id == se.resourceId) {
+				label = wxstr(def.name) + " (" + wxstr(def.id) + ")";
+				break;
+			}
+		}
+		label += " - " + wxString::Format("%d", se.weight);
+		spawn_list->Append(label);
+	}
+}
+
+void ZoneConfigDialog::OnSpawnAdd(wxCommandEvent& event)
+{
+	if(currentIndex < 0 || currentIndex >= (int)configs.size())
+		return;
+	if(resource_picker->GetCount() == 0 || resource_picker->GetSelection() == wxNOT_FOUND)
+		return;
+
+	int sel = resource_picker->GetSelection();
+	if(sel < 0 || sel >= (int)resourceDefs.size())
+		return;
+
+	ZoneResourceSpawnEntry se;
+	se.resourceId = resourceDefs[sel].id;
+	se.weight = chance_spin->GetValue();
+	configs[currentIndex].resources.spawnTable.push_back(se);
+	RefreshSpawnList();
+}
+
+void ZoneConfigDialog::OnSpawnRemove(wxCommandEvent& event)
+{
+	if(currentIndex < 0 || currentIndex >= (int)configs.size())
+		return;
+
+	int sel = spawn_list->GetSelection();
+	if(sel == wxNOT_FOUND)
+		return;
+
+	auto& table = configs[currentIndex].resources.spawnTable;
+	if(sel >= 0 && sel < (int)table.size()) {
+		table.erase(table.begin() + sel);
+	}
+	RefreshSpawnList();
+}
+
+void ZoneConfigDialog::OnClickOK(wxCommandEvent& event)
+{
+	SaveCurrentZone();
+
+	// Update the list names in case name_field changed
+	for(int i = 0; i < (int)configs.size(); ++i) {
+		if(configs[i].name.empty()) {
+			wxMessageBox("Zone at index " + wxString::Format("%d", i) + " has an empty name. Please fix it.", "Error", wxOK | wxICON_ERROR);
+			return;
+		}
+	}
+
+	editor.getMap().zoneConfigs = configs;
+	EndModal(wxID_OK);
+}
+
+void ZoneConfigDialog::OnClickCancel(wxCommandEvent& event)
+{
+	EndModal(wxID_CANCEL);
 }

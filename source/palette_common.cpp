@@ -394,6 +394,7 @@ BEGIN_EVENT_TABLE(BrushToolPanel, PalettePanel)
 	EVT_TOGGLEBUTTON(PALETTE_TERRAIN_NOLOGOUT_TOOL,BrushToolPanel::OnClickNoLogoutBrushButton)
 	EVT_TOGGLEBUTTON(PALETTE_TERRAIN_PVPZONE_TOOL,BrushToolPanel::OnClickPVPZoneBrushButton)
 	EVT_TOGGLEBUTTON(PALETTE_TERRAIN_TRADEZONE_TOOL,BrushToolPanel::OnClickTradeZoneBrushButton)
+	EVT_CHOICE(PALETTE_TERRAIN_ZONE_SELECT, BrushToolPanel::OnSelectZoneDropdown)
 END_EVENT_TABLE()
 
 BrushToolPanel::BrushToolPanel(wxWindow* parent) :
@@ -412,7 +413,8 @@ BrushToolPanel::BrushToolPanel(wxWindow* parent) :
 	nopvpBrushButton(nullptr),
 	nologBrushButton(nullptr),
 	pvpzoneBrushButton(nullptr),
-	tradezoneBrushButton(nullptr)
+	tradezoneBrushButton(nullptr),
+	zoneDropdown(nullptr)
 {
 	////
 }
@@ -439,7 +441,9 @@ void BrushToolPanel::InvalidateContents()
 		pzBrushButton =
 		nopvpBrushButton =
 		nologBrushButton =
-		pvpzoneBrushButton = nullptr;
+		pvpzoneBrushButton =
+		tradezoneBrushButton = nullptr;
+		zoneDropdown = nullptr;
 
 		loaded = false;
 	}
@@ -496,6 +500,19 @@ void BrushToolPanel::LoadAllContents()
 		ASSERT(g_gui.trade_brush);
 		sub_sizer->Add(tradezoneBrushButton = newd BrushButton(this, g_gui.trade_brush, RENDER_SIZE_32x32, PALETTE_TERRAIN_TRADEZONE_TOOL));
 			tradezoneBrushButton->SetToolTip("Trade Zone Tool");
+
+		// Zone category dropdown (City/Town/Forest/etc.)
+		wxArrayString zoneChoices;
+		zoneChoices.Add("City Zone");
+		zoneChoices.Add("Town Zone");
+		zoneChoices.Add("Forest Zone");
+		zoneChoices.Add("Plains Zone");
+		zoneChoices.Add("Mountain Zone");
+		zoneChoices.Add("Cave Zone");
+		zoneChoices.Add("Water Zone");
+		zoneChoices.Add("Desert Zone");
+		zoneDropdown = newd wxChoice(this, PALETTE_TERRAIN_ZONE_SELECT, wxDefaultPosition, wxDefaultSize, zoneChoices);
+		sub_sizer->Add(zoneDropdown, wxSizerFlags(1).Border(wxLEFT, 6).Expand());
 
 		// New row
 		size_sizer->Add(sub_sizer);
@@ -586,6 +603,18 @@ void BrushToolPanel::LoadAllContents()
 		ASSERT(g_gui.trade_brush);
 		sub_sizer->Add(tradezoneBrushButton = newd BrushButton(this, g_gui.trade_brush, RENDER_SIZE_16x16, PALETTE_TERRAIN_TRADEZONE_TOOL));
 			tradezoneBrushButton->SetToolTip("Trade Zone Tool");
+
+		wxArrayString zoneChoices;
+		zoneChoices.Add("City Zone");
+		zoneChoices.Add("Town Zone");
+		zoneChoices.Add("Forest Zone");
+		zoneChoices.Add("Plains Zone");
+		zoneChoices.Add("Mountain Zone");
+		zoneChoices.Add("Cave Zone");
+		zoneChoices.Add("Water Zone");
+		zoneChoices.Add("Desert Zone");
+		zoneDropdown = newd wxChoice(this, PALETTE_TERRAIN_ZONE_SELECT, wxDefaultPosition, wxDefaultSize, zoneChoices);
+		sub_sizer->Add(zoneDropdown, wxSizerFlags(1).Border(wxLEFT, 4).Expand());
 	}
 
 	size_sizer->Add(sub_sizer);
@@ -683,6 +712,16 @@ bool BrushToolPanel::SelectBrush(const Brush* whatbrush)
 		button = pvpzoneBrushButton;
 	} else if(whatbrush == g_gui.trade_brush) {
 		button = tradezoneBrushButton;
+	} else if(whatbrush == g_gui.city_zone_brush ||
+		whatbrush == g_gui.town_zone_brush ||
+		whatbrush == g_gui.forest_zone_brush ||
+		whatbrush == g_gui.plains_zone_brush ||
+		whatbrush == g_gui.mountain_zone_brush ||
+		whatbrush == g_gui.cave_zone_brush ||
+		whatbrush == g_gui.water_zone_brush ||
+		whatbrush == g_gui.desert_zone_brush) {
+		DeselectAll();
+		return true;
 	}
 
 	DeselectAll();
@@ -775,6 +814,23 @@ void BrushToolPanel::OnClickTradeZoneBrushButton(wxCommandEvent& event)
 {
 	g_gui.ActivatePalette(GetParentPalette());
 	g_gui.SelectBrush(g_gui.trade_brush);
+}
+
+void BrushToolPanel::OnSelectZoneDropdown(wxCommandEvent& event)
+{
+	g_gui.ActivatePalette(GetParentPalette());
+	if(!zoneDropdown) return;
+	switch(zoneDropdown->GetSelection()) {
+		case 0: g_gui.SelectBrush(g_gui.city_zone_brush); break;
+		case 1: g_gui.SelectBrush(g_gui.town_zone_brush); break;
+		case 2: g_gui.SelectBrush(g_gui.forest_zone_brush); break;
+		case 3: g_gui.SelectBrush(g_gui.plains_zone_brush); break;
+		case 4: g_gui.SelectBrush(g_gui.mountain_zone_brush); break;
+		case 5: g_gui.SelectBrush(g_gui.cave_zone_brush); break;
+		case 6: g_gui.SelectBrush(g_gui.water_zone_brush); break;
+		case 7: g_gui.SelectBrush(g_gui.desert_zone_brush); break;
+		default: break;
+	}
 }
 
 // ============================================================================

@@ -20,11 +20,15 @@
 
 #include "main.h"
 
+#include <wx/spinctrl.h>
+
 #include "dcbutton.h"
 #include "positionctrl.h"
+#include "map.h"
 
 class GameSprite;
 class MapTab;
+class Editor;
 
 /**
  * A toggle button with an item on it.
@@ -327,6 +331,54 @@ protected:
 	PositionCtrl* temple_position;
 	wxButton* remove_button;
 	wxButton* select_position_button;
+
+	DECLARE_EVENT_TABLE();
+};
+
+// ============================================================================
+// Zone Configuration Dialog
+
+class ZoneConfigDialog : public wxDialog
+{
+public:
+	ZoneConfigDialog(wxWindow* parent, Editor& editor);
+	virtual ~ZoneConfigDialog();
+
+	void OnListSelect(wxCommandEvent& event);
+	void OnAddZone(wxCommandEvent& event);
+	void OnRemoveZone(wxCommandEvent& event);
+	void OnClickOK(wxCommandEvent& event);
+	void OnClickCancel(wxCommandEvent& event);
+	void OnResourcesCheck(wxCommandEvent& event);
+	void OnSpawnAdd(wxCommandEvent& event);
+	void OnSpawnRemove(wxCommandEvent& event);
+
+private:
+	void SaveCurrentZone();
+	void LoadZoneToUI(int index);
+	void RefreshList();
+	void RefreshWaypointPicker();
+	void RefreshSpawnList();
+
+	Editor& editor;
+	std::vector<ZoneConfig> configs;
+	std::vector<ZoneResourceDef> resourceDefs;
+	int currentIndex;
+
+	wxListBox* zone_listbox;
+	wxChoice* waypoint_picker;
+	wxTextCtrl* name_field;
+	wxTextCtrl* display_name_field;
+	wxChoice* category_choice;
+	wxTextCtrl* difficulty_field;
+	wxTextCtrl* music_field;
+	wxCheckBox* has_resources_check;
+	wxSpinCtrl* max_nodes_spin;
+	wxSpinCtrl* min_distance_spin;
+	wxSpinCtrl* spawn_interval_spin;
+	wxListBox* spawn_list;
+	wxChoice* resource_picker;
+	wxSpinCtrl* chance_spin;
 
 	DECLARE_EVENT_TABLE();
 };

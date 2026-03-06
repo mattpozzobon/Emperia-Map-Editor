@@ -22,6 +22,10 @@
 #include <wx/zstream.h>
 #include <wx/mstream.h>
 #include <wx/datstrm.h>
+#include <wx/dir.h>
+
+#include <fstream>
+#include <algorithm>
 
 #include "settings.h"
 #include "gui.h" // Loadbar
@@ -618,6 +622,7 @@ bool IOMapOTBM::loadMap(Map& map, const FileName& filename)
 		warning("Failed to load spawns.");
 		map.spawnfile = nstr(filename.GetName()) + "-spawn.xml";
 	}
+	loadZones(map, filename);
 	return true;
 }
 
@@ -1253,6 +1258,9 @@ bool IOMapOTBM::saveMap(Map& map, const FileName& identifier)
 
 	g_gui.SetLoadDone(99, "Saving houses...");
 	saveHouses(map, identifier);
+
+	g_gui.SetLoadDone(99, "Saving zones...");
+	saveZones(map, identifier);
 	return true;
 }
 
@@ -1544,6 +1552,151 @@ bool IOMapOTBM::saveHouses(Map& map, pugi::xml_document& doc)
 
 		houseNode.append_attribute("townid") = house->townid;
 		houseNode.append_attribute("size") = static_cast<int32_t>(house->size());
+	}
+	return true;
+}
+
+bool IOMapOTBM::loadZones(Map& map, const FileName& dir)
+{
+	using json = nlohmann::json;
+
+	std::string basePath = (const char*)(dir.GetPath(wxPATH_GET_SEPARATOR | wxPATH_GET_VOLUME).mb_str(wxConvUTF8));
+	std::string zonesDir = basePath + "zones";
+
+	wxDir wxZonesDir(wxstr(zonesDir));
+	if(!wxZonesDir.IsOpened())
+		return false;
+
+	map.zoneConfigs.clear();
+	map.zoneResourceDefs.clear();
+
+	// Load resource definitions from resources.json
+	std::string resourcesPath = zonesDir + "/resources.json";
+	std::ifstream resIfs(resourcesPath);
+	if(resIfs.is_open()) {
+		try {
+			json rj = json::parse(resIfs);
+			for(auto it = rj.begin(); it != rj.end(); ++it) {
+				ZoneResourceDef def;
+				def.id = it.key();
+				if(it.value().contains("name") && it.value()["name"].is_string())
+					def.name = it.value()["name"].get<std::string>();
+				else
+					def.name = def.id;
+				map.zoneResourceDefs.push_back(def);
+			}
+		} catch(const json::exception&) {
+			warning("Failed to parse resources.json");
+		}
+	}
+
+	wxString filename;
+	bool cont = wxZonesDir.GetFirst(&filename, "*.json", wxDIR_FILES);
+	while(cont) {
+		if(filename.Lower() == "resources.json") {
+			cont = wxZonesDir.GetNext(&filename);
+			continue;
+		}
+
+		std::string fullPath = zonesDir + "/" + nstr(filename);
+		std::ifstream ifs(fullPath);
+		if(!ifs.is_open()) {
+			cont = wxZonesDir.GetNext(&filename);
+			continue;
+		}
+
+		try {
+			json j = json::parse(ifs);
+			ZoneConfig zc;
+			if(j.contains("name") && j["name"].is_string())
+				zc.name = j["name"].get<std::string>();
+			else {
+				cont = wxZonesDir.GetNext(&filename);
+				continue;
+			}
+			if(j.contains("displayName") && j["displayName"].is_string())
+				zc.displayName = j["displayName"].get<std::string>();
+			if(j.contains("category") && j["category"].is_string())
+				zc.category = j["category"].get<std::string>();
+			if(j.contains("difficulty") && j["difficulty"].is_string())
+				zc.difficulty = j["difficulty"].get<std::string>();
+			if(j.contains("music") && j["music"].is_string())
+				zc.music = j["music"].get<std::string>();
+
+			if(j.contains("resources") && j["resources"].is_object()) {
+				zc.hasResources = true;
+				auto& res = j["resources"];
+				if(res.contains("maxNodes")) zc.resources.maxNodes = res["maxNodes"].get<int>();
+				if(res.contains("minDistanceBetweenNodes")) zc.resources.minDistanceBetweenNodes = res["minDistanceBetweenNodes"].get<int>();
+				if(res.contains("spawnIntervalSeconds")) zc.resources.spawnIntervalSeconds = res["spawnIntervalSeconds"].get<int>();
+				if(res.contains("spawnTable") && res["spawnTable"].is_array()) {
+					for(auto& entry : res["spawnTable"]) {
+						ZoneResourceSpawnEntry se;
+						if(entry.contains("resourceId")) se.resourceId = entry["resourceId"].get<std::string>();
+						if(entry.contains("chance")) se.weight = entry["chance"].get<int>();
+						zc.resources.spawnTable.push_back(se);
+					}
+				}
+			}
+			map.zoneConfigs.push_back(zc);
+		} catch(const json::exception&) {
+			warning("Failed to parse zone config: %s", nstr(filename).c_str());
+		}
+		cont = wxZonesDir.GetNext(&filename);
+	}
+	return true;
+}
+
+bool IOMapOTBM::saveZones(Map& map, const FileName& dir)
+{
+	using json = nlohmann::json;
+
+	std::string basePath = (const char*)(dir.GetPath(wxPATH_GET_SEPARATOR | wxPATH_GET_VOLUME).mb_str(wxConvUTF8));
+	std::string zonesDir = basePath + "zones";
+
+	if(!wxDir::Exists(wxstr(zonesDir))) {
+		wxFileName::Mkdir(wxstr(zonesDir), wxS_DIR_DEFAULT, wxPATH_MKDIR_FULL);
+	}
+
+	for(const ZoneConfig& zc : map.zoneConfigs) {
+		if(zc.name.empty()) continue;
+
+		json j;
+		j["name"] = zc.name;
+		if(!zc.displayName.empty()) j["displayName"] = zc.displayName;
+		if(!zc.category.empty()) j["category"] = zc.category;
+		if(!zc.difficulty.empty()) j["difficulty"] = zc.difficulty;
+		if(!zc.music.empty()) j["music"] = zc.music;
+
+		if(zc.hasResources) {
+			json res;
+			res["maxNodes"] = zc.resources.maxNodes;
+			res["minDistanceBetweenNodes"] = zc.resources.minDistanceBetweenNodes;
+			res["spawnIntervalSeconds"] = zc.resources.spawnIntervalSeconds;
+			json table = json::array();
+			for(const auto& se : zc.resources.spawnTable) {
+				json entry;
+				entry["resourceId"] = se.resourceId;
+				entry["chance"] = se.weight;
+				table.push_back(entry);
+			}
+			res["spawnTable"] = table;
+			j["resources"] = res;
+		} else {
+			j["resources"] = nullptr;
+		}
+
+		// Filename: lowercase name with spaces replaced by hyphens
+		std::string fname = zc.name;
+		std::transform(fname.begin(), fname.end(), fname.begin(), ::tolower);
+		std::replace(fname.begin(), fname.end(), ' ', '-');
+		fname += ".json";
+
+		std::string fullPath = zonesDir + "/" + fname;
+		std::ofstream ofs(fullPath);
+		if(ofs.is_open()) {
+			ofs << j.dump(2);
+		}
 	}
 	return true;
 }

@@ -27,6 +27,42 @@
 #include "waypoints.h"
 #include "templates.h"
 
+#include <vector>
+#include <string>
+
+struct ZoneResourceDef {
+	std::string id;   // e.g. "coal_node"
+	std::string name; // e.g. "Coal Deposit"
+};
+
+struct ZoneResourceSpawnEntry {
+	std::string resourceId;
+	int weight;
+};
+
+struct ZoneResourceConfig {
+	int maxNodes;
+	int minDistanceBetweenNodes;
+	int spawnIntervalSeconds;
+	std::vector<ZoneResourceSpawnEntry> spawnTable;
+};
+
+struct ZoneConfig {
+	std::string name;
+	std::string displayName;
+	std::string category; // city, town, forest, plains, mountain, cave, water, desert
+	std::string difficulty;
+	std::string music;
+	bool hasResources;
+	ZoneResourceConfig resources;
+
+	ZoneConfig() : hasResources(false) {
+		resources.maxNodes = 0;
+		resources.minDistanceBetweenNodes = 0;
+		resources.spawnIntervalSeconds = 0;
+	}
+};
+
 class Map : public BaseMap
 {
 public:
@@ -119,6 +155,8 @@ public:
 	Towns towns;
 	Houses houses;
 	Spawns spawns;
+	std::vector<ZoneConfig> zoneConfigs;
+	std::vector<ZoneResourceDef> zoneResourceDefs;
 
 protected:
 	void updateUniqueIds(Tile* old_tile, Tile* new_tile) override;

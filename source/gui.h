@@ -411,6 +411,14 @@ public:
 	FlagBrush* nolog_brush;
 	FlagBrush* pvp_brush;
 	FlagBrush* trade_brush;
+	FlagBrush* city_zone_brush;
+	FlagBrush* town_zone_brush;
+	FlagBrush* forest_zone_brush;
+	FlagBrush* plains_zone_brush;
+	FlagBrush* mountain_zone_brush;
+	FlagBrush* cave_zone_brush;
+	FlagBrush* water_zone_brush;
+	FlagBrush* desert_zone_brush;
 
 protected:
 

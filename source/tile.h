@@ -31,7 +31,18 @@ enum {
 	TILESTATE_NOLOGOUT       = 0x0008,
 	TILESTATE_PVPZONE        = 0x0010,
 	TILESTATE_REFRESH        = 0x0020,
-	// Internal
+	TILESTATE_HOUSEZONE      = 0x0040,
+	// World zone categories (painted via FlagBrush, must match server otbm-headers)
+	TILESTATE_ZONE_CITY      = 0x0080,
+	TILESTATE_ZONE_TOWN      = 0x0100,
+	TILESTATE_ZONE_FOREST    = 0x0200,
+	TILESTATE_ZONE_PLAINS    = 0x0400,
+	TILESTATE_ZONE_MOUNTAIN  = 0x0800,
+	TILESTATE_ZONE_CAVE      = 0x1000,
+	TILESTATE_ZONE_WATER     = 0x2000,
+	TILESTATE_ZONE_DESERT    = 0x4000,
+	TILESTATE_ZONE_MASK      = 0x7F80, // All zone category bits combined
+	// Internal (statflags - separate uint16_t, values don't collide with mapflags)
 	TILESTATE_SELECTED  = 0x0001,
 	TILESTATE_UNIQUE    = 0x0002,
 	TILESTATE_BLOCKING  = 0x0004,
