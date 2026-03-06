@@ -362,21 +362,8 @@ bool GraphicManager::loadOTFI(const FileName& filename, wxString& error, wxArray
 
 	otfi_found = false;
 
-	// Try emperia.easset JSON manifest first
-	wxFileName eassetPath(filename.GetFullPath(), "emperia.easset");
-	if(eassetPath.FileExists()) {
-		// Emperia JSON manifest found — read features from it
-		is_extended = true;
-		has_transparency = true;
-		has_frame_durations = true;
-		has_frame_groups = true;
-		metadata_file = wxFileName(filename.GetFullPath(), wxString(ASSETS_NAME) + ".eobj");
-		sprites_file = wxFileName(filename.GetFullPath(), wxString(ASSETS_NAME) + ".espr");
-		otfi_found = true;
-	}
-
-	// Fallback: try legacy .otfi
-	if(!otfi_found && dir.GetFirst(&otfi_file, "*.otfi", wxDIR_FILES)) {
+	// Try legacy .otfi manifest
+	if(dir.GetFirst(&otfi_file, "*.otfi", wxDIR_FILES)) {
 		wxFileName otfi(filename.GetFullPath(), otfi_file);
 		OTMLDocumentPtr doc = OTMLDocument::parse(otfi.GetFullPath().ToStdString());
 		if(doc->size() == 0 || !doc->hasChildAt("DatSpr")) {
@@ -397,15 +384,21 @@ bool GraphicManager::loadOTFI(const FileName& filename, wxString& error, wxArray
 	}
 
 	if(!otfi_found) {
-		is_extended = false;
-		has_transparency = false;
-		has_frame_durations = false;
-		has_frame_groups = false;
 		metadata_file = wxFileName(filename.GetFullPath(), wxString(ASSETS_NAME) + ".eobj");
 		sprites_file = wxFileName(filename.GetFullPath(), wxString(ASSETS_NAME) + ".espr");
 
-		// If Emperia files don't exist, fall back to legacy Tibia files
-		if(!metadata_file.FileExists() || !sprites_file.FileExists()) {
+		if(metadata_file.FileExists() && sprites_file.FileExists()) {
+			// Emperia assets — features are always enabled
+			is_extended = true;
+			has_transparency = true;
+			has_frame_durations = true;
+			has_frame_groups = true;
+		} else {
+			// Fall back to legacy Tibia files
+			is_extended = false;
+			has_transparency = false;
+			has_frame_durations = false;
+			has_frame_groups = false;
 			wxFileName legacyDat(filename.GetFullPath(), "Tibia.dat");
 			wxFileName legacySpr(filename.GetFullPath(), "Tibia.spr");
 			if(legacyDat.FileExists() && legacySpr.FileExists()) {

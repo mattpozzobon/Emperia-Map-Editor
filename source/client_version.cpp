@@ -453,14 +453,8 @@ bool ClientVersion::hasValidPaths()
 	metadata_path = wxFileName(client_path.GetFullPath(), wxString(ASSETS_NAME) + ".eobj");
 	sprites_path = wxFileName(client_path.GetFullPath(), wxString(ASSETS_NAME) + ".espr");
 
-	// Try emperia.easset manifest first
-	wxFileName eassetPath(client_path.GetFullPath(), "emperia.easset");
-	if(eassetPath.FileExists()) {
-		metadata_path = wxFileName(client_path.GetFullPath(), wxString(ASSETS_NAME) + ".eobj");
-		sprites_path = wxFileName(client_path.GetFullPath(), wxString(ASSETS_NAME) + ".espr");
-	}
-	// Fallback: try legacy .otfi
-	else if(dir.GetFirst(&otfi_file, "*.otfi", wxDIR_FILES)) {
+	// Try legacy .otfi manifest
+	if(dir.GetFirst(&otfi_file, "*.otfi", wxDIR_FILES)) {
 		wxFileName otfi(client_path.GetFullPath(), otfi_file);
 		OTMLDocumentPtr doc = OTMLDocument::parse(otfi.GetFullPath().ToStdString());
 		if(doc->size() != 0 && doc->hasChildAt("DatSpr")) {
