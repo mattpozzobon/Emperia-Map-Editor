@@ -27,6 +27,8 @@
 #include <wx/image.h>
 #include <zlib.h>
 
+#include "minimap_colors.h"
+
 void MinimapBlock::updateTile(int x, int y, const MinimapTile& tile)
 {
 	m_tiles[getTileIndex(x, y)] = tile;
@@ -226,9 +228,7 @@ bool IOMinimap::exportMinimap(const std::string& directory)
 							continue;
 						}
 						uint8_t color = tile->getMiniMapColor();
-						pixels[index  ] = (uint8_t)(static_cast<int>(color / 36) % 6 * 51); // red
-						pixels[index+1] = (uint8_t)(static_cast<int>(color / 6) % 6 * 51);  // green
-						pixels[index+2] = (uint8_t)(color % 6 * 51);                        // blue
+						emperiaMiniMapColorToRGB(color, pixels[index], pixels[index+1], pixels[index+2]);
 						index += rme::PixelFormatRGB;
 						empty = false;
 					}
@@ -327,9 +327,7 @@ bool IOMinimap::exportSelection(const std::string& directory, const std::string&
 
 			uint8_t color = tile->getMiniMapColor();
 			uint32_t index = ((tile->getY() - min_y) * image_width + (tile->getX() - min_x)) * 3;
-			pixels[index  ] = (uint8_t)(static_cast<int>(color / 36) % 6 * 51); // red
-			pixels[index+1] = (uint8_t)(static_cast<int>(color / 6) % 6 * 51);  // green
-			pixels[index+2] = (uint8_t)(color % 6 * 51);                        // blue
+			emperiaMiniMapColorToRGB(color, pixels[index], pixels[index+1], pixels[index+2]);
 			empty = false;
 		}
 

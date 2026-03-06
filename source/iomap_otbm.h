@@ -144,6 +144,7 @@ protected:
 
 	bool loadZones(Map& map, const FileName& dir);
 	bool saveZones(Map& map, const FileName& dir);
+	bool saveWorldMapData(Map& map, const FileName& dir);
 };
 
 #endif

@@ -26,6 +26,8 @@
 
 #include <fstream>
 #include <algorithm>
+#include <unordered_map>
+#include <unordered_set>
 
 #include "settings.h"
 #include "gui.h" // Loadbar
@@ -1261,6 +1263,9 @@ bool IOMapOTBM::saveMap(Map& map, const FileName& identifier)
 
 	g_gui.SetLoadDone(99, "Saving zones...");
 	saveZones(map, identifier);
+
+	g_gui.SetLoadDone(99, "Saving world map data...");
+	saveWorldMapData(map, identifier);
 	return true;
 }
 
@@ -1644,6 +1649,295 @@ bool IOMapOTBM::loadZones(Map& map, const FileName& dir)
 		}
 		cont = wxZonesDir.GetNext(&filename);
 	}
+	return true;
+}
+
+bool IOMapOTBM::saveWorldMapData(Map& map, const FileName& dir)
+{
+	using json = nlohmann::json;
+
+	std::string basePath = (const char*)(dir.GetPath(wxPATH_GET_SEPARATOR | wxPATH_GET_VOLUME).mb_str(wxConvUTF8));
+	std::string wmDir = basePath + "world-map";
+
+	if(!wxDir::Exists(wxstr(wmDir))) {
+		wxFileName::Mkdir(wxstr(wmDir), wxS_DIR_DEFAULT, wxPATH_MKDIR_FULL);
+	}
+
+	// Helper: flag to category string
+	auto flagToCategory = [](uint16_t flag) -> std::string {
+		if(flag & TILESTATE_ZONE_CITY)     return "city";
+		if(flag & TILESTATE_ZONE_TOWN)     return "town";
+		if(flag & TILESTATE_ZONE_FOREST)   return "forest";
+		if(flag & TILESTATE_ZONE_PLAINS)   return "plains";
+		if(flag & TILESTATE_ZONE_MOUNTAIN) return "mountain";
+		if(flag & TILESTATE_ZONE_CAVE)     return "cave";
+		if(flag & TILESTATE_ZONE_WATER)    return "water";
+		if(flag & TILESTATE_ZONE_DESERT)   return "desert";
+		return "";
+	};
+
+	// Step 1: Collect all zone-flagged tiles into a position map
+	struct ZoneTileInfo {
+		int x, y, z;
+		std::string category;
+	};
+
+	// key = "x,y,z"
+	auto makeKey = [](int x, int y, int z) -> std::string {
+		return std::to_string(x) + "," + std::to_string(y) + "," + std::to_string(z);
+	};
+
+	std::unordered_map<std::string, ZoneTileInfo> zoneTiles;
+
+	// Track bounds and tile count per floor to find the primary ground floor
+	struct FloorBounds {
+		int minX = 65536, minY = 65536, maxX = 0, maxY = 0;
+		int tileCount = 0;
+	};
+	std::map<int, FloorBounds> floorBounds;
+
+	MapIterator it = map.begin();
+	MapIterator end = map.end();
+	while(it != end) {
+		Tile* tile = (*it)->get();
+		if(tile) {
+			const Position& pos = tile->getPosition();
+			// Track world bounds per floor (any tile with ground)
+			if(tile->ground || !tile->items.empty()) {
+				auto& fb = floorBounds[pos.z];
+				fb.tileCount++;
+				if(pos.x < fb.minX) fb.minX = pos.x;
+				if(pos.y < fb.minY) fb.minY = pos.y;
+				if(pos.x > fb.maxX) fb.maxX = pos.x;
+				if(pos.y > fb.maxY) fb.maxY = pos.y;
+			}
+			// Check zone flags
+			uint16_t flags = tile->getMapFlags();
+			if(flags & TILESTATE_ZONE_MASK) {
+				std::string cat = flagToCategory(flags);
+				if(!cat.empty()) {
+					std::string key = makeKey(pos.x, pos.y, pos.z);
+					zoneTiles[key] = { pos.x, pos.y, pos.z, cat };
+				}
+			}
+		}
+		++it;
+	}
+
+	// Determine ground floor (floor with most tiles)
+	int groundFloor = 7;
+	int maxTiles = 0;
+	for(auto& pair : floorBounds) {
+		if(pair.second.tileCount > maxTiles) {
+			maxTiles = pair.second.tileCount;
+			groundFloor = pair.first;
+		}
+	}
+
+	// Use ground floor bounds as world bounds
+	int worldMinX = 0, worldMinY = 0, worldMaxX = 256, worldMaxY = 256;
+	if(floorBounds.count(groundFloor)) {
+		const auto& fb = floorBounds[groundFloor];
+		worldMinX = fb.minX;
+		worldMinY = fb.minY;
+		worldMaxX = fb.maxX;
+		worldMaxY = fb.maxY;
+	}
+
+	// Step 2: Flood-fill to identify contiguous zone regions
+	struct ZoneRegion {
+		std::string category;
+		int floor;
+		int minX, minY, maxX, maxY;
+		std::string waypointName; // matched waypoint name (if any)
+		int waypointX, waypointY; // label anchor from waypoint
+	};
+
+	std::vector<ZoneRegion> regions;
+	std::unordered_set<std::string> visited;
+
+	for(const auto& pair : zoneTiles) {
+		if(visited.count(pair.first)) continue;
+
+		const ZoneTileInfo& start = pair.second;
+		ZoneRegion region;
+		region.category = start.category;
+		region.floor = start.z;
+		region.minX = start.x;
+		region.minY = start.y;
+		region.maxX = start.x;
+		region.maxY = start.y;
+		region.waypointX = -1;
+		region.waypointY = -1;
+
+		// BFS flood-fill
+		std::queue<std::string> queue;
+		queue.push(pair.first);
+		visited.insert(pair.first);
+
+		while(!queue.empty()) {
+			std::string key = queue.front();
+			queue.pop();
+
+			auto fit = zoneTiles.find(key);
+			if(fit == zoneTiles.end()) continue;
+			const ZoneTileInfo& info = fit->second;
+
+			if(info.x < region.minX) region.minX = info.x;
+			if(info.y < region.minY) region.minY = info.y;
+			if(info.x > region.maxX) region.maxX = info.x;
+			if(info.y > region.maxY) region.maxY = info.y;
+
+			// Check 4-connected neighbours
+			int dx[] = {1, -1, 0, 0};
+			int dy[] = {0, 0, 1, -1};
+			for(int d = 0; d < 4; d++) {
+				std::string nkey = makeKey(info.x + dx[d], info.y + dy[d], info.z);
+				if(visited.count(nkey)) continue;
+				auto nit = zoneTiles.find(nkey);
+				if(nit == zoneTiles.end()) continue;
+				if(nit->second.category != start.category) continue;
+				visited.insert(nkey);
+				queue.push(nkey);
+			}
+		}
+
+		regions.push_back(region);
+	}
+
+	// Step 3: Match waypoints to zone regions as label anchors
+	for(auto& wp : map.waypoints.waypoints) {
+		if(!wp.second) continue;
+		const Position& wpos = wp.second->pos;
+		std::string wkey = makeKey(wpos.x, wpos.y, wpos.z);
+		auto tit = zoneTiles.find(wkey);
+		if(tit == zoneTiles.end()) continue;
+
+		// Find the region containing this waypoint
+		for(auto& region : regions) {
+			if(region.floor != wpos.z) continue;
+			if(wpos.x < region.minX || wpos.x > region.maxX) continue;
+			if(wpos.y < region.minY || wpos.y > region.maxY) continue;
+			if(tit->second.category != region.category) continue;
+			// Only assign if not already assigned (first match wins)
+			if(region.waypointName.empty()) {
+				region.waypointName = wp.second->name;
+				region.waypointX = wpos.x;
+				region.waypointY = wpos.y;
+			}
+			break;
+		}
+	}
+
+	// Step 4: Build JSON
+	json manifest;
+	manifest["version"] = 1;
+	manifest["groundFloor"] = groundFloor;
+	manifest["worldBounds"] = {
+		{"minX", worldMinX}, {"minY", worldMinY},
+		{"maxX", worldMaxX}, {"maxY", worldMaxY}
+	};
+	manifest["tileSize"] = 1024;
+
+	// Build floors array from actual data
+	json floorsArr = json::array();
+	for(auto& pair : floorBounds) {
+		floorsArr.push_back(pair.first);
+	}
+	manifest["floors"] = floorsArr;
+	manifest["overview"] = "overview-" + std::to_string(groundFloor) + ".png";
+
+	// Zones array
+	json zonesArr = json::array();
+	int autoCounter = 0;
+	for(const auto& region : regions) {
+		json z;
+
+		// Generate zone ID
+		std::string name;
+		if(!region.waypointName.empty()) {
+			name = region.waypointName;
+			// Find matching zone config for display name
+			for(const auto& zc : map.zoneConfigs) {
+				std::string zcLower = zc.name;
+				std::transform(zcLower.begin(), zcLower.end(), zcLower.begin(), ::tolower);
+				std::string wpLower = region.waypointName;
+				std::transform(wpLower.begin(), wpLower.end(), wpLower.begin(), ::tolower);
+				if(zcLower == wpLower) {
+					if(!zc.displayName.empty()) name = zc.displayName;
+					break;
+				}
+			}
+		} else {
+			autoCounter++;
+			name = region.category + " #" + std::to_string(autoCounter);
+		}
+
+		// Build kebab-case ID
+		std::string id = name;
+		std::transform(id.begin(), id.end(), id.begin(), ::tolower);
+		std::replace(id.begin(), id.end(), ' ', '-');
+
+		z["id"] = id;
+		z["name"] = name;
+		z["category"] = region.category;
+		z["floor"] = region.floor;
+		z["bounds"] = {
+			{"minX", region.minX}, {"minY", region.minY},
+			{"maxX", region.maxX}, {"maxY", region.maxY}
+		};
+
+		if(region.waypointX >= 0) {
+			z["labelAnchor"] = { {"x", region.waypointX}, {"y", region.waypointY} };
+		} else {
+			z["labelAnchor"] = nullptr;
+		}
+
+		zonesArr.push_back(z);
+	}
+	manifest["zones"] = zonesArr;
+
+	// Markers from waypoints (those not used as zone anchors become POI markers)
+	json markersArr = json::array();
+	int markerId = 0;
+	for(auto& wp : map.waypoints.waypoints) {
+		if(!wp.second) continue;
+		const Position& wpos = wp.second->pos;
+		std::string wpName = wp.second->name;
+		std::string wpLower = wpName;
+		std::transform(wpLower.begin(), wpLower.end(), wpLower.begin(), ::tolower);
+
+		// Determine marker type from name prefix
+		std::string markerType;
+		if(wpLower.find("temple") != std::string::npos) markerType = "temple";
+		else if(wpLower.find("depot") != std::string::npos) markerType = "depot";
+		else if(wpLower.find("bank") != std::string::npos) markerType = "bank";
+		else if(wpLower.find("shop") != std::string::npos) markerType = "shop";
+		else if(wpLower.find("boat") != std::string::npos) markerType = "boat";
+		else if(wpLower.find("trainer") != std::string::npos) markerType = "trainer";
+		else if(wpLower.find("dungeon") != std::string::npos) markerType = "dungeon";
+		else if(wpLower.find("boss") != std::string::npos) markerType = "boss";
+		else if(wpLower.find("quest") != std::string::npos) markerType = "quest";
+		else markerType = "custom";
+
+		json m;
+		m["id"] = "wp-" + std::to_string(markerId++);
+		m["type"] = markerType;
+		m["x"] = wpos.x;
+		m["y"] = wpos.y;
+		m["floor"] = wpos.z;
+		m["label"] = wpName;
+		markersArr.push_back(m);
+	}
+	manifest["markers"] = markersArr;
+
+	// Write manifest
+	std::string fullPath = wmDir + "/world-map.json";
+	std::ofstream ofs(fullPath);
+	if(ofs.is_open()) {
+		ofs << manifest.dump(2);
+	}
+
 	return true;
 }
 

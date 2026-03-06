@@ -24,6 +24,7 @@
 #include "gui.h"
 #include "map_display.h"
 #include "minimap_window.h"
+#include "minimap_colors.h"
 
 BEGIN_EVENT_TABLE(MinimapWindow, wxPanel)
 	EVT_LEFT_DOWN(MinimapWindow::OnMouseClick)
@@ -40,7 +41,11 @@ MinimapWindow::MinimapWindow(wxWindow* parent) :
 	update_timer(this)
 {
 	for(int i = 0; i < 256; ++i) {
-		pens[i] = new wxPen(colorFromEightBit(i));
+		if(i < 216) {
+			pens[i] = new wxPen(wxColour(EMPERIA_MINIMAP_COLORS[i][0], EMPERIA_MINIMAP_COLORS[i][1], EMPERIA_MINIMAP_COLORS[i][2]));
+		} else {
+			pens[i] = new wxPen(wxColour(0, 0, 0));
+		}
 	}
 }
 

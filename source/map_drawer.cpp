@@ -28,6 +28,7 @@
 #include "sprites.h"
 #include "map_drawer.h"
 #include "map_display.h"
+#include "minimap_colors.h"
 #include "copybuffer.h"
 #include "live_socket.h"
 #include "graphics.h"
@@ -1566,7 +1567,8 @@ void MapDrawer::DrawTile(TileLocation* location)
 		if(only_colors) {
 			glDisable(GL_TEXTURE_2D);
 			if(options.show_as_minimap) {
-				wxColor color = colorFromEightBit(tile->getMiniMapColor());
+				uint8_t mc = tile->getMiniMapColor();
+				wxColor color(mc < 216 ? EMPERIA_MINIMAP_COLORS[mc][0] : 0, mc < 216 ? EMPERIA_MINIMAP_COLORS[mc][1] : 0, mc < 216 ? EMPERIA_MINIMAP_COLORS[mc][2] : 0);
 				glBlitSquare(draw_x, draw_y, color);
 			} else if(r != 255 || g != 255 || b != 255) {
 				glBlitSquare(draw_x, draw_y, r, g, b, 128);

@@ -20,6 +20,7 @@
 #include "gui.h" // loadbar
 
 #include "map.h"
+#include "minimap_colors.h"
 
 #include <sstream>
 
@@ -484,8 +485,16 @@ bool Map::exportMinimap(FileName filename, int floor /*= rme::MapGroundLayer*/, 
 			return true;
 
 		uint32_t minimap_colors[256];
-		for(int i = 0; i < 256; ++i)
-			minimap_colors[i] = colorFromEightBit(i).GetRGB();
+		for(int i = 0; i < 256; ++i) {
+			if(i < 216) {
+				// BMP palette stores as 0x00BBGGRR
+				minimap_colors[i] = EMPERIA_MINIMAP_COLORS[i][2] << 16
+				                  | EMPERIA_MINIMAP_COLORS[i][1] << 8
+				                  | EMPERIA_MINIMAP_COLORS[i][0];
+			} else {
+				minimap_colors[i] = 0;
+			}
+		}
 
 		for(MapIterator mit = begin(); mit != end(); ++mit) {
 			if((*mit)->get() == nullptr || (*mit)->empty())
