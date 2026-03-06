@@ -359,6 +359,7 @@ private:
 	void RefreshList();
 	void RefreshWaypointPicker();
 	void RefreshSpawnList();
+	int CountZoneTiles(const std::string& category) const;
 
 	Editor& editor;
 	std::vector<ZoneConfig> configs;
@@ -379,6 +380,7 @@ private:
 	wxListBox* spawn_list;
 	wxChoice* resource_picker;
 	wxSpinCtrl* chance_spin;
+	wxStaticText* area_label;
 
 	DECLARE_EVENT_TABLE();
 };

@@ -1548,6 +1548,10 @@ ZoneConfigDialog::ZoneConfigDialog(wxWindow* parent, Editor& editor) :
 	music_field = newd wxTextCtrl(this, wxID_ANY, "", wxDefaultPosition, wxSize(200, -1));
 	grid->Add(music_field, 1, wxEXPAND);
 
+	grid->Add(newd wxStaticText(this, wxID_ANY, "Zone Area:"), 0, wxALIGN_CENTER_VERTICAL);
+	area_label = newd wxStaticText(this, wxID_ANY, "—", wxDefaultPosition, wxSize(200, -1));
+	grid->Add(area_label, 1, wxEXPAND);
+
 	rightSizer->Add(grid, 0, wxEXPAND);
 
 	// Resources section
@@ -1685,6 +1689,7 @@ void ZoneConfigDialog::LoadZoneToUI(int index)
 		min_distance_spin->SetValue(0);
 		spawn_interval_spin->SetValue(0);
 		spawn_list->Clear();
+		area_label->SetLabel(wxT("\u2014"));
 
 		name_field->Disable();
 		display_name_field->Disable();
@@ -1745,7 +1750,42 @@ void ZoneConfigDialog::LoadZoneToUI(int index)
 		spawn_interval_spin->SetValue(0);
 	}
 
+	// Update area label
+	if(!zc.category.empty()) {
+		int tileCount = CountZoneTiles(zc.category);
+		area_label->SetLabel(wxString::Format("%d tiles", tileCount));
+	} else {
+		area_label->SetLabel(wxT("\u2014"));
+	}
+
 	RefreshSpawnList();
+}
+
+int ZoneConfigDialog::CountZoneTiles(const std::string& category) const
+{
+	uint16_t flag = 0;
+	if(category == "city")           flag = TILESTATE_ZONE_CITY;
+	else if(category == "town")      flag = TILESTATE_ZONE_TOWN;
+	else if(category == "forest")    flag = TILESTATE_ZONE_FOREST;
+	else if(category == "plains")    flag = TILESTATE_ZONE_PLAINS;
+	else if(category == "mountain")  flag = TILESTATE_ZONE_MOUNTAIN;
+	else if(category == "cave")      flag = TILESTATE_ZONE_CAVE;
+	else if(category == "water")     flag = TILESTATE_ZONE_WATER;
+	else if(category == "desert")    flag = TILESTATE_ZONE_DESERT;
+	else return 0;
+
+	int count = 0;
+	Map& map = const_cast<Editor&>(editor).getMap();
+	MapIterator it = map.begin();
+	MapIterator end = map.end();
+	while(it != end) {
+		Tile* tile = (*it)->get();
+		if(tile && (tile->getMapFlags() & flag)) {
+			++count;
+		}
+		++it;
+	}
+	return count;
 }
 
 void ZoneConfigDialog::SaveCurrentZone()
@@ -1798,6 +1838,24 @@ void ZoneConfigDialog::OnAddZone(wxCommandEvent& event)
 	wxString wpName = waypoint_picker->GetStringSelection();
 	ZoneConfig zc;
 	zc.name = nstr(wpName);
+
+	// Auto-detect zone category from the tile flags at the waypoint position
+	Waypoint* wp = editor.getMap().waypoints.getWaypoint(nstr(wpName));
+	if(wp) {
+		Tile* tile = editor.getMap().getTile(wp->pos);
+		if(tile) {
+			uint16_t mf = tile->getMapFlags();
+			if(mf & TILESTATE_ZONE_CITY)          zc.category = "city";
+			else if(mf & TILESTATE_ZONE_TOWN)      zc.category = "town";
+			else if(mf & TILESTATE_ZONE_FOREST)    zc.category = "forest";
+			else if(mf & TILESTATE_ZONE_PLAINS)    zc.category = "plains";
+			else if(mf & TILESTATE_ZONE_MOUNTAIN)  zc.category = "mountain";
+			else if(mf & TILESTATE_ZONE_CAVE)      zc.category = "cave";
+			else if(mf & TILESTATE_ZONE_WATER)     zc.category = "water";
+			else if(mf & TILESTATE_ZONE_DESERT)    zc.category = "desert";
+		}
+	}
+
 	configs.push_back(zc);
 
 	RefreshList();
