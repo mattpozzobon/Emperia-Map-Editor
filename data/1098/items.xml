@@ -2770,6 +2770,7 @@
 	</item>
 	<item id="2120" article="a" name="rope">
 		<attribute key="weight" value="1800" />
+		<attribute key="slotType" value="rope" />
 	</item>
 	<item id="2121" article="a" name="wedding ring">
 		<attribute key="weight" value="40" />
@@ -4626,9 +4627,11 @@
 	</item>
 	<item id="2553" article="a" name="pick">
 		<attribute key="weight" value="4500" />
+		<attribute key="slotType" value="pick" />
 	</item>
 	<item id="2554" article="a" name="shovel">
 		<attribute key="weight" value="3500" />
+		<attribute key="slotType" value="shovel" />
 	</item>
 	<item id="2555" article="an" name="anvil" />
 	<item id="2556" article="a" name="wooden hammer">
@@ -4664,6 +4667,7 @@
 	</item>
 	<item id="2566" article="a" name="kitchen knife">
 		<attribute key="weight" value="100" />
+		<attribute key="slotType" value="knife" />
 	</item>
 	<item id="2567" article="a" name="wooden spoon">
 		<attribute key="weight" value="100" />
@@ -4710,6 +4714,7 @@
 	</item>
 	<item id="2580" article="a" name="fishing rod">
 		<attribute key="weight" value="850" />
+		<attribute key="slotType" value="fishingRod" />
 	</item>
 	<item id="2581" article="a" name="telescope">
 		<attribute key="rotateTo" value="2584" />
@@ -16100,18 +16105,22 @@
 	<item id="7588" article="a" name="health potion">
 		<attribute key="description" value="Restores 50 health over time. Requires level 10." />
 		<attribute key="weight" value="290" />
+		<attribute key="slotType" value="potion" />
 	</item>
 	<item id="7589" article="a" name="mana potion">
 		<attribute key="description" value="Restores 50 mana over time. Requires level 10." />
 		<attribute key="weight" value="290" />
+		<attribute key="slotType" value="potion" />
 	</item>
 	<item id="7590" article="a" name="small stamina potion">
 		<attribute key="description" value="Restores 10 stamina over time." />
 		<attribute key="weight" value="310" />
+		<attribute key="slotType" value="potion" />
 	</item>
 	<item id="7591" article="a" name="stamina potion">
 		<attribute key="description" value="Restores 50 stamina over time. Requires level 10." />
 		<attribute key="weight" value="310" />
+		<attribute key="slotType" value="potion" />
 	</item>
 	<item id="7592" name="linen" />
 	<item id="7593" name="linen" />
@@ -16141,10 +16150,12 @@
 	<item id="7617" name="linen" />
 	<item id="7618" article="a" name="small health potion">
 		<attribute key="weight" value="270" />
+		<attribute key="slotType" value="potion" />
 	</item>
 	<item id="7619" name="linen" />
 	<item id="7620" article="a" name="small mana potion">
 		<attribute key="weight" value="270" />
+		<attribute key="slotType" value="potion" />
 	</item>
 	<item id="7621" article="a" name="dead dragon hatchling">
 		<attribute key="type" value="corpse" />
@@ -16152,6 +16163,7 @@
 		<attribute key="duration" value="10" />
 		<attribute key="containerSize" value="30" />
 		<attribute key="fluidSource" value="blood" />
+		<attribute key="slotType" value="potion" />
 	</item>
 	<item id="7622" article="a" name="dead dragon hatchling">
 		<attribute key="type" value="corpse" />
@@ -16531,6 +16543,7 @@
 	</item>
 	<item id="7731" article="an" name="elvenhair rope">
 		<attribute key="weight" value="600" />
+		<attribute key="slotType" value="rope" />
 	</item>
 	<item id="7732" name="seeds">
 		<attribute key="description" value="They might be worth keeping, who knows what will happen to them." />
@@ -50792,12 +50805,12 @@
 	<item id="26578" />
 	<item id="26579" name="mannequin ">
 		<attribute key="type" value="container" />
-		<attribute key="containerSize" value="10" />
+		<attribute key="containerSize" value="0" />
 		<attribute key="rotateTo" value="26580" />
 	</item>
 	<item id="26580" name="mannequin">
 		<attribute key="type" value="container" />
-		<attribute key="containerSize" value="10" />
+		<attribute key="containerSize" value="0" />
 		<attribute key="rotateTo" value="26579" />
 	</item>
 </items>
