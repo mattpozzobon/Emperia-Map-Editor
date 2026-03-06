@@ -50790,5 +50790,14 @@
 	<item id="26576" />
 	<item id="26577" />
 	<item id="26578" />
-	<item id="26579" />
+	<item id="26579" name="mannequin ">
+		<attribute key="type" value="container" />
+		<attribute key="containerSize" value="10" />
+		<attribute key="rotateTo" value="26580" />
+	</item>
+	<item id="26580" name="mannequin">
+		<attribute key="type" value="container" />
+		<attribute key="containerSize" value="10" />
+		<attribute key="rotateTo" value="26579" />
+	</item>
 </items>
