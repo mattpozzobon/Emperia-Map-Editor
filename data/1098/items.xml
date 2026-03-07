@@ -50643,7 +50643,9 @@
 	<item id="26416" />
 	<item id="26417" />
 	<item id="26418" name="teste" />
-	<item id="26419" name="bigorna 2" />
+	<item id="26419" article="a" name="minotaur leather">
+		<attribute key="weight" value="40" />
+	</item>
 	<item id="26420" />
 	<item id="26421" />
 	<item id="26422" />
@@ -50773,30 +50775,84 @@
 	<item id="26546" />
 	<item id="26547" />
 	<item id="26548" />
-	<item id="26549" />
-	<item id="26550" />
-	<item id="26551" />
-	<item id="26552" />
-	<item id="26553" />
-	<item id="26554" />
-	<item id="26555" />
-	<item id="26556" />
-	<item id="26557" />
-	<item id="26558" />
-	<item id="26559" />
-	<item id="26560" />
-	<item id="26561" />
-	<item id="26562" />
-	<item id="26563" />
-	<item id="26564" />
-	<item id="26565" />
-	<item id="26566" />
-	<item id="26567" />
+	<item id="26549" article="a" name="kitchen knife">
+		<attribute key="weight" value="100" />
+		<attribute key="slotType" value="knife" />
+	</item>
+	<item id="26550" article="a" name="kitchen knife">
+		<attribute key="weight" value="100" />
+		<attribute key="slotType" value="knife" />
+	</item>
+	<item id="26551" article="a" name="kitchen knife">
+		<attribute key="weight" value="100" />
+		<attribute key="slotType" value="knife" />
+	</item>
+	<item id="26552" article="a" name="kitchen knife">
+		<attribute key="weight" value="100" />
+		<attribute key="slotType" value="knife" />
+	</item>
+	<item id="26553" article="a" name="kitchen knife">
+		<attribute key="weight" value="100" />
+		<attribute key="slotType" value="knife" />
+	</item>
+	<item id="26554" article="a" name="kitchen knife">
+		<attribute key="weight" value="100" />
+		<attribute key="slotType" value="knife" />
+	</item>
+	<item id="26555" article="a" name="kitchen knife">
+		<attribute key="weight" value="100" />
+		<attribute key="slotType" value="knife" />
+	</item>
+	<item id="26556" article="a" name="kitchen knife">
+		<attribute key="weight" value="100" />
+		<attribute key="slotType" value="knife" />
+	</item>
+	<item id="26557" article="a" name="minotaur leather">
+		<attribute key="weight" value="40" />
+	</item>
+	<item id="26558" article="a" name="minotaur leather">
+		<attribute key="weight" value="40" />
+	</item>
+	<item id="26559" article="a" name="minotaur leather">
+		<attribute key="weight" value="40" />
+	</item>
+	<item id="26560" article="a" name="minotaur leather">
+		<attribute key="weight" value="40" />
+	</item>
+	<item id="26561" article="a" name="minotaur leather">
+		<attribute key="weight" value="40" />
+	</item>
+	<item id="26562" article="a" name="minotaur leather">
+		<attribute key="weight" value="40" />
+	</item>
+	<item id="26563" article="a" name="minotaur leather">
+		<attribute key="weight" value="40" />
+	</item>
+	<item id="26564" article="a" name="minotaur leather">
+		<attribute key="weight" value="40" />
+	</item>
+	<item id="26565" article="a" name="minotaur leather">
+		<attribute key="weight" value="40" />
+	</item>
+	<item id="26566" article="a" name="minotaur leather">
+		<attribute key="weight" value="40" />
+	</item>
+	<item id="26567" article="a" name="minotaur leather">
+		<attribute key="weight" value="40" />
+	</item>
 	<item id="26568" />
-	<item id="26569" />
-	<item id="26570" />
-	<item id="26571" />
-	<item id="26572" />
+	<item id="26569" article="a" name="minotaur leather">
+		<attribute key="weight" value="40" />
+	</item>
+	<item id="26570" article="a" name="minotaur leather">
+		<attribute key="weight" value="40" />
+	</item>
+	<item id="26571" article="a" name="minotaur leather">
+		<attribute key="weight" value="40" />
+	</item>
+	<item id="26572" article="a" name="minotaur leather">
+		<attribute key="weight" value="40" />
+	</item>
 	<item id="26573" />
 	<item id="26574" />
 	<item id="26575" />
@@ -50812,5 +50868,196 @@
 		<attribute key="type" value="container" />
 		<attribute key="containerSize" value="0" />
 		<attribute key="rotateTo" value="26579" />
+	</item>
+	<item id="26581" />
+	<item id="26582" article="a" name="pick">
+		<attribute key="weight" value="4500" />
+		<attribute key="slotType" value="pick" />
+	</item>
+	<item id="26583" article="a" name="pick">
+		<attribute key="weight" value="4500" />
+		<attribute key="slotType" value="pick" />
+	</item>
+	<item id="26584" article="a" name="pick">
+		<attribute key="weight" value="4500" />
+		<attribute key="slotType" value="pick" />
+	</item>
+	<item id="26585" article="a" name="pick">
+		<attribute key="weight" value="4500" />
+		<attribute key="slotType" value="pick" />
+	</item>
+	<item id="26586" article="a" name="pick">
+		<attribute key="weight" value="4500" />
+		<attribute key="slotType" value="pick" />
+	</item>
+	<item id="26587" article="a" name="pick">
+		<attribute key="weight" value="4500" />
+		<attribute key="slotType" value="pick" />
+	</item>
+	<item id="26588" article="a" name="pick">
+		<attribute key="weight" value="4500" />
+		<attribute key="slotType" value="pick" />
+	</item>
+	<item id="26589" article="a" name="pick">
+		<attribute key="weight" value="4500" />
+		<attribute key="slotType" value="pick" />
+	</item>
+	<item id="26590" article="a" name="fishing rod">
+		<attribute key="weight" value="850" />
+		<attribute key="slotType" value="fishingRod" />
+	</item>
+	<item id="26591" article="a" name="fishing rod">
+		<attribute key="weight" value="850" />
+		<attribute key="slotType" value="fishingRod" />
+	</item>
+	<item id="26592" article="a" name="fishing rod">
+		<attribute key="weight" value="850" />
+		<attribute key="slotType" value="fishingRod" />
+	</item>
+	<item id="26593" article="a" name="fishing rod">
+		<attribute key="weight" value="850" />
+		<attribute key="slotType" value="fishingRod" />
+	</item>
+	<item id="26594" article="a" name="fishing rod">
+		<attribute key="weight" value="850" />
+		<attribute key="slotType" value="fishingRod" />
+	</item>
+	<item id="26595" article="a" name="fishing rod">
+		<attribute key="weight" value="850" />
+		<attribute key="slotType" value="fishingRod" />
+	</item>
+	<item id="26596" article="a" name="fishing rod">
+		<attribute key="weight" value="850" />
+		<attribute key="slotType" value="fishingRod" />
+	</item>
+	<item id="26597" article="a" name="fishing rod">
+		<attribute key="weight" value="850" />
+		<attribute key="slotType" value="fishingRod" />
+	</item>
+	<item id="26598" />
+	<item id="26599" />
+	<item id="26600" name="small health potion">
+		<attribute key="slotType" value="potion" />
+	</item>
+	<item id="26601" name="small health potion">
+		<attribute key="slotType" value="potion" />
+	</item>
+	<item id="26602" name="small health potion">
+		<attribute key="slotType" value="potion" />
+	</item>
+	<item id="26603" name="small health potion">
+		<attribute key="slotType" value="potion" />
+	</item>
+	<item id="26604" name="small health potion">
+		<attribute key="slotType" value="potion" />
+	</item>
+	<item id="26605" name="small health potion">
+		<attribute key="slotType" value="potion" />
+	</item>
+	<item id="26606" name="small health potion">
+		<attribute key="slotType" value="potion" />
+	</item>
+	<item id="26607" name="small health potion">
+		<attribute key="slotType" value="potion" />
+	</item>
+	<item id="26608" name="small health potion">
+		<attribute key="slotType" value="potion" />
+	</item>
+	<item id="26609" name="small health potion">
+		<attribute key="slotType" value="potion" />
+	</item>
+	<item id="26610" name="small health potion">
+		<attribute key="slotType" value="potion" />
+	</item>
+	<item id="26611" name="small health potion">
+		<attribute key="slotType" value="potion" />
+	</item>
+	<item id="26612" name="small health potion">
+		<attribute key="slotType" value="potion" />
+	</item>
+	<item id="26613" name="small health potion">
+		<attribute key="slotType" value="potion" />
+	</item>
+	<item id="26614" name="small health potion">
+		<attribute key="slotType" value="potion" />
+	</item>
+	<item id="26615" name="small health potion">
+		<attribute key="slotType" value="potion" />
+	</item>
+	<item id="26616" name="small health potion">
+		<attribute key="slotType" value="potion" />
+	</item>
+	<item id="26617" name="small health potion">
+		<attribute key="slotType" value="potion" />
+	</item>
+	<item id="26618" name="small health potion">
+		<attribute key="slotType" value="potion" />
+	</item>
+	<item id="26619" name="small health potion">
+		<attribute key="slotType" value="potion" />
+	</item>
+	<item id="26620" name="small health potion">
+		<attribute key="slotType" value="potion" />
+	</item>
+	<item id="26621" />
+	<item id="26622" article="a" name="stone" />
+	<item id="26623" article="a" name="stone" />
+	<item id="26624" article="a" name="stone" />
+	<item id="26625" article="a" name="stone" />
+	<item id="26626" article="a" name="stone" />
+	<item id="26627" article="a" name="stone" />
+	<item id="26628" article="a" name="stone" />
+	<item id="26629" article="a" name="stone" />
+	<item id="26630" article="a" name="copper bar">
+		<attribute key="weight" value="20" />
+	</item>
+	<item id="26631" article="a" name="gold bar">
+		<attribute key="weight" value="20" />
+	</item>
+	<item id="26632" article="a" name="iron bar">
+		<attribute key="weight" value="20" />
+	</item>
+	<item id="26633" article="a" name="tin bar">
+		<attribute key="weight" value="20" />
+	</item>
+	<item id="26634" article="a" name="charcoal bar">
+		<attribute key="weight" value="20" />
+	</item>
+	<item id="26635" article="a" name="crimsonite bar">
+		<attribute key="weight" value="20" />
+	</item>
+	<item id="26636" article="a" name="mithril bar">
+		<attribute key="weight" value="20" />
+	</item>
+	<item id="26637" article="a" name="adamantite bar">
+		<attribute key="weight" value="20" />
+	</item>
+	<item id="26638" />
+	<item id="26639" />
+	<item id="26640" />
+	<item id="26641" />
+	<item id="26642" article="a" name="iron ore">
+		<attribute key="weight" value="20" />
+	</item>
+	<item id="26643" article="a" name="copper ore">
+		<attribute key="weight" value="20" />
+	</item>
+	<item id="26644" article="a" name="charcoal ore">
+		<attribute key="weight" value="20" />
+	</item>
+	<item id="26645" article="a" name="tin ore">
+		<attribute key="weight" value="20" />
+	</item>
+	<item id="26646" article="a" name="gold ore">
+		<attribute key="weight" value="20" />
+	</item>
+	<item id="26647" article="a" name="crimsonite ore">
+		<attribute key="weight" value="20" />
+	</item>
+	<item id="26648" article="a" name="mithril ore">
+		<attribute key="weight" value="20" />
+	</item>
+	<item id="26649" article="a" name="adamantite ore">
+		<attribute key="weight" value="20" />
 	</item>
 </items>
