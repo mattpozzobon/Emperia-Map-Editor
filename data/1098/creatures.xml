@@ -670,4 +670,13 @@
     <creature name="Zoralurk" type="monster" looktype="12" lookhead="0" lookbody="98" looklegs="86" lookfeet="94"/>
     <creature name="Zugurosh" type="monster" looktype="12" lookhead="2" lookbody="35" looklegs="57" lookfeet="91"/>
     <creature name="Zulazza the Corruptor" type="monster" looktype="334"/>
+
+    <creature name="Garrick" type="npc" looktype="334"/>
+    <creature name="Torben" type="npc" looktype="128" lookhead="78" lookbody="69" looklegs="58" lookfeet="76"/>
+    <creature name="Aldric" type="npc" looktype="131" lookhead="95" lookbody="116" looklegs="95" lookfeet="114"/>
+    <creature name="Banker" type="npc" looktype="334"/>
+    <creature name="Torban" type="npc" looktype="334"/>
+    <creature name="Aldric" type="npc" looktype="334"/>
+
+    
 </creatures>

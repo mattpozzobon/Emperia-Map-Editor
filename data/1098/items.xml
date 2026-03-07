@@ -50643,7 +50643,7 @@
 	<item id="26416" />
 	<item id="26417" />
 	<item id="26418" name="teste" />
-	<item id="26419" article="a" name="minotaur leather">
+	<item id="26419" article="a" name="leather tier 5">
 		<attribute key="weight" value="40" />
 	</item>
 	<item id="26420" />
@@ -50807,50 +50807,50 @@
 		<attribute key="weight" value="100" />
 		<attribute key="slotType" value="knife" />
 	</item>
-	<item id="26557" article="a" name="minotaur leather">
+	<item id="26557" article="a" name="leather scrap tier 1">
 		<attribute key="weight" value="40" />
 	</item>
-	<item id="26558" article="a" name="minotaur leather">
+	<item id="26558" article="a" name="leather scrap tier 2">
 		<attribute key="weight" value="40" />
 	</item>
-	<item id="26559" article="a" name="minotaur leather">
+	<item id="26559" article="a" name="leather scrap tier 3">
 		<attribute key="weight" value="40" />
 	</item>
-	<item id="26560" article="a" name="minotaur leather">
+	<item id="26560" article="a" name="leather scrap tier 4">
 		<attribute key="weight" value="40" />
 	</item>
-	<item id="26561" article="a" name="minotaur leather">
+	<item id="26561" article="a" name="leather scrap tier 5">
 		<attribute key="weight" value="40" />
 	</item>
-	<item id="26562" article="a" name="minotaur leather">
+	<item id="26562" article="a" name="leather scrap tier 6">
 		<attribute key="weight" value="40" />
 	</item>
-	<item id="26563" article="a" name="minotaur leather">
+	<item id="26563" article="a" name="leather scrap tier 7">
 		<attribute key="weight" value="40" />
 	</item>
-	<item id="26564" article="a" name="minotaur leather">
+	<item id="26564" article="a" name="leather scrap tier 8">
 		<attribute key="weight" value="40" />
 	</item>
-	<item id="26565" article="a" name="minotaur leather">
+	<item id="26565" article="a" name="leather tier 2">
 		<attribute key="weight" value="40" />
 	</item>
-	<item id="26566" article="a" name="minotaur leather">
+	<item id="26566" article="a" name="leather tier 3">
 		<attribute key="weight" value="40" />
 	</item>
-	<item id="26567" article="a" name="minotaur leather">
+	<item id="26567" article="a" name="leather tier 4">
 		<attribute key="weight" value="40" />
 	</item>
 	<item id="26568" />
-	<item id="26569" article="a" name="minotaur leather">
+	<item id="26569" article="a" name="leather tier 6">
 		<attribute key="weight" value="40" />
 	</item>
-	<item id="26570" article="a" name="minotaur leather">
+	<item id="26570" article="a" name="leather tier 7">
 		<attribute key="weight" value="40" />
 	</item>
-	<item id="26571" article="a" name="minotaur leather">
+	<item id="26571" article="a" name="leather tier 8">
 		<attribute key="weight" value="40" />
 	</item>
-	<item id="26572" article="a" name="minotaur leather">
+	<item id="26572" article="a" name="leather tier 1">
 		<attribute key="weight" value="40" />
 	</item>
 	<item id="26573" />
