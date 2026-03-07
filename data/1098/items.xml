@@ -50775,35 +50775,35 @@
 	<item id="26546" />
 	<item id="26547" />
 	<item id="26548" />
-	<item id="26549" article="a" name="kitchen knife">
+	<item id="26549" article="a" name="adamantite knife">
 		<attribute key="weight" value="100" />
 		<attribute key="slotType" value="knife" />
 	</item>
-	<item id="26550" article="a" name="kitchen knife">
+	<item id="26550" article="a" name="mithril knife">
 		<attribute key="weight" value="100" />
 		<attribute key="slotType" value="knife" />
 	</item>
-	<item id="26551" article="a" name="kitchen knife">
+	<item id="26551" article="a" name="gold knife">
 		<attribute key="weight" value="100" />
 		<attribute key="slotType" value="knife" />
 	</item>
-	<item id="26552" article="a" name="kitchen knife">
+	<item id="26552" article="a" name="iron knife">
 		<attribute key="weight" value="100" />
 		<attribute key="slotType" value="knife" />
 	</item>
-	<item id="26553" article="a" name="kitchen knife">
+	<item id="26553" article="a" name="bronze knife">
 		<attribute key="weight" value="100" />
 		<attribute key="slotType" value="knife" />
 	</item>
-	<item id="26554" article="a" name="kitchen knife">
+	<item id="26554" article="a" name="stone knife">
 		<attribute key="weight" value="100" />
 		<attribute key="slotType" value="knife" />
 	</item>
-	<item id="26555" article="a" name="kitchen knife">
+	<item id="26555" article="a" name="copper knife">
 		<attribute key="weight" value="100" />
 		<attribute key="slotType" value="knife" />
 	</item>
-	<item id="26556" article="a" name="kitchen knife">
+	<item id="26556" article="a" name="crimsonite knife">
 		<attribute key="weight" value="100" />
 		<attribute key="slotType" value="knife" />
 	</item>
@@ -50870,35 +50870,35 @@
 		<attribute key="rotateTo" value="26579" />
 	</item>
 	<item id="26581" />
-	<item id="26582" article="a" name="pick">
+	<item id="26582" article="a" name="bronze pick">
 		<attribute key="weight" value="4500" />
 		<attribute key="slotType" value="pick" />
 	</item>
-	<item id="26583" article="a" name="pick">
+	<item id="26583" article="a" name="stone pick">
 		<attribute key="weight" value="4500" />
 		<attribute key="slotType" value="pick" />
 	</item>
-	<item id="26584" article="a" name="pick">
+	<item id="26584" article="a" name="gold pick">
 		<attribute key="weight" value="4500" />
 		<attribute key="slotType" value="pick" />
 	</item>
-	<item id="26585" article="a" name="pick">
+	<item id="26585" article="a" name="copper pick">
 		<attribute key="weight" value="4500" />
 		<attribute key="slotType" value="pick" />
 	</item>
-	<item id="26586" article="a" name="pick">
+	<item id="26586" article="a" name="crimsonite pick">
 		<attribute key="weight" value="4500" />
 		<attribute key="slotType" value="pick" />
 	</item>
-	<item id="26587" article="a" name="pick">
+	<item id="26587" article="a" name="iron pick">
 		<attribute key="weight" value="4500" />
 		<attribute key="slotType" value="pick" />
 	</item>
-	<item id="26588" article="a" name="pick">
+	<item id="26588" article="a" name="mithril pick">
 		<attribute key="weight" value="4500" />
 		<attribute key="slotType" value="pick" />
 	</item>
-	<item id="26589" article="a" name="pick">
+	<item id="26589" article="a" name="adamantite pick">
 		<attribute key="weight" value="4500" />
 		<attribute key="slotType" value="pick" />
 	</item>
@@ -51017,7 +51017,7 @@
 	<item id="26632" article="a" name="iron bar">
 		<attribute key="weight" value="20" />
 	</item>
-	<item id="26633" article="a" name="tin bar">
+	<item id="26633" article="a" name="bronze bar">
 		<attribute key="weight" value="20" />
 	</item>
 	<item id="26634" article="a" name="charcoal bar">
@@ -51045,7 +51045,7 @@
 	<item id="26644" article="a" name="charcoal ore">
 		<attribute key="weight" value="20" />
 	</item>
-	<item id="26645" article="a" name="tin ore">
+	<item id="26645" article="a" name="bronze ore">
 		<attribute key="weight" value="20" />
 	</item>
 	<item id="26646" article="a" name="gold ore">
