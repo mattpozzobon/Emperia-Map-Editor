@@ -50643,7 +50643,7 @@
 	<item id="26416" />
 	<item id="26417" />
 	<item id="26418" name="teste" />
-	<item id="26419" article="a" name="leather tier 5">
+	<item id="26419" article="a" name="ancient leather">
 		<attribute key="weight" value="40" />
 	</item>
 	<item id="26420" />
@@ -50807,50 +50807,50 @@
 		<attribute key="weight" value="100" />
 		<attribute key="slotType" value="knife" />
 	</item>
-	<item id="26557" article="a" name="leather scrap tier 1">
+	<item id="26557" article="a" name="rough leather scrap">
 		<attribute key="weight" value="40" />
 	</item>
-	<item id="26558" article="a" name="leather scrap tier 2">
+	<item id="26558" article="a" name="hard leather scrap">
 		<attribute key="weight" value="40" />
 	</item>
-	<item id="26559" article="a" name="leather scrap tier 3">
+	<item id="26559" article="a" name="leather scrap">
 		<attribute key="weight" value="40" />
 	</item>
-	<item id="26560" article="a" name="leather scrap tier 4">
+	<item id="26560" article="a" name="drake leather scrap">
 		<attribute key="weight" value="40" />
 	</item>
-	<item id="26561" article="a" name="leather scrap tier 5">
+	<item id="26561" article="a" name="ancient leather scrap">
 		<attribute key="weight" value="40" />
 	</item>
-	<item id="26562" article="a" name="leather scrap tier 6">
+	<item id="26562" article="a" name="thick hide scrap">
 		<attribute key="weight" value="40" />
 	</item>
 	<item id="26563" article="a" name="leather scrap tier 7">
 		<attribute key="weight" value="40" />
 	</item>
-	<item id="26564" article="a" name="leather scrap tier 8">
+	<item id="26564" article="a" name="ironhide scrap">
 		<attribute key="weight" value="40" />
 	</item>
-	<item id="26565" article="a" name="leather tier 2">
+	<item id="26565" article="a" name="hard leather">
 		<attribute key="weight" value="40" />
 	</item>
-	<item id="26566" article="a" name="leather tier 3">
+	<item id="26566" article="a" name="leather">
 		<attribute key="weight" value="40" />
 	</item>
-	<item id="26567" article="a" name="leather tier 4">
+	<item id="26567" article="a" name="drake leather">
 		<attribute key="weight" value="40" />
 	</item>
 	<item id="26568" />
-	<item id="26569" article="a" name="leather tier 6">
+	<item id="26569" article="a" name="thick hide">
 		<attribute key="weight" value="40" />
 	</item>
 	<item id="26570" article="a" name="leather tier 7">
 		<attribute key="weight" value="40" />
 	</item>
-	<item id="26571" article="a" name="leather tier 8">
+	<item id="26571" article="a" name="ironhide">
 		<attribute key="weight" value="40" />
 	</item>
-	<item id="26572" article="a" name="leather tier 1">
+	<item id="26572" article="a" name="rough leather">
 		<attribute key="weight" value="40" />
 	</item>
 	<item id="26573" />
@@ -51060,4 +51060,26 @@
 	<item id="26649" article="a" name="adamantite ore">
 		<attribute key="weight" value="20" />
 	</item>
+	<item id="26650" />
+	<item id="26651" />
+	<item id="26652" />
+	<item id="26653" />
+	<item id="26654" name="charcoal vein" />
+	<item id="26655" name="copper vein" />
+	<item id="26656" name="gold vein" />
+	<item id="26657" name="iron vein" />
+	<item id="26658" />
+	<item id="26659" />
+	<item id="26660" name="mithril vein" />
+	<item id="26661" name="crimistonite vein" />
+	<item id="26662" name="bronze vein" />
+	<item id="26663" name="adamantite vein" />
+	<item id="26664" />
+	<item id="26665" />
+	<item id="26666" />
+	<item id="26667" />
+	<item id="26668" />
+	<item id="26669" />
+	<item id="26670" />
+	<item id="26671" />
 </items>

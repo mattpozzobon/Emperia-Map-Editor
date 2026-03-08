@@ -677,6 +677,11 @@
     <creature name="Banker" type="npc" looktype="334"/>
     <creature name="Torban" type="npc" looktype="334"/>
     <creature name="Aldric" type="npc" looktype="334"/>
+	<creature name="Enchanter" type="npc" looktype="334"/>
+    <creature name="Apprentice Enchanter" type="npc" looktype="334"/>
+    <creature name="Master Enchanter" type="npc" looktype="334"/>
+
+
 
     
 </creatures>
