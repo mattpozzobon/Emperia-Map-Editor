@@ -51082,4 +51082,52 @@
 	<item id="26669" />
 	<item id="26670" />
 	<item id="26671" />
+	<item id="26672" article="a" name="bless scroll">
+		<attribute key="description" value="protect agains experience loss" />
+		<attribute key="weight" value="0" />
+	</item>
+	<item id="26673" article="a" name="change gender scroll">
+		<attribute key="description" value="Using this scroll will change your gender" />
+		<attribute key="weight" value="0" />
+	</item>
+	<item id="26674" article="a" name="reset scroll">
+		<attribute key="description" value="Using this scroll will add 30 days of premium time to your account once." />
+		<attribute key="weight" value="0" />
+	</item>
+	<item id="26675" article="a" name="change name scroll">
+		<attribute key="description" value="using this scroll will change your name" />
+		<attribute key="weight" value="0" />
+	</item>
+	<item id="26676" article="a" name="stamina scroll">
+		<attribute key="description" value="Using this scroll will add 1 hour stamina" />
+		<attribute key="weight" value="0" />
+	</item>
+	<item id="26677" article="a" name="protection scroll">
+		<attribute key="description" value="with this scroll your item wont break when upgrading" />
+		<attribute key="weight" value="0" />
+	</item>
+	<item id="26678" name="craft token scroll level 3">
+		<attribute key="description" value="+7% change to upgrade" />
+	</item>
+	<item id="26679" name="craft token scroll level 2">
+		<attribute key="description" value="+5% change to upgrade" />
+	</item>
+	<item id="26680" name="craft token scroll level 1">
+		<attribute key="description" value="+3% change to upgrade" />
+	</item>
+	<item id="26681" name="ressurection scroll">
+		<attribute key="description" value="use this to ressurect yourself or an ally" />
+	</item>
+	<item id="26682" article="a" name="experience scroll">
+		<attribute key="description" value="using this scroll will buff your experience in 50% for an hour" />
+		<attribute key="weight" value="0" />
+	</item>
+	<item id="26683" name="green stamina scroll">
+		<attribute key="description" value="Using this scroll will add 1 hour stamina" />
+		<attribute key="weight" value="0" />
+	</item>
+	<item id="26684" name="green stamina scroll">
+		<attribute key="description" value="Using this scroll will add 1 hour stamina" />
+		<attribute key="weight" value="0" />
+	</item>
 </items>
