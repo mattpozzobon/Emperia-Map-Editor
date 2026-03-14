@@ -69,7 +69,8 @@ Tile::~Tile()
 Tile* Tile::deepCopy(BaseMap& map) const
 {
 	Tile* copy = map.allocator.allocateTile(location);
-	copy->flags = flags;
+	copy->mapflags = mapflags;
+	copy->statflags = statflags;
 	copy->house_id = house_id;
 	if(spawn) copy->spawn = spawn->deepCopy();
 	if(creature) copy->creature = creature->deepCopy();

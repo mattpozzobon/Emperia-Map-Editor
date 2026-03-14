@@ -18,6 +18,10 @@
 #ifndef RME_MAP_DRAWER_H_
 #define RME_MAP_DRAWER_H_
 
+#include "position.h"
+#include <unordered_map>
+#include <unordered_set>
+
 class GameSprite;
 
 struct MapTooltip
@@ -195,6 +199,12 @@ protected:
 
 private:
 	void getDrawPosition(const Position& position, int &x, int &y);
+
+	// Per-zone-instance color cache (rebuilt each frame when show_zones is on)
+	struct ZoneColor { uint8_t r, g, b; };
+	std::unordered_map<uint64_t, ZoneColor> zone_color_cache;
+	void BuildZoneColorCache();
+	static uint64_t packPos(int x, int y, int z) { return (uint64_t(z) << 48) | (uint64_t(y & 0xFFFFFF) << 24) | uint64_t(x & 0xFFFFFF); }
 };
 
 #endif

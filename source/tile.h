@@ -41,7 +41,10 @@ enum {
 	TILESTATE_ZONE_CAVE      = 0x1000,
 	TILESTATE_ZONE_WATER     = 0x2000,
 	TILESTATE_ZONE_DESERT    = 0x4000,
-	TILESTATE_ZONE_MASK      = 0x7F80, // All zone category bits combined
+	TILESTATE_ZONE_MARKET    = 0x8000,
+	TILESTATE_ZONE_TEMPLE    = 0x10000,
+	TILESTATE_ZONE_DEPOT     = 0x20000,
+	TILESTATE_ZONE_MASK      = 0x3FF80, // All zone category bits combined
 	// Internal (statflags - separate uint16_t, values don't collide with mapflags)
 	TILESTATE_SELECTED  = 0x0001,
 	TILESTATE_UNIQUE    = 0x0002,
@@ -207,9 +210,9 @@ public: //Functions
 	void setHouse(House* house);
 
 	// Mapflags (PZ, PVPZONE etc.)
-	void setMapFlags(uint16_t flags);
-	void unsetMapFlags(uint16_t flags);
-	uint16_t getMapFlags() const noexcept;
+	void setMapFlags(uint32_t flags);
+	void unsetMapFlags(uint32_t flags);
+	uint32_t getMapFlags() const noexcept;
 
 	// Statflags (You really ought not to touch this)
 	void setStatFlags(uint16_t flags);
@@ -217,13 +220,8 @@ public: //Functions
 	uint16_t getStatFlags() const noexcept;
 
 protected:
-	union {
-		struct {
-			uint16_t mapflags;
-			uint16_t statflags;
-		};
-		uint32_t flags;
-	};
+	uint32_t mapflags;
+	uint16_t statflags;
 
 private:
 	uint8_t minimapColor;
@@ -262,15 +260,15 @@ inline bool Tile::isHouseExit() const {
 	return exits && !exits->empty();
 }
 
-inline void Tile::setMapFlags(uint16_t flags) {
+inline void Tile::setMapFlags(uint32_t flags) {
 	mapflags = flags | mapflags;
 }
 
-inline void Tile::unsetMapFlags(uint16_t flags) {
+inline void Tile::unsetMapFlags(uint32_t flags) {
 	mapflags &= ~flags;
 }
 
-inline uint16_t Tile::getMapFlags() const noexcept {
+inline uint32_t Tile::getMapFlags() const noexcept {
 	return mapflags;
 }
 

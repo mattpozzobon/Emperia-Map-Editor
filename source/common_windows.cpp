@@ -1844,7 +1844,7 @@ void ZoneConfigDialog::OnAddZone(wxCommandEvent& event)
 	if(wp) {
 		Tile* tile = editor.getMap().getTile(wp->pos);
 		if(tile) {
-			uint16_t mf = tile->getMapFlags();
+			uint32_t mf = tile->getMapFlags();
 			if(mf & TILESTATE_ZONE_CITY)          zc.category = "city";
 			else if(mf & TILESTATE_ZONE_TOWN)      zc.category = "town";
 			else if(mf & TILESTATE_ZONE_FOREST)    zc.category = "forest";
@@ -1853,6 +1853,9 @@ void ZoneConfigDialog::OnAddZone(wxCommandEvent& event)
 			else if(mf & TILESTATE_ZONE_CAVE)      zc.category = "cave";
 			else if(mf & TILESTATE_ZONE_WATER)     zc.category = "water";
 			else if(mf & TILESTATE_ZONE_DESERT)    zc.category = "desert";
+			else if(mf & TILESTATE_ZONE_MARKET)    zc.category = "market";
+			else if(mf & TILESTATE_ZONE_TEMPLE)    zc.category = "temple";
+			else if(mf & TILESTATE_ZONE_DEPOT)     zc.category = "depot";
 		}
 	}
 

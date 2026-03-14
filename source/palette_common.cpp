@@ -511,6 +511,9 @@ void BrushToolPanel::LoadAllContents()
 		zoneChoices.Add("Cave Zone");
 		zoneChoices.Add("Water Zone");
 		zoneChoices.Add("Desert Zone");
+		zoneChoices.Add("Market Zone");
+		zoneChoices.Add("Temple Zone");
+		zoneChoices.Add("Depot Zone");
 		zoneDropdown = newd wxChoice(this, PALETTE_TERRAIN_ZONE_SELECT, wxDefaultPosition, wxDefaultSize, zoneChoices);
 		sub_sizer->Add(zoneDropdown, wxSizerFlags(1).Border(wxLEFT, 6).Expand());
 
@@ -829,6 +832,9 @@ void BrushToolPanel::OnSelectZoneDropdown(wxCommandEvent& event)
 		case 5: g_gui.SelectBrush(g_gui.cave_zone_brush); break;
 		case 6: g_gui.SelectBrush(g_gui.water_zone_brush); break;
 		case 7: g_gui.SelectBrush(g_gui.desert_zone_brush); break;
+		case 8: g_gui.SelectBrush(g_gui.market_zone_brush); break;
+		case 9: g_gui.SelectBrush(g_gui.temple_zone_brush); break;
+		case 10: g_gui.SelectBrush(g_gui.depot_zone_brush); break;
 		default: break;
 	}
 }

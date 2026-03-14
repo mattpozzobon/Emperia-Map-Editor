@@ -51130,4 +51130,12 @@
 		<attribute key="description" value="Using this scroll will add 1 hour stamina" />
 		<attribute key="weight" value="0" />
 	</item>
+	<item id="26685" name="long trade permit">
+		<attribute key="description" value="allows you to create a personal shop for 12 hours" />
+		<attribute key="weight" value="0" />
+	</item>
+	<item id="26686" name="short trade permit">
+		<attribute key="description" value="allows you to create a personal shop for 6 hours" />
+		<attribute key="weight" value="0" />
+	</item>
 </items>

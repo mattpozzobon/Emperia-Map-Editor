@@ -1664,7 +1664,7 @@ bool IOMapOTBM::saveWorldMapData(Map& map, const FileName& dir)
 	}
 
 	// Helper: flag to category string
-	auto flagToCategory = [](uint16_t flag) -> std::string {
+	auto flagToCategory = [](uint32_t flag) -> std::string {
 		if(flag & TILESTATE_ZONE_CITY)     return "city";
 		if(flag & TILESTATE_ZONE_TOWN)     return "town";
 		if(flag & TILESTATE_ZONE_FOREST)   return "forest";
@@ -1673,6 +1673,9 @@ bool IOMapOTBM::saveWorldMapData(Map& map, const FileName& dir)
 		if(flag & TILESTATE_ZONE_CAVE)     return "cave";
 		if(flag & TILESTATE_ZONE_WATER)    return "water";
 		if(flag & TILESTATE_ZONE_DESERT)   return "desert";
+		if(flag & TILESTATE_ZONE_MARKET)   return "market";
+		if(flag & TILESTATE_ZONE_TEMPLE)   return "temple";
+		if(flag & TILESTATE_ZONE_DEPOT)    return "depot";
 		return "";
 	};
 
@@ -1712,7 +1715,7 @@ bool IOMapOTBM::saveWorldMapData(Map& map, const FileName& dir)
 				if(pos.y > fb.maxY) fb.maxY = pos.y;
 			}
 			// Check zone flags
-			uint16_t flags = tile->getMapFlags();
+			uint32_t flags = tile->getMapFlags();
 			if(flags & TILESTATE_ZONE_MASK) {
 				std::string cat = flagToCategory(flags);
 				if(!cat.empty()) {

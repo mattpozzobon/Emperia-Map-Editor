@@ -180,6 +180,163 @@ void MapDrawer::SetupVars()
 
 	end_x = start_x + screensize_x / tile_size + 2;
 	end_y = start_y + screensize_y / tile_size + 2;
+
+	zone_color_cache.clear();
+	if(options.show_zones) {
+		BuildZoneColorCache();
+	}
+}
+
+static uint32_t pickZoneCategory(uint32_t flags)
+{
+	if(flags & TILESTATE_ZONE_CITY)     return TILESTATE_ZONE_CITY;
+	if(flags & TILESTATE_ZONE_TOWN)     return TILESTATE_ZONE_TOWN;
+	if(flags & TILESTATE_ZONE_FOREST)   return TILESTATE_ZONE_FOREST;
+	if(flags & TILESTATE_ZONE_PLAINS)   return TILESTATE_ZONE_PLAINS;
+	if(flags & TILESTATE_ZONE_MOUNTAIN) return TILESTATE_ZONE_MOUNTAIN;
+	if(flags & TILESTATE_ZONE_CAVE)     return TILESTATE_ZONE_CAVE;
+	if(flags & TILESTATE_ZONE_WATER)    return TILESTATE_ZONE_WATER;
+	if(flags & TILESTATE_ZONE_DESERT)   return TILESTATE_ZONE_DESERT;
+	if(flags & TILESTATE_ZONE_MARKET)   return TILESTATE_ZONE_MARKET;
+	if(flags & TILESTATE_ZONE_TEMPLE)   return TILESTATE_ZONE_TEMPLE;
+	if(flags & TILESTATE_ZONE_DEPOT)    return TILESTATE_ZONE_DEPOT;
+	return 0;
+}
+
+// Generate a visually distinct color from a group index using golden-angle hue spacing
+static void zoneGroupColor(int groupIndex, uint8_t& r, uint8_t& g, uint8_t& b)
+{
+	// Golden angle (~137.5 degrees) gives maximally spaced hues
+	float hue = fmod(groupIndex * 137.508f, 360.0f);
+	float s = 0.65f;
+	float v = 0.85f;
+
+	float c = v * s;
+	float x = c * (1.0f - fabsf(fmod(hue / 60.0f, 2.0f) - 1.0f));
+	float m = v - c;
+
+	float rf, gf, bf;
+	if(hue < 60)       { rf = c; gf = x; bf = 0; }
+	else if(hue < 120) { rf = x; gf = c; bf = 0; }
+	else if(hue < 180) { rf = 0; gf = c; bf = x; }
+	else if(hue < 240) { rf = 0; gf = x; bf = c; }
+	else if(hue < 300) { rf = x; gf = 0; bf = c; }
+	else               { rf = c; gf = 0; bf = x; }
+
+	r = uint8_t((rf + m) * 255);
+	g = uint8_t((gf + m) * 255);
+	b = uint8_t((bf + m) * 255);
+}
+
+void MapDrawer::BuildZoneColorCache()
+{
+	Map& map = editor.getMap();
+
+	// Collect all zone tiles across visible floors
+	struct ZoneEntry {
+		int x, y, z;
+		uint32_t category;
+	};
+
+	std::unordered_map<uint64_t, ZoneEntry> zoneTiles;
+
+	for(int mz = start_z; mz >= superend_z; mz--) {
+		int nd_sx = start_x & ~3;
+		int nd_sy = start_y & ~3;
+		int nd_ex = (end_x & ~3) + 4;
+		int nd_ey = (end_y & ~3) + 4;
+
+		for(int nx = nd_sx; nx <= nd_ex; nx += 4) {
+			for(int ny = nd_sy; ny <= nd_ey; ny += 4) {
+				QTreeNode* nd = map.getLeaf(nx, ny);
+				if(!nd) continue;
+				for(int lx = 0; lx < 4; ++lx) {
+					for(int ly = 0; ly < 4; ++ly) {
+						TileLocation* loc = nd->getTile(lx, ly, mz);
+						if(!loc) continue;
+						Tile* tile = loc->get();
+						if(!tile) continue;
+						uint32_t mf = tile->getMapFlags();
+						uint32_t cat = pickZoneCategory(mf);
+						if(cat == 0) continue;
+						int tx = nx + lx;
+						int ty = ny + ly;
+						uint64_t key = packPos(tx, ty, mz);
+						zoneTiles[key] = { tx, ty, mz, cat };
+					}
+				}
+			}
+		}
+	}
+
+	if(zoneTiles.empty()) return;
+
+	// Collect waypoints sitting on zone tiles
+	struct Anchor {
+		std::string name;
+		int x, y, z;
+		uint32_t category;
+	};
+	std::vector<Anchor> anchors;
+
+	for(auto it = map.waypoints.begin(); it != map.waypoints.end(); ++it) {
+		Waypoint* wp = it->second;
+		if(!wp || !wp->pos.isValid()) continue;
+		uint64_t key = packPos(wp->pos.x, wp->pos.y, wp->pos.z);
+		auto found = zoneTiles.find(key);
+		if(found != zoneTiles.end()) {
+			anchors.push_back({ wp->name, wp->pos.x, wp->pos.y, wp->pos.z, found->second.category });
+		}
+	}
+
+	std::unordered_set<uint64_t> claimed;
+	int groupIndex = 0;
+
+	// Flood-fill helper: flood from a start tile, claiming connected same-category tiles
+	auto floodFill = [&](uint64_t startKey, uint32_t category, int gIdx) {
+		std::vector<uint64_t> queue;
+		queue.push_back(startKey);
+		while(!queue.empty()) {
+			uint64_t k = queue.back();
+			queue.pop_back();
+			if(claimed.count(k)) continue;
+			auto it = zoneTiles.find(k);
+			if(it == zoneTiles.end()) continue;
+			if(it->second.category != category) continue;
+			claimed.insert(k);
+
+			uint8_t cr, cg, cb;
+			zoneGroupColor(gIdx, cr, cg, cb);
+			zone_color_cache[k] = { cr, cg, cb };
+
+			int tx = it->second.x;
+			int ty = it->second.y;
+			int tz = it->second.z;
+			uint64_t neighbors[4] = {
+				packPos(tx + 1, ty, tz),
+				packPos(tx - 1, ty, tz),
+				packPos(tx, ty + 1, tz),
+				packPos(tx, ty - 1, tz),
+			};
+			for(int i = 0; i < 4; ++i) {
+				if(!claimed.count(neighbors[i]))
+					queue.push_back(neighbors[i]);
+			}
+		}
+	};
+
+	// Flood from each waypoint anchor
+	for(const auto& anchor : anchors) {
+		uint64_t key = packPos(anchor.x, anchor.y, anchor.z);
+		if(claimed.count(key)) continue;
+		floodFill(key, anchor.category, groupIndex++);
+	}
+
+	// Flood remaining unclaimed zone tiles
+	for(const auto& pair : zoneTiles) {
+		if(claimed.count(pair.first)) continue;
+		floodFill(pair.first, pair.second.category, groupIndex++);
+	}
 }
 
 void MapDrawer::SetupGL()
@@ -460,17 +617,10 @@ void MapDrawer::DrawSecondaryMap(int map_z)
 					r /= 3;
 					g = g / 3 * 2;
 				}
-				// World zone category overlays
-				if(options.show_zones) {
-					uint16_t mf = tile->getMapFlags();
-					if(mf & TILESTATE_ZONE_CITY)     { r = r/3;     g = g/3;     b = 200; }
-					else if(mf & TILESTATE_ZONE_TOWN)     { r = r/3;     g = 180;     b = 200; }
-					else if(mf & TILESTATE_ZONE_FOREST)   { r = r/4;     g = 180;     b = b/4; }
-					else if(mf & TILESTATE_ZONE_PLAINS)   { r = 180;     g = 200;     b = b/4; }
-					else if(mf & TILESTATE_ZONE_MOUNTAIN) { r = 140;     g = 140;     b = 140; }
-					else if(mf & TILESTATE_ZONE_CAVE)     { r = 160;     g = 100;     b = 60;  }
-					else if(mf & TILESTATE_ZONE_WATER)    { r = r/4;     g = g/4;     b = 220; }
-					else if(mf & TILESTATE_ZONE_DESERT)   { r = 200;     g = 160;     b = 60;  }
+				// World zone category overlays (per-instance color from cache)
+				if(options.show_zones && (tile->getMapFlags() & TILESTATE_ZONE_MASK)) {
+					auto zit = zone_color_cache.find(packPos(final_pos.x, final_pos.y, final_pos.z));
+					if(zit != zone_color_cache.end()) { r = zit->second.r; g = zit->second.g; b = zit->second.b; }
 				}
 				BlitItem(draw_x, draw_y, tile, tile->ground, true, r, g, b, 160);
 			}
@@ -670,17 +820,10 @@ void MapDrawer::DrawHigherFloors()
 					r /= 3;
 					g = g / 3 * 2;
 				}
-				// World zone category overlays
-				if(options.show_zones) {
-					uint16_t mf = tile->getMapFlags();
-					if(mf & TILESTATE_ZONE_CITY)     { r = r/3;     g = g/3;     b = 200; }
-					else if(mf & TILESTATE_ZONE_TOWN)     { r = r/3;     g = 180;     b = 200; }
-					else if(mf & TILESTATE_ZONE_FOREST)   { r = r/4;     g = 180;     b = b/4; }
-					else if(mf & TILESTATE_ZONE_PLAINS)   { r = 180;     g = 200;     b = b/4; }
-					else if(mf & TILESTATE_ZONE_MOUNTAIN) { r = 140;     g = 140;     b = 140; }
-					else if(mf & TILESTATE_ZONE_CAVE)     { r = 160;     g = 100;     b = 60;  }
-					else if(mf & TILESTATE_ZONE_WATER)    { r = r/4;     g = g/4;     b = 220; }
-					else if(mf & TILESTATE_ZONE_DESERT)   { r = 200;     g = 160;     b = 60;  }
+				// World zone category overlays (per-instance color from cache)
+				if(options.show_zones && (tile->getMapFlags() & TILESTATE_ZONE_MASK)) {
+					auto zit = zone_color_cache.find(packPos(map_x, map_y, map_z));
+					if(zit != zone_color_cache.end()) { r = zit->second.r; g = zit->second.g; b = zit->second.b; }
 				}
 				BlitItem(draw_x, draw_y, tile, tile->ground, false, r, g, b, 96);
 			}
@@ -1550,17 +1693,10 @@ void MapDrawer::DrawTile(TileLocation* location)
 				g = g / 3 * 2;
 			}
 
-			// World zone category overlays
-			if(options.show_zones) {
-				uint16_t mf = tile->getMapFlags();
-				if(mf & TILESTATE_ZONE_CITY)     { r = r/3;     g = g/3;     b = 200; }
-				else if(mf & TILESTATE_ZONE_TOWN)     { r = r/3;     g = 180;     b = 200; }
-				else if(mf & TILESTATE_ZONE_FOREST)   { r = r/4;     g = 180;     b = b/4; }
-				else if(mf & TILESTATE_ZONE_PLAINS)   { r = 180;     g = 200;     b = b/4; }
-				else if(mf & TILESTATE_ZONE_MOUNTAIN) { r = 140;     g = 140;     b = 140; }
-				else if(mf & TILESTATE_ZONE_CAVE)     { r = 160;     g = 100;     b = 60;  }
-				else if(mf & TILESTATE_ZONE_WATER)    { r = r/4;     g = g/4;     b = 220; }
-				else if(mf & TILESTATE_ZONE_DESERT)   { r = 200;     g = 160;     b = 60;  }
+			// World zone category overlays (per-instance color from cache)
+			if(options.show_zones && (tile->getMapFlags() & TILESTATE_ZONE_MASK)) {
+				auto zit = zone_color_cache.find(packPos(position.x, position.y, position.z));
+				if(zit != zone_color_cache.end()) { r = zit->second.r; g = zit->second.g; b = zit->second.b; }
 			}
 		}
 

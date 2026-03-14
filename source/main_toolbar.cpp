@@ -113,6 +113,9 @@ MainToolBar::MainToolBar(wxWindow* parent, wxAuiManager* manager)
 	zone_dropdown->Append("Cave");
 	zone_dropdown->Append("Water");
 	zone_dropdown->Append("Desert");
+	zone_dropdown->Append("Market");
+	zone_dropdown->Append("Temple");
+	zone_dropdown->Append("Depot");
 	zone_dropdown->SetSelection(0);
 	zone_dropdown->SetToolTip("Select World Zone Brush");
 	brushes_toolbar->AddControl(zone_dropdown);
@@ -683,6 +686,9 @@ void MainToolBar::OnZoneDropdownSelect(wxCommandEvent& event)
 		case 6: g_gui.SelectBrush(g_gui.cave_zone_brush); break;
 		case 7: g_gui.SelectBrush(g_gui.water_zone_brush); break;
 		case 8: g_gui.SelectBrush(g_gui.desert_zone_brush); break;
+		case 9: g_gui.SelectBrush(g_gui.market_zone_brush); break;
+		case 10: g_gui.SelectBrush(g_gui.temple_zone_brush); break;
+		case 11: g_gui.SelectBrush(g_gui.depot_zone_brush); break;
 		default: break;
 	}
 }

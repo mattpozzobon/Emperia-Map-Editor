@@ -419,6 +419,9 @@ public:
 	FlagBrush* cave_zone_brush;
 	FlagBrush* water_zone_brush;
 	FlagBrush* desert_zone_brush;
+	FlagBrush* market_zone_brush;
+	FlagBrush* temple_zone_brush;
+	FlagBrush* depot_zone_brush;
 
 protected:
 
