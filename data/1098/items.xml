@@ -4872,7 +4872,7 @@
 		<attribute key="showduration" value="true" />
 		<attribute key="slotType" value="feet" />
 	</item>
-	<item id="2641" name="patched boots">
+	<item id="2641" name="studded boots">
 		<attribute key="weight" value="1000" />
 		<attribute key="slotType" value="feet" />
 	</item>
@@ -50861,12 +50861,12 @@
 	<item id="26578" />
 	<item id="26579" name="mannequin ">
 		<attribute key="type" value="container" />
-		<attribute key="containerSize" value="0" />
+		<attribute key="containerSize" value="4" />
 		<attribute key="rotateTo" value="26580" />
 	</item>
 	<item id="26580" name="mannequin">
 		<attribute key="type" value="container" />
-		<attribute key="containerSize" value="0" />
+		<attribute key="containerSize" value="4" />
 		<attribute key="rotateTo" value="26579" />
 	</item>
 	<item id="26581" />
@@ -51138,4 +51138,142 @@
 		<attribute key="description" value="allows you to create a personal shop for 6 hours" />
 		<attribute key="weight" value="0" />
 	</item>
+	<item id="26687" />
+	<item id="26688" />
+	<item id="26689" />
+	<item id="26690" />
+	<item id="26691" />
+	<item id="26692" />
+	<item id="26693" />
+	<item id="26694" />
+	<item id="26695" />
+	<item id="26696" />
+	<item id="26697" />
+	<item id="26698" />
+	<item id="26699" />
+	<item id="26700" />
+	<item id="26701" />
+	<item id="26702" />
+	<item id="26703" />
+	<item id="26704" />
+	<item id="26705" />
+	<item id="26706" />
+	<item id="26707" />
+	<item id="26708" />
+	<item id="26709" />
+	<item id="26710" />
+	<item id="26711" />
+	<item id="26712" />
+	<item id="26713" />
+	<item id="26714" />
+	<item id="26715" />
+	<item id="26716" />
+	<item id="26717" />
+	<item id="26718" />
+	<item id="26719" />
+	<item id="26720" />
+	<item id="26721" />
+	<item id="26722" />
+	<item id="26723" />
+	<item id="26724" />
+	<item id="26725" />
+	<item id="26726" />
+	<item id="26727" />
+	<item id="26728" />
+	<item id="26729" />
+	<item id="26730" />
+	<item id="26731" />
+	<item id="26732" article="a" name="adamantite ore">
+		<attribute key="weight" value="20" />
+	</item>
+	<item id="26733" article="a" name="adamantite ore">
+		<attribute key="weight" value="20" />
+	</item>
+	<item id="26734" article="a" name="adamantite ore">
+		<attribute key="weight" value="20" />
+	</item>
+	<item id="26735" article="a" name="adamantite ore">
+		<attribute key="weight" value="20" />
+	</item>
+	<item id="26736" article="a" name="adamantite ore">
+		<attribute key="weight" value="20" />
+	</item>
+	<item id="26737" article="a" name="adamantite ore">
+		<attribute key="weight" value="20" />
+	</item>
+	<item id="26738" article="a" name="adamantite ore">
+		<attribute key="weight" value="20" />
+	</item>
+	<item id="26739" article="a" name="adamantite ore">
+		<attribute key="weight" value="20" />
+	</item>
+	<item id="26740" article="a" name="adamantite ore">
+		<attribute key="weight" value="20" />
+	</item>
+	<item id="26741" article="a" name="adamantite ore">
+		<attribute key="weight" value="20" />
+	</item>
+	<item id="26742" />
+	<item id="26743" />
+	<item id="26744" name="charcoal vein" />
+	<item id="26745" name="charcoal vein" />
+	<item id="26746" name="charcoal vein" />
+	<item id="26747" name="charcoal vein" />
+	<item id="26748" name="charcoal vein" />
+	<item id="26749" name="charcoal vein" />
+	<item id="26750" name="charcoal vein" />
+	<item id="26751" name="charcoal vein" />
+	<item id="26752" name="charcoal vein" />
+	<item id="26753" name="charcoal vein" />
+	<item id="26754" name="charcoal vein" />
+	<item id="26755" name="charcoal vein" />
+	<item id="26756" />
+	<item id="26757" />
+	<item id="26758" />
+	<item id="26759" />
+	<item id="26760" />
+	<item id="26761" />
+	<item id="26762" />
+	<item id="26763" />
+	<item id="26764" />
+	<item id="26765" />
+	<item id="26766" />
+	<item id="26767" />
+	<item id="26768" />
+	<item id="26769" />
+	<item id="26770" />
+	<item id="26771" />
+	<item id="26772" />
+	<item id="26773" />
+	<item id="26774" article="a" name="adamantite ore">
+		<attribute key="weight" value="20" />
+	</item>
+	<item id="26775" article="a" name="adamantite ore">
+		<attribute key="weight" value="20" />
+	</item>
+	<item id="26776" article="a" name="adamantite ore">
+		<attribute key="weight" value="20" />
+	</item>
+	<item id="26777" article="a" name="adamantite ore">
+		<attribute key="weight" value="20" />
+	</item>
+	<item id="26778" article="a" name="adamantite ore">
+		<attribute key="weight" value="20" />
+	</item>
+	<item id="26779" article="a" name="adamantite ore">
+		<attribute key="weight" value="20" />
+	</item>
+	<item id="26780" article="a" name="adamantite ore">
+		<attribute key="weight" value="20" />
+	</item>
+	<item id="26781" article="a" name="adamantite ore">
+		<attribute key="weight" value="20" />
+	</item>
+	<item id="26782" article="a" name="adamantite ore">
+		<attribute key="weight" value="20" />
+	</item>
+	<item id="26783" article="a" name="adamantite ore">
+		<attribute key="weight" value="20" />
+	</item>
+	<item id="26784" />
 </items>
