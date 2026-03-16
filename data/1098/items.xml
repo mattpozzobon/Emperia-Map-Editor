@@ -2292,7 +2292,7 @@
 	<item id="1988" article="a" name="backpack">
 		<attribute key="type" value="container" />
 		<attribute key="weight" value="1800" />
-		<attribute key="containerSize" value="30" />
+		<attribute key="containerSize" value="35" />
 		<attribute key="slotType" value="backpack" />
 	</item>
 	<item id="1989" article="a" name="basket">
@@ -2368,7 +2368,7 @@
 	<item id="2001" article="a" name="purple backpack">
 		<attribute key="type" value="container" />
 		<attribute key="weight" value="1800" />
-		<attribute key="containerSize" value="20" />
+		<attribute key="containerSize" value="22" />
 		<attribute key="slotType" value="backpack" />
 	</item>
 	<item id="2002" article="a" name="brown belt">
