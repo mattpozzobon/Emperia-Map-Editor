@@ -2563,8 +2563,8 @@
 		<attribute key="slotType" value="ammo" />
 	</item>
 	<item id="2051" article="a" name="lit torch">
-		<attribute key="decayTo" value="2053" />
-		<attribute key="duration" value="600" />
+		<attribute key="decayTo" value="0" />
+		<attribute key="duration" value="1800" />
 		<attribute key="weight" value="500" />
 		<attribute key="slotType" value="ammo" />
 	</item>
