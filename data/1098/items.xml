@@ -50342,14 +50342,20 @@
 	<item id="26237" />
 	<item id="26238" />
 	<item id="26239" />
-	<item id="26240" />
-	<item id="26241" />
-	<item id="26242" />
+	<item id="26240" name="bush" />
+	<item id="26241" name="blueberry bush">
+		<attribute key="decayTo" value="0" />
+		<attribute key="duration" value="0" />
+	</item>
+	<item id="26242" name="small fir tree" />
 	<item id="26243" />
 	<item id="26244" />
 	<item id="26245" />
 	<item id="26246" />
-	<item id="26247" />
+	<item id="26247" name="blueberry bush">
+		<attribute key="decayTo" value="2785" />
+		<attribute key="duration" value="300" />
+	</item>
 	<item id="26248" />
 	<item id="26249" />
 	<item id="26250" />
@@ -51282,4 +51288,7 @@
 		<attribute key="weight" value="20" />
 	</item>
 	<item id="26784" />
+	<item id="26785" />
+	<item id="26786" />
+	<item id="26787" />
 </items>
