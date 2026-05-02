@@ -2347,10 +2347,10 @@
 		<attribute key="containerSize" value="8" />
 		<attribute key="slotType" value="backpack" />
 	</item>
-	<item id="1998" name="small backpack">
+	<item id="1998" name="green backpack">
 		<attribute key="type" value="container" />
 		<attribute key="weight" value="1800" />
-		<attribute key="containerSize" value="21" />
+		<attribute key="containerSize" value="20" />
 		<attribute key="slotType" value="backpack" />
 	</item>
 	<item id="1999" name="yellow backpack">
@@ -32270,8 +32270,8 @@
 	<item id="16100" name="dragon's nest">
 		<attribute key="description" value="Young dragons will hatch soon." />
 	</item>
-	<item id="16101" name="noble scroll">
-		<attribute key="description" value="Using this scroll will add 30 days of noble status to your account once." />
+	<item id="16101" name="premium scroll">
+		<attribute key="description" value="Using this scroll will add 30 days of premium time to your account once." />
 		<attribute key="weight" value="0" />
 	</item>
 	<item id="16102" name="surprise nest">
@@ -51130,16 +51130,16 @@
 	<item id="26681" name="ressurection scroll">
 		<attribute key="description" value="use this to ressurect yourself or an ally" />
 	</item>
-	<item id="26682" name="Daily experience scroll">
-		<attribute key="description" value="Using this scroll will buff your experience in 10% for 24 hours." />
+	<item id="26682" name="experience scroll">
+		<attribute key="description" value="using this scroll will buff your experience in 50% for an hour" />
 		<attribute key="weight" value="0" />
 	</item>
 	<item id="26683" name="green stamina scroll">
 		<attribute key="description" value="Using this scroll will add 1 hour stamina" />
 		<attribute key="weight" value="0" />
 	</item>
-	<item id="26684" name="Experience scroll">
-		<attribute key="description" value="Using this scroll will buff your experience in 50% for 1 hour." />
+	<item id="26684" name="green stamina scroll">
+		<attribute key="description" value="Using this scroll will add 1 hour stamina" />
 		<attribute key="weight" value="0" />
 	</item>
 	<item id="26685" name="long trade permit">
