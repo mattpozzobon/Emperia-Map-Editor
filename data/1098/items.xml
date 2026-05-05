@@ -50342,12 +50342,18 @@
 	<item id="26237" />
 	<item id="26238" />
 	<item id="26239" />
-	<item id="26240" name="bush" />
+	<item id="26240" name="bush">
+		<attribute key="decayTo" value="3681" />
+		<attribute key="duration" value="300" />
+	</item>
 	<item id="26241" name="blueberry bush">
 		<attribute key="decayTo" value="0" />
 		<attribute key="duration" value="0" />
 	</item>
-	<item id="26242" name="small fir tree" />
+	<item id="26242" name="small fir tree">
+		<attribute key="decayTo" value="3682" />
+		<attribute key="duration" value="300" />
+	</item>
 	<item id="26243" />
 	<item id="26244" />
 	<item id="26245" />
