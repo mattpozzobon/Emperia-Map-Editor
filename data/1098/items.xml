@@ -2377,14 +2377,12 @@
 		<attribute key="containerSize" value="0" />
 		<attribute key="slotType" value="belt" />
 	</item>
-	<item id="2003" name="leather cape">
+	<item id="2003" name="brown cape">
 		<attribute key="weight" value="1800" />
 		<attribute key="slotType" value="backpack" />
 	</item>
-	<item id="2004" name="golden backpack">
-		<attribute key="type" value="container" />
+	<item id="2004" name="black cape">
 		<attribute key="weight" value="1800" />
-		<attribute key="containerSize" value="20" />
 		<attribute key="slotType" value="backpack" />
 	</item>
 	<item id="2005" name="bucket">
@@ -8123,10 +8121,8 @@
 		<attribute key="containerSize" value="8" />
 		<attribute key="slotType" value="backpack" />
 	</item>
-	<item id="3940" name="camouflage backpack">
-		<attribute key="type" value="container" />
+	<item id="3940" name="red cape">
 		<attribute key="weight" value="1800" />
-		<attribute key="containerSize" value="20" />
 		<attribute key="slotType" value="backpack" />
 	</item>
 	<item id="3941" name="cup">
@@ -50343,7 +50339,7 @@
 	<item id="26238" />
 	<item id="26239" />
 	<item id="26240" name="bush">
-		<attribute key="decayTo" value="3681" />
+		<attribute key="decayTo" value="2767" />
 		<attribute key="duration" value="300" />
 	</item>
 	<item id="26241" name="blueberry bush">
@@ -50351,7 +50347,7 @@
 		<attribute key="duration" value="0" />
 	</item>
 	<item id="26242" name="small fir tree">
-		<attribute key="decayTo" value="3682" />
+		<attribute key="decayTo" value="2768" />
 		<attribute key="duration" value="300" />
 	</item>
 	<item id="26243" />
