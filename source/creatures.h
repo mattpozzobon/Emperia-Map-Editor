@@ -69,6 +69,7 @@ public:
 	bool in_other_tileset;
 	bool standard;
 	std::string name;
+	std::string title;
 	Outfit outfit;
 	CreatureBrush* brush;
 

@@ -1549,6 +1549,24 @@ void MapDrawer::BlitCreature(int screenx, int screeny, const Outfit& outfit, Dir
 
 		int frame = 0;
 
+		auto blitCreatureSprite = [&](GameSprite* layerSprite, const Outfit& layerOutfit) {
+			if(!layerSprite) {
+				return;
+			}
+
+			int layerPatternZ = 0;
+			if(layerSprite->pattern_z > 0) {
+				layerPatternZ = std::min<int>(pattern_z, layerSprite->pattern_z - 1);
+			}
+
+			for(int cx = 0; cx != layerSprite->width; ++cx) {
+				for(int cy = 0; cy != layerSprite->height; ++cy) {
+					int texnum = layerSprite->getHardwareID(cx, cy, (int)dir, 0, layerPatternZ, layerOutfit, frame);
+					glBlitTexture(screenx - cx * rme::TileSize, screeny - cy * rme::TileSize, texnum, red, green, blue, alpha);
+				}
+			}
+		};
+
 		// pattern_y => creature addon
 		for(int pattern_y = 0; pattern_y < sprite->pattern_y; pattern_y++) {
 
@@ -1561,6 +1579,73 @@ void MapDrawer::BlitCreature(int screenx, int screeny, const Outfit& outfit, Dir
 					int texnum = sprite->getHardwareID(cx, cy, (int)dir, pattern_y, pattern_z, outfit, frame);
 					glBlitTexture(screenx - cx * rme::TileSize, screeny - cy * rme::TileSize, texnum, red, green, blue, alpha);
 				}
+			}
+		}
+
+		if(outfit.hasCompositeSprites()) {
+			static const int southOrder[] = {
+				OUTFIT_SLOT_LEGS,
+				OUTFIT_SLOT_FEET,
+				OUTFIT_SLOT_BODY,
+				OUTFIT_SLOT_BELT,
+				OUTFIT_SLOT_BACKPACK,
+				OUTFIT_SLOT_HEAD,
+				OUTFIT_SLOT_HAIR,
+				OUTFIT_SLOT_LEFT_HAND,
+				OUTFIT_SLOT_RIGHT_HAND,
+			};
+			static const int eastOrder[] = {
+				OUTFIT_SLOT_LEGS,
+				OUTFIT_SLOT_FEET,
+				OUTFIT_SLOT_BODY,
+				OUTFIT_SLOT_BELT,
+				OUTFIT_SLOT_RIGHT_HAND,
+				OUTFIT_SLOT_HEAD,
+				OUTFIT_SLOT_HAIR,
+				OUTFIT_SLOT_BACKPACK,
+				OUTFIT_SLOT_LEFT_HAND,
+			};
+			static const int northWestOrder[] = {
+				OUTFIT_SLOT_LEGS,
+				OUTFIT_SLOT_FEET,
+				OUTFIT_SLOT_BODY,
+				OUTFIT_SLOT_BELT,
+				OUTFIT_SLOT_RIGHT_HAND,
+				OUTFIT_SLOT_LEFT_HAND,
+				OUTFIT_SLOT_BACKPACK,
+				OUTFIT_SLOT_HEAD,
+				OUTFIT_SLOT_HAIR,
+			};
+
+			const int* order = southOrder;
+			if(dir == EAST) {
+				order = eastOrder;
+			} else if(dir == NORTH || dir == WEST) {
+				order = northWestOrder;
+			}
+
+			for(int i = 0; i < 9; ++i) {
+				int slot = order[i];
+				const OutfitSpriteSlot& spriteSlot = outfit.sprites[slot];
+				if(spriteSlot.id <= 0) {
+					continue;
+				}
+
+				if(slot == OUTFIT_SLOT_HEAD && !outfit.renderHelmet) {
+					continue;
+				}
+
+				if(slot == OUTFIT_SLOT_HAIR && outfit.renderHelmet && outfit.sprites[OUTFIT_SLOT_HEAD].id > 0) {
+					continue;
+				}
+
+				GameSprite* layerSprite = g_gui.gfx.getCreatureSprite(spriteSlot.id);
+				if(!layerSprite) {
+					continue;
+				}
+
+				Outfit slotOutfit = outfit.getColorizedSlotOutfit(slot);
+				blitCreatureSprite(layerSprite, slotOutfit);
 			}
 		}
 	}
@@ -1608,6 +1693,29 @@ void MapDrawer::WriteTooltip(const Waypoint* waypoint, std::ostringstream& strea
 	if(stream.tellp() > 0)
 		stream << "\n";
 	stream << "wp: " << waypoint->name << "\n";
+}
+
+void MapDrawer::WriteTooltip(const Creature* creature, std::ostringstream& stream)
+{
+	if(!creature) {
+		return;
+	}
+
+	const std::string name = creature->getName();
+	if(name.empty()) {
+		return;
+	}
+
+	if(stream.tellp() > 0) {
+		stream << "\n";
+	}
+
+	stream << (creature->isNpc() ? "npc: " : "monster: ") << name << "\n";
+	const std::string title = creature->getTitle();
+	if(!title.empty()) {
+		stream << "title: " << title << "\n";
+	}
+	stream << "spawntime: " << creature->getSpawnTime() << "\n";
 }
 
 void MapDrawer::DrawTile(TileLocation* location)
@@ -1740,6 +1848,9 @@ void MapDrawer::DrawTile(TileLocation* location)
 	}
 
 	if(!hidden && options.show_creatures && tile->creature) {
+		if(show_tooltips && position.z == floor) {
+			WriteTooltip(tile->creature, tooltip);
+		}
 		BlitCreature(draw_x, draw_y, tile->creature);
 	}
 

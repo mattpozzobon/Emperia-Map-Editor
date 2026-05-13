@@ -23,7 +23,105 @@
 #include "creatures.h"
 #include "creature_brush.h"
 
+#include <cstdio>
+
 CreatureDatabase g_creatures;
+
+namespace
+{
+
+const char* outfitSlotAttributeNames[OUTFIT_SLOT_COUNT] = {
+	"hair",
+	"head",
+	"body",
+	"legs",
+	"feet",
+	"lefthand",
+	"righthand",
+	"backpack",
+	"belt",
+};
+
+void loadOutfitSlotColors(pugi::xml_attribute attribute, OutfitSlotColors& colors)
+{
+	if(!attribute) {
+		return;
+	}
+
+	int yellow = 0;
+	int red = 0;
+	int green = 0;
+	int blue = 0;
+	if(std::sscanf(attribute.as_string(), "%d,%d,%d,%d", &yellow, &red, &green, &blue) == 4) {
+		colors.yellow = yellow;
+		colors.red = red;
+		colors.green = green;
+		colors.blue = blue;
+		colors.hasColors = true;
+	}
+}
+
+void loadOutfitSlot(pugi::xml_node node, Outfit& outfit, int slot)
+{
+	const char* slotName = outfitSlotAttributeNames[slot];
+	pugi::xml_attribute attribute = node.attribute(slotName);
+	if(!attribute) {
+		return;
+	}
+
+	outfit.sprites[slot].id = attribute.as_int();
+
+	std::string colorsAttributeName = std::string(slotName) + "colors";
+	loadOutfitSlotColors(node.attribute(colorsAttributeName.c_str()), outfit.sprites[slot].colors);
+
+	std::string rarityAttributeName = std::string(slotName) + "rarity";
+	if((attribute = node.attribute(rarityAttributeName.c_str()))) {
+		outfit.sprites[slot].rarity = attribute.as_int();
+	}
+
+	std::string levelAttributeName = std::string(slotName) + "level";
+	if((attribute = node.attribute(levelAttributeName.c_str()))) {
+		outfit.sprites[slot].level = attribute.as_int();
+	}
+}
+
+void saveOutfitSlot(pugi::xml_node node, const Outfit& outfit, int slot)
+{
+	const OutfitSpriteSlot& spriteSlot = outfit.sprites[slot];
+	if(spriteSlot.id <= 0) {
+		return;
+	}
+
+	const char* slotName = outfitSlotAttributeNames[slot];
+	node.append_attribute(slotName) = spriteSlot.id;
+
+	if(spriteSlot.colors.hasColors) {
+		char colors[64];
+		std::snprintf(
+			colors,
+			sizeof(colors),
+			"%d,%d,%d,%d",
+			spriteSlot.colors.yellow,
+			spriteSlot.colors.red,
+			spriteSlot.colors.green,
+			spriteSlot.colors.blue
+		);
+		std::string colorsAttributeName = std::string(slotName) + "colors";
+		node.append_attribute(colorsAttributeName.c_str()) = colors;
+	}
+
+	if(spriteSlot.rarity > 0) {
+		std::string rarityAttributeName = std::string(slotName) + "rarity";
+		node.append_attribute(rarityAttributeName.c_str()) = spriteSlot.rarity;
+	}
+
+	if(spriteSlot.level > 0) {
+		std::string levelAttributeName = std::string(slotName) + "level";
+		node.append_attribute(levelAttributeName.c_str()) = spriteSlot.level;
+	}
+}
+
+} // namespace
 
 CreatureType::CreatureType() :
 	isNpc(false),
@@ -31,6 +129,7 @@ CreatureType::CreatureType() :
 	in_other_tileset(false),
 	standard(false),
 	name(""),
+	title(""),
 	brush(nullptr)
 {
 	////
@@ -42,6 +141,7 @@ CreatureType::CreatureType(const CreatureType& ct) :
 	in_other_tileset(ct.in_other_tileset),
 	standard(ct.standard),
 	name(ct.name),
+	title(ct.title),
 	outfit(ct.outfit),
 	brush(ct.brush)
 {
@@ -52,11 +152,10 @@ CreatureType& CreatureType::operator=(const CreatureType& ct)
 {
 	isNpc = ct.isNpc;
 	missing = ct.missing;
-	in_other_tileset = ct.in_other_tileset;
 	standard = ct.standard;
 	name = ct.name;
+	title = ct.title;
 	outfit = ct.outfit;
-	brush = ct.brush;
 	return *this;
 }
 
@@ -87,6 +186,10 @@ CreatureType* CreatureType::loadFromXML(pugi::xml_node node, wxArrayString& warn
 	CreatureType* ct = newd CreatureType();
 	ct->name = attribute.as_string();
 	ct->isNpc = tmpType == "npc";
+
+	if((attribute = node.attribute("title"))) {
+		ct->title = attribute.as_string();
+	}
 
 	if((attribute = node.attribute("looktype"))) {
 		ct->outfit.lookType = attribute.as_int();
@@ -122,6 +225,20 @@ CreatureType* CreatureType::loadFromXML(pugi::xml_node node, wxArrayString& warn
 	if((attribute = node.attribute("lookfeet"))) {
 		ct->outfit.lookFeet = attribute.as_int();
 	}
+
+	if((attribute = node.attribute("renderhelmet")) || (attribute = node.attribute("renderHelmet"))) {
+		ct->outfit.renderHelmet = attribute.as_bool(true);
+	}
+
+	for(int slot = 0; slot < OUTFIT_SLOT_COUNT; ++slot) {
+		loadOutfitSlot(node, ct->outfit, slot);
+		if(ct->outfit.sprites[slot].id > 0 && g_gui.gfx.getCreatureSprite(ct->outfit.sprites[slot].id) == nullptr) {
+			warnings.push_back(
+				"Invalid creature \"" + wxstr(ct->name) + "\" outfit slot \"" +
+				wxstr(std::string(outfitSlotAttributeNames[slot])) + "\" sprite #" + std::to_string(ct->outfit.sprites[slot].id)
+			);
+		}
+	}
 	return ct;
 }
 
@@ -153,6 +270,10 @@ CreatureType* CreatureType::loadFromOTXML(const FileName& filename, pugi::xml_do
 		ct->name = attribute.as_string();
 	}
 	ct->isNpc = isNpc;
+
+	if((attribute = node.attribute("title"))) {
+		ct->title = attribute.as_string();
+	}
 
 	for(pugi::xml_node optionNode = node.first_child(); optionNode; optionNode = optionNode.next_sibling()) {
 		if(as_lower_str(optionNode.name()) != "look") {
@@ -396,6 +517,9 @@ bool CreatureDatabase::saveToXML(const FileName& filename)
 
 			creatureNode.append_attribute("name") = creatureType->name.c_str();
 			creatureNode.append_attribute("type") = creatureType->isNpc ? "npc" : "monster";
+			if(!creatureType->title.empty()) {
+				creatureNode.append_attribute("title") = creatureType->title.c_str();
+			}
 
 			const Outfit& outfit = creatureType->outfit;
 			creatureNode.append_attribute("looktype") = outfit.lookType;
@@ -406,6 +530,10 @@ bool CreatureDatabase::saveToXML(const FileName& filename)
 			creatureNode.append_attribute("lookbody") = outfit.lookBody;
 			creatureNode.append_attribute("looklegs") = outfit.lookLegs;
 			creatureNode.append_attribute("lookfeet") = outfit.lookFeet;
+			creatureNode.append_attribute("renderhelmet") = outfit.renderHelmet;
+			for(int slot = 0; slot < OUTFIT_SLOT_COUNT; ++slot) {
+				saveOutfitSlot(creatureNode, outfit, slot);
+			}
 		}
 	}
 	return doc.save_file(filename.GetFullPath().mb_str(), "\t", pugi::format_default, pugi::encoding_utf8);

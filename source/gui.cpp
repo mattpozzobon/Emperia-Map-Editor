@@ -1009,10 +1009,23 @@ PaletteWindow* GUI::NewPalette()
 
 void GUI::RefreshPalettes(Map* m, bool usedefault)
 {
-	for(auto&palette : palettes) {
-		palette->OnUpdate(m? m : (usedefault? (IsEditorOpen()? &GetCurrentMap() : nullptr): nullptr));
+	Map* map = m;
+	if(!map && usedefault) {
+		MapTab* mapTab = GetCurrentMapTab();
+		if(mapTab) {
+			map = mapTab->GetMap();
+		}
 	}
-	SelectBrush();
+
+	for(auto palette : palettes) {
+		if(palette) {
+			palette->OnUpdate(map);
+		}
+	}
+
+	if(!palettes.empty() && palettes.front()) {
+		SelectBrush();
+	}
 
 	if(duplicated_items_window) {
 		duplicated_items_window->UpdateButtons();
@@ -1049,7 +1062,16 @@ PaletteWindow* GUI::CreatePalette()
 
 void GUI::ActivatePalette(PaletteWindow* p)
 {
-	palettes.erase(std::find(palettes.begin(), palettes.end(), p));
+	if(!p) {
+		return;
+	}
+
+	auto iter = std::find(palettes.begin(), palettes.end(), p);
+	if(iter == palettes.end()) {
+		return;
+	}
+
+	palettes.erase(iter);
 	palettes.push_front(p);
 }
 

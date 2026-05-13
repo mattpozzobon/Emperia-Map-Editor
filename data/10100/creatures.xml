@@ -55,19 +55,19 @@
     <!-- ═══════════════════════════════════════════════════ -->
     <!-- NPCs                                                -->
     <!-- ═══════════════════════════════════════════════════ -->
-    <creature name="Aldric" type="npc" looktype="131"/>
-    <creature name="Alice" type="npc" looktype="130"/>
-    <creature name="Apprentice Enchanter" type="npc" looktype="131"/>
-    <creature name="Elara" type="npc" looktype="131"/>
-    <creature name="Enchanter" type="npc" looktype="131"/>
-    <creature name="Eryn" type="npc" looktype="136"/>
-    <creature name="Gabriel" type="npc" looktype="131"/>
-    <creature name="Garrick" type="npc" looktype="131"/>
-    <creature name="Lily" type="npc" looktype="136"/>
-    <creature name="Marcus" type="npc" looktype="132"/>
-    <creature name="Master Enchanter" type="npc" looktype="131"/>
-    <creature name="Riona" type="npc" looktype="136"/>
-    <creature name="Torben" type="npc" looktype="131"/>
-    <creature name="Tyoric" type="npc" looktype="136"/>
-    <creature name="Varn" type="npc" looktype="131"/>
+    <creature name="Aldric" type="npc" title="Master Forgewright" looktype="131" renderhelmet="false" hair="850" haircolors="76,0,0,0" body="941" legs="942" feet="943"/>
+    <creature name="Alice" type="npc" title="Merchant" looktype="130" renderhelmet="false" hair="852" haircolors="77,0,0,0" body="982" bodycolors="0,7,0,0" legs="985" legscolors="2,0,76,0" feet="975" feetcolors="0,0,0,85" backpack="933" belt="931"/>
+    <creature name="Apprentice Enchanter" type="npc" title="Novice Enchanter" looktype="131" renderhelmet="false" hair="850" haircolors="76,0,0,0" body="941" legs="942" feet="943"/>
+    <creature name="Elara" type="npc" title="Jeweler" looktype="131" renderhelmet="false" hair="850" haircolors="114,0,0,0" body="941" legs="942" feet="943"/>
+    <creature name="Enchanter" type="npc" title="Arcane Enchanter" looktype="131" renderhelmet="false" hair="850" haircolors="76,0,0,0" body="941" legs="942" feet="943"/>
+    <creature name="Eryn" type="npc" title="Merchant" looktype="136" renderhelmet="false" hair="902" haircolors="114,0,0,0" body="941" legs="942" feet="943"/>
+    <creature name="Gabriel" type="npc" title="Monk" looktype="135" renderhelmet="false" hair="973" haircolors="116,0,0,0" body="980" bodyrarity="4" bodylevel="15"/>
+    <creature name="Garrick" type="npc" title="Armour Smith" looktype="131" renderhelmet="false" hair="850" haircolors="76,0,0,0" body="941" legs="942" feet="943"/>
+    <creature name="Lily" type="npc" title="Alchemist" looktype="136" renderhelmet="false" hair="902" haircolors="40,0,0,0" body="941" legs="942" feet="943"/>
+    <creature name="Marcus" type="npc" title="Banker" looktype="132" renderhelmet="false" hair="902" haircolors="79,0,0,0" body="941" legs="942" feet="943"/>
+    <creature name="Master Enchanter" type="npc" title="Grand Master of Enchantment" looktype="131" renderhelmet="false" hair="850" haircolors="76,0,0,0" body="941" legs="942" feet="943"/>
+    <creature name="Riona" type="npc" title="Merchant" looktype="136" renderhelmet="false" hair="902" haircolors="114,0,0,0" body="941" legs="942" feet="943"/>
+    <creature name="Torben" type="npc" title="Apprentice Smith" looktype="131" renderhelmet="false" hair="850" haircolors="76,0,0,0" body="941" legs="942" feet="943"/>
+    <creature name="Tyoric" type="npc" title="Adventurer" looktype="136" renderhelmet="false" hair="850" haircolors="95,0,0,0" body="941" legs="942" feet="943"/>
+    <creature name="Varn" type="npc" title="Weaponsmith" looktype="131" renderhelmet="false" hair="850" haircolors="95,0,0,0" body="941" legs="942" feet="943"/>
 </creatures>

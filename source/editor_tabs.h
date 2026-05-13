@@ -50,6 +50,7 @@ protected:
 	EditorTab* GetInternalTab(int idx);
 	wxAuiNotebook* notebook;
 	std::map<wxWindow*, EditorTab*> conv;
+	bool adding_tab;
 
 	friend class MapTab;
 

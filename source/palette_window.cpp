@@ -249,6 +249,7 @@ Brush* PaletteWindow::GetSelectedBrush() const
 {
 	if(!choicebook) return nullptr;
 	PalettePanel* panel = dynamic_cast<PalettePanel*>(choicebook->GetCurrentPage());
+	if(!panel) return nullptr;
 	return panel->GetSelectedBrush();
 }
 

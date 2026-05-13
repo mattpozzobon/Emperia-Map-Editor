@@ -76,6 +76,15 @@ std::string Creature::getName() const
 	return "";
 }
 
+std::string Creature::getTitle() const
+{
+	const CreatureType* type = g_creatures[type_name];
+	if(type) {
+		return type->title;
+	}
+	return "";
+}
+
 CreatureBrush* Creature::getBrush() const
 {
 	const CreatureType* type = g_creatures[type_name];

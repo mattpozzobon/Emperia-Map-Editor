@@ -37,7 +37,8 @@ BEGIN_EVENT_TABLE(MapTabbook, wxPanel)
 END_EVENT_TABLE()
 
 MapTabbook::MapTabbook(wxWindow *parent, wxWindowID id) :
-	wxPanel(parent, id, wxDefaultPosition, wxDefaultSize)
+	wxPanel(parent, id, wxDefaultPosition, wxDefaultSize),
+	adding_tab(false)
 {
 	wxSizer* wxz = newd wxBoxSizer(wxHORIZONTAL);
 	notebook = newd wxAuiNotebook(this, wxID_ANY, wxDefaultPosition, wxDefaultSize);
@@ -102,6 +103,10 @@ void MapTabbook::OnNotebookPageClose(wxAuiNotebookEvent& event)
 
 void MapTabbook::OnNotebookPageChanged(wxAuiNotebookEvent& evt)
 {
+	if(adding_tab) {
+		return;
+	}
+
 	g_gui.UpdateMinimap();
 
 	int32_t oldSelection = evt.GetOldSelection();
@@ -144,8 +149,10 @@ void MapTabbook::OnAllowNotebookDND(wxAuiNotebookEvent& evt)
 void MapTabbook::AddTab(EditorTab* tab, bool select)
 {
 	tab->GetWindow()->Reparent(notebook);
-	notebook->AddPage(tab->GetWindow(), tab->GetTitle(), select);
 	conv[tab->GetWindow()] = tab;
+	adding_tab = true;
+	notebook->AddPage(tab->GetWindow(), tab->GetTitle(), select);
+	adding_tab = false;
 }
 
 void MapTabbook::SetFocusedTab(int idx)

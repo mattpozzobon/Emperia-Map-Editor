@@ -19,6 +19,8 @@
 #ifndef RME_TILESET_CREATURE_H_
 #define RME_TILESET_CREATURE_H_
 
+#include <wx/listctrl.h>
+
 #include "palette_common.h"
 
 class CreaturePalettePanel : public PalettePanel {
@@ -54,15 +56,18 @@ public:
 	void OnChangeSpawnSize(wxSpinEvent& event);
 
 	void OnTilesetChange(wxCommandEvent& event);
-	void OnListBoxChange(wxCommandEvent& event);
+	void OnListBoxChange(wxListEvent& event);
 	void OnClickCreatureBrushButton(wxCommandEvent& event);
 	void OnClickSpawnBrushButton(wxCommandEvent& event);
 protected:
 	void SelectCreatureBrush();
 	void SelectSpawnBrush();
+	void ResizeCreatureListColumns();
+	Brush* GetCreatureBrush(size_t index) const;
 
 	wxChoice* tileset_choice;
-	SortableListBox* creature_list;
+	wxListCtrl* creature_list;
+	std::vector<Brush*> creature_brushes;
 	wxToggleButton* creature_brush_button;
 	wxToggleButton* spawn_brush_button;
 	wxSpinCtrl* creature_spawntime_spin;
