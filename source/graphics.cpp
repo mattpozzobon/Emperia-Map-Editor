@@ -465,7 +465,62 @@ bool GraphicManager::loadSpriteMetadata(const FileName& datafile, wxString& erro
 	if(emperiaFormatVersion >= 2) {
 		uint32_t itemMappingCount = 0;
 		file.getU32(itemMappingCount);
-		file.skip(itemMappingCount * 4); // public item ID + internal appearance ID
+		const size_t mappingBytes = static_cast<size_t>(itemMappingCount) * 4;
+		if(file.tell() + mappingBytes > file.size()) {
+			error = "EOBJ item mapping table is truncated.";
+			return false;
+		}
+		file.skip(mappingBytes); // public item ID + internal appearance ID
+	}
+	if(emperiaFormatVersion >= 3) {
+		uint32_t slotTypeCount = 0;
+		file.getU32(slotTypeCount);
+		const size_t slotTypeBytes = static_cast<size_t>(slotTypeCount) * 3;
+		if(file.tell() + slotTypeBytes > file.size()) {
+			error = "EOBJ item slot type table is truncated.";
+			return false;
+		}
+		file.skip(slotTypeBytes); // public item ID + compact slot type
+	}
+	if(emperiaFormatVersion >= 4) {
+		uint32_t equipmentCount = 0;
+		file.getU32(equipmentCount);
+		for(uint32_t index = 0; index < equipmentCount; ++index) {
+			if(file.tell() + 3 > file.size()) {
+				error = "EOBJ equipment catalog is truncated.";
+				return false;
+			}
+			uint8_t mask = 0;
+			file.skip(2);
+			file.getU8(mask);
+			const size_t appearanceBytes =
+				(static_cast<size_t>((mask & 0x01) != 0) +
+				 static_cast<size_t>((mask & 0x02) != 0) +
+				 static_cast<size_t>((mask & 0x04) != 0)) * 2;
+			if(file.tell() + appearanceBytes > file.size()) {
+				error = "EOBJ equipment appearance entry is truncated.";
+				return false;
+			}
+			file.skip(appearanceBytes);
+		}
+
+		uint16_t hairCount = 0;
+		file.getU16(hairCount);
+		for(uint16_t index = 0; index < hairCount; ++index) {
+			// hairId, outfitId, races, genders, tiers and sortOrder.
+			if(file.tell() + 11 > file.size()) {
+				error = "EOBJ hair catalog is truncated.";
+				return false;
+			}
+			file.skip(9);
+			uint16_t nameLength = 0;
+			file.getU16(nameLength);
+			if(file.tell() + nameLength > file.size()) {
+				error = "EOBJ hair catalog name is truncated.";
+				return false;
+			}
+			file.skip(nameLength);
+		}
 	}
 
 	uint32_t minID = 100; // items start with id 100
