@@ -296,7 +296,7 @@ public:
 	GameSprite* sprite;
 
 	uint16_t id;
-	uint16_t clientID;
+	uint16_t appearanceID;
 
 	ItemGroup_t group;
 	ItemTypes_t type;

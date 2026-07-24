@@ -29,7 +29,7 @@ ItemDatabase g_items;
 ItemType::ItemType() :
 	sprite(nullptr),
 	id(0),
-	clientID(0),
+	appearanceID(0),
 	brush(nullptr),
 	doodad_brush(nullptr),
 	raw_brush(nullptr),
@@ -240,10 +240,10 @@ bool ItemDatabase::loadFromOtbVer1(BinaryNode* itemNode, wxString& error, wxArra
 						return false;
 					}
 
-					if(!itemNode->getU16(item->clientID))
+					if(!itemNode->getU16(item->appearanceID))
 						warnings.push_back("Invalid item type property (2)");
 
-					item->sprite = static_cast<GameSprite*>(g_gui.gfx.getSprite(item->clientID));
+					item->sprite = static_cast<GameSprite*>(g_gui.gfx.getSprite(item->appearanceID));
 					break;
 				}
 
@@ -503,10 +503,10 @@ bool ItemDatabase::loadFromOtbVer2(BinaryNode* itemNode, wxString& error, wxArra
 						return false;
 					}
 
-					if(!itemNode->getU16(item->clientID))
+					if(!itemNode->getU16(item->appearanceID))
 						warnings.push_back("Invalid item type property (2)");
 
-					item->sprite = static_cast<GameSprite*>(g_gui.gfx.getSprite(item->clientID));
+					item->sprite = static_cast<GameSprite*>(g_gui.gfx.getSprite(item->appearanceID));
 					break;
 				}
 
@@ -654,10 +654,10 @@ bool ItemDatabase::loadFromOtbVer3(BinaryNode* itemNode, wxString& error, wxArra
 						return false;
 					}
 
-					if(!itemNode->getU16(item->clientID))
+					if(!itemNode->getU16(item->appearanceID))
 						warnings.push_back("Invalid item type property (2)");
 
-					item->sprite = static_cast<GameSprite*>(g_gui.gfx.getSprite(item->clientID));
+					item->sprite = static_cast<GameSprite*>(g_gui.gfx.getSprite(item->appearanceID));
 					break;
 				}
 

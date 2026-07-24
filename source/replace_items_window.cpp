@@ -53,7 +53,7 @@ void ReplaceItemsButton::SetItemId(uint16_t id)
 	if(m_id != 0) {
 		const ItemType& it = g_items.getItemType(m_id);
 		if(it.id != 0) {
-			SetSprite(it.clientID);
+			SetSprite(it.appearanceID);
 			return;
 		}
 	}
@@ -125,9 +125,9 @@ void ReplaceItemsListBox::OnDrawItem(wxDC& dc, const wxRect& rect, size_t index)
 
 	const ReplacingItem& item = m_items.at(index);
 	const ItemType& type1 = g_items.getItemType(item.replaceId);
-	Sprite* sprite1 = g_gui.gfx.getSprite(type1.clientID);
+	Sprite* sprite1 = g_gui.gfx.getSprite(type1.appearanceID);
 	const ItemType& type2 = g_items.getItemType(item.withId);
-	Sprite* sprite2 = g_gui.gfx.getSprite(type2.clientID);
+	Sprite* sprite2 = g_gui.gfx.getSprite(type2.appearanceID);
 
 	if(sprite1 && sprite2) {
 		int x = rect.GetX();

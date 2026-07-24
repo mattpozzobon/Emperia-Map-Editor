@@ -413,7 +413,7 @@ void MapCanvas::UpdatePositionStatus(int x, int y)
 		} else if(Item* item = tile->getTopItem()) {
 			ss << "Item \"" << wxstr(item->getName()) << "\"";
 			ss << " id:" << item->getID();
-			ss << " cid:" << item->getClientID();
+			ss << " appearance:" << item->getAppearanceID();
 			if(item->getUniqueID()) ss << " uid:" << item->getUniqueID();
 			if(item->getActionID()) ss << " aid:" << item->getActionID();
 			if(item->hasWeight()) {
@@ -1902,7 +1902,7 @@ void MapCanvas::OnCopyClientId(wxCommandEvent& WXUNUSED(event))
 		const Item* item = selected_items.front();
 
 		wxTextDataObject* obj = new wxTextDataObject();
-		obj->SetText(i2ws(item->getClientID()));
+		obj->SetText(i2ws(item->getAppearanceID()));
 		wxTheClipboard->SetData(obj);
 
 		wxTheClipboard->Close();

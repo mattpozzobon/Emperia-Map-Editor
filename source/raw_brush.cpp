@@ -39,7 +39,7 @@ RAWBrush::~RAWBrush()
 int RAWBrush::getLookID() const
 {
 	if(itemtype)
-		return itemtype->clientID;
+		return itemtype->appearanceID;
 	return 0;
 }
 

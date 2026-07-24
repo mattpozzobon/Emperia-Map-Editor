@@ -154,7 +154,7 @@ bool GroundBrush::load(pugi::xml_node node, wxArrayString& warnings)
 	}
 
 	if((attribute = node.attribute("server_lookid"))) {
-		look_id = g_items.getItemType(attribute.as_ushort()).clientID;
+		look_id = g_items.getItemType(attribute.as_ushort()).appearanceID;
 	}
 
 	if((attribute = node.attribute("z-order"))) {
