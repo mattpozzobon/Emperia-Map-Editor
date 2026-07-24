@@ -98,6 +98,10 @@ void Brushes::init()
 	addBrush(g_gui.market_zone_brush = newd FlagBrush(TILESTATE_ZONE_MARKET));
 	addBrush(g_gui.temple_zone_brush = newd FlagBrush(TILESTATE_ZONE_TEMPLE));
 	addBrush(g_gui.depot_zone_brush = newd FlagBrush(TILESTATE_ZONE_DEPOT));
+	addBrush(g_gui.library_zone_brush = newd FlagBrush(TILESTATE_ZONE_LIBRARY));
+	addBrush(g_gui.shop_zone_brush = newd FlagBrush(TILESTATE_ZONE_SHOP));
+	addBrush(g_gui.bank_zone_brush = newd FlagBrush(TILESTATE_ZONE_BANK));
+	addBrush(g_gui.tavern_zone_brush = newd FlagBrush(TILESTATE_ZONE_TAVERN));
 
 	GroundBrush::init();
 	WallBrush::init();
@@ -289,6 +293,10 @@ std::string FlagBrush::getName() const
 		case TILESTATE_ZONE_MARKET: return "Market Zone";
 		case TILESTATE_ZONE_TEMPLE: return "Temple Zone";
 		case TILESTATE_ZONE_DEPOT: return "Depot Zone";
+		case TILESTATE_ZONE_LIBRARY: return "Library Zone";
+		case TILESTATE_ZONE_SHOP: return "Shop Zone";
+		case TILESTATE_ZONE_BANK: return "Bank Zone";
+		case TILESTATE_ZONE_TAVERN: return "Tavern Zone";
 	}
 	return "Unknown flag brush";
 }
@@ -312,6 +320,10 @@ int FlagBrush::getLookID() const
 		case TILESTATE_ZONE_MARKET: return EDITOR_SPRITE_PZ_TOOL;
 		case TILESTATE_ZONE_TEMPLE: return EDITOR_SPRITE_PZ_TOOL;
 		case TILESTATE_ZONE_DEPOT: return EDITOR_SPRITE_PZ_TOOL;
+		case TILESTATE_ZONE_LIBRARY: return EDITOR_SPRITE_PZ_TOOL;
+		case TILESTATE_ZONE_SHOP: return EDITOR_SPRITE_PZ_TOOL;
+		case TILESTATE_ZONE_BANK: return EDITOR_SPRITE_PZ_TOOL;
+		case TILESTATE_ZONE_TAVERN: return EDITOR_SPRITE_PZ_TOOL;
 	}
 	return 0;
 }

@@ -41,6 +41,7 @@
 #include "town.h"
 
 #include "iomap_otbm.h"
+#include "iominimap.h"
 
 typedef uint8_t attribute_t;
 typedef uint32_t flags_t;
@@ -1655,6 +1656,7 @@ bool IOMapOTBM::loadZones(Map& map, const FileName& dir)
 bool IOMapOTBM::saveWorldMapData(Map& map, const FileName& dir)
 {
 	using json = nlohmann::json;
+	constexpr int WorldMapFloor = 7;
 
 	std::string basePath = (const char*)(dir.GetPath(wxPATH_GET_SEPARATOR | wxPATH_GET_VOLUME).mb_str(wxConvUTF8));
 	std::string wmDir = basePath + "world-map";
@@ -1676,6 +1678,10 @@ bool IOMapOTBM::saveWorldMapData(Map& map, const FileName& dir)
 		if(flag & TILESTATE_ZONE_MARKET)   return "market";
 		if(flag & TILESTATE_ZONE_TEMPLE)   return "temple";
 		if(flag & TILESTATE_ZONE_DEPOT)    return "depot";
+		if(flag & TILESTATE_ZONE_LIBRARY)  return "library";
+		if(flag & TILESTATE_ZONE_SHOP)     return "shop";
+		if(flag & TILESTATE_ZONE_BANK)     return "bank";
+		if(flag & TILESTATE_ZONE_TAVERN)   return "tavern";
 		return "";
 	};
 
@@ -1705,6 +1711,10 @@ bool IOMapOTBM::saveWorldMapData(Map& map, const FileName& dir)
 		Tile* tile = (*it)->get();
 		if(tile) {
 			const Position& pos = tile->getPosition();
+			if(pos.z != WorldMapFloor) {
+				++it;
+				continue;
+			}
 			// Track world bounds per floor (any tile with ground)
 			if(tile->ground || !tile->items.empty()) {
 				auto& fb = floorBounds[pos.z];
@@ -1727,15 +1737,7 @@ bool IOMapOTBM::saveWorldMapData(Map& map, const FileName& dir)
 		++it;
 	}
 
-	// Determine ground floor (floor with most tiles)
-	int groundFloor = 7;
-	int maxTiles = 0;
-	for(auto& pair : floorBounds) {
-		if(pair.second.tileCount > maxTiles) {
-			maxTiles = pair.second.tileCount;
-			groundFloor = pair.first;
-		}
-	}
+	const int groundFloor = WorldMapFloor;
 
 	// Use ground floor bounds as world bounds
 	int worldMinX = 0, worldMinY = 0, worldMaxX = 256, worldMaxY = 256;
@@ -1834,19 +1836,18 @@ bool IOMapOTBM::saveWorldMapData(Map& map, const FileName& dir)
 
 	// Step 4: Build JSON
 	json manifest;
-	manifest["version"] = 1;
+	manifest["version"] = 2;
 	manifest["groundFloor"] = groundFloor;
 	manifest["worldBounds"] = {
 		{"minX", worldMinX}, {"minY", worldMinY},
 		{"maxX", worldMaxX}, {"maxY", worldMaxY}
 	};
 	manifest["tileSize"] = 1024;
+	manifest["minimap"] = "minimap.otmm";
 
-	// Build floors array from actual data
+	// The world map intentionally publishes only the surface floor.
 	json floorsArr = json::array();
-	for(auto& pair : floorBounds) {
-		floorsArr.push_back(pair.first);
-	}
+	floorsArr.push_back(WorldMapFloor);
 	manifest["floors"] = floorsArr;
 	manifest["overview"] = "overview-" + std::to_string(groundFloor) + ".png";
 
@@ -1900,12 +1901,35 @@ bool IOMapOTBM::saveWorldMapData(Map& map, const FileName& dir)
 	}
 	manifest["zones"] = zonesArr;
 
+	// Town/city labels come directly from Map -> Edit Towns. OTBM towns only
+	// contain a name and temple position, so the temple is the default anchor.
+	json labelsArr = json::array();
+	for(const auto& townEntry : map.towns) {
+		Town* town = townEntry.second;
+		if(!town || town->getName().empty()) continue;
+
+		const Position& pos = town->getTemplePosition();
+		if(!pos.isValid() || pos.z != WorldMapFloor) continue;
+
+		json label;
+		label["id"] = "town:" + std::to_string(town->getID());
+		label["text"] = town->getName();
+		label["kind"] = "town";
+		label["x"] = pos.x;
+		label["y"] = pos.y;
+		label["floor"] = pos.z;
+		label["priority"] = 100;
+		labelsArr.push_back(label);
+	}
+	manifest["labels"] = labelsArr;
+
 	// Markers from waypoints (those not used as zone anchors become POI markers)
 	json markersArr = json::array();
 	int markerId = 0;
 	for(auto& wp : map.waypoints.waypoints) {
 		if(!wp.second) continue;
 		const Position& wpos = wp.second->pos;
+		if(wpos.z != WorldMapFloor) continue;
 		std::string wpName = wp.second->name;
 		std::string wpLower = wpName;
 		std::transform(wpLower.begin(), wpLower.end(), wpLower.begin(), ::tolower);
@@ -1914,6 +1938,9 @@ bool IOMapOTBM::saveWorldMapData(Map& map, const FileName& dir)
 		std::string markerType;
 		if(wpLower.find("temple") != std::string::npos) markerType = "temple";
 		else if(wpLower.find("depot") != std::string::npos) markerType = "depot";
+		else if(wpLower.find("market") != std::string::npos) markerType = "market";
+		else if(wpLower.find("library") != std::string::npos) markerType = "library";
+		else if(wpLower.find("tavern") != std::string::npos) markerType = "tavern";
 		else if(wpLower.find("bank") != std::string::npos) markerType = "bank";
 		else if(wpLower.find("shop") != std::string::npos) markerType = "shop";
 		else if(wpLower.find("boat") != std::string::npos) markerType = "boat";
@@ -1939,6 +1966,14 @@ bool IOMapOTBM::saveWorldMapData(Map& map, const FileName& dir)
 	std::ofstream ofs(fullPath);
 	if(ofs.is_open()) {
 		ofs << manifest.dump(2);
+	}
+
+	// Keep the floor-7 minimap image in the same bundle as its manifest so
+	// client bounds, labels, and terrain can never be published separately.
+	IOMinimap minimapExporter(&map, MinimapExportFormat::Otmm, MinimapExportMode::SpecificFloor, false);
+	if(!minimapExporter.saveMinimap(wmDir, "minimap", WorldMapFloor)) {
+		warning("Unable to export world-map/minimap.otmm: %s", minimapExporter.getError().c_str());
+		return false;
 	}
 
 	return true;

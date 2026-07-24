@@ -1077,13 +1077,19 @@ void GUI::ActivatePalette(PaletteWindow* p)
 
 void GUI::DestroyPalettes()
 {
-	for(auto palette : palettes) {
+	PaletteList palettes_to_destroy = palettes;
+	palettes.clear();
+
+	for(auto palette : palettes_to_destroy) {
 		aui_manager->DetachPane(palette);
 		palette->Destroy();
-		palette = nullptr;
 	}
-	palettes.clear();
 	aui_manager->Update();
+}
+
+void GUI::UnregisterPalette(PaletteWindow* palette)
+{
+	palettes.remove(palette);
 }
 
 void GUI::RebuildPalettes()

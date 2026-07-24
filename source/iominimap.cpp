@@ -36,6 +36,16 @@ void MinimapBlock::updateTile(int x, int y, const MinimapTile& tile)
 
 IOMinimap::IOMinimap(Editor* editor, MinimapExportFormat format, MinimapExportMode mode, bool updateLoadbar) :
 	m_editor(editor),
+	m_map(&editor->getMap()),
+	m_format(format),
+	m_mode(mode),
+	m_updateLoadbar(updateLoadbar)
+{
+}
+
+IOMinimap::IOMinimap(Map* map, MinimapExportFormat format, MinimapExportMode mode, bool updateLoadbar) :
+	m_editor(nullptr),
+	m_map(map),
 	m_format(format),
 	m_mode(mode),
 	m_updateLoadbar(updateLoadbar)
@@ -160,7 +170,7 @@ bool IOMinimap::saveImage(const std::string& directory, const std::string& name)
 
 bool IOMinimap::exportMinimap(const std::string& directory)
 {
-	auto& map = m_editor->getMap();
+	auto& map = *m_map;
 	if(map.size() == 0) {
 		return true;
 	}
@@ -253,6 +263,10 @@ bool IOMinimap::exportMinimap(const std::string& directory)
 
 bool IOMinimap::exportSelection(const std::string& directory, const std::string& name)
 {
+	if(!m_editor) {
+		return false;
+	}
+
 	int min_x = rme::MapMaxWidth + 1;
 	int min_y = rme::MapMaxHeight + 1;
 	int min_z = rme::MapMaxLayer + 1;
@@ -348,11 +362,11 @@ bool IOMinimap::exportSelection(const std::string& directory, const std::string&
 
 void IOMinimap::readBlocks()
 {
-	if (m_mode == MinimapExportMode::SelectedArea && !m_editor->hasSelection()) {
+	if (m_mode == MinimapExportMode::SelectedArea && (!m_editor || !m_editor->hasSelection())) {
 		return;
 	}
 
-	auto& map = m_editor->getMap();
+	auto& map = *m_map;
 
 	int tiles_iterated = 0;
 	for(auto it = map.begin(); it != map.end(); ++it) {

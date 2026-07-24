@@ -116,6 +116,10 @@ MainToolBar::MainToolBar(wxWindow* parent, wxAuiManager* manager)
 	zone_dropdown->Append("Market");
 	zone_dropdown->Append("Temple");
 	zone_dropdown->Append("Depot");
+	zone_dropdown->Append("Library");
+	zone_dropdown->Append("Shop");
+	zone_dropdown->Append("Bank");
+	zone_dropdown->Append("Tavern");
 	zone_dropdown->SetSelection(0);
 	zone_dropdown->SetToolTip("Select World Zone Brush");
 	brushes_toolbar->AddControl(zone_dropdown);
@@ -306,6 +310,13 @@ void MainToolBar::UpdateBrushButtons()
 		else if(brush == g_gui.cave_zone_brush) zoneIdx = 6;
 		else if(brush == g_gui.water_zone_brush) zoneIdx = 7;
 		else if(brush == g_gui.desert_zone_brush) zoneIdx = 8;
+		else if(brush == g_gui.market_zone_brush) zoneIdx = 9;
+		else if(brush == g_gui.temple_zone_brush) zoneIdx = 10;
+		else if(brush == g_gui.depot_zone_brush) zoneIdx = 11;
+		else if(brush == g_gui.library_zone_brush) zoneIdx = 12;
+		else if(brush == g_gui.shop_zone_brush) zoneIdx = 13;
+		else if(brush == g_gui.bank_zone_brush) zoneIdx = 14;
+		else if(brush == g_gui.tavern_zone_brush) zoneIdx = 15;
 		zone_dropdown->SetSelection(zoneIdx);
 	} else {
 		brushes_toolbar->ToggleTool(PALETTE_TERRAIN_OPTIONAL_BORDER_TOOL, false);
@@ -321,6 +332,7 @@ void MainToolBar::UpdateBrushButtons()
 		brushes_toolbar->ToggleTool(PALETTE_TERRAIN_QUEST_DOOR, false);
 		brushes_toolbar->ToggleTool(PALETTE_TERRAIN_HATCH_DOOR, false);
 		brushes_toolbar->ToggleTool(PALETTE_TERRAIN_WINDOW_DOOR, false);
+		zone_dropdown->SetSelection(0);
 	}
 	g_gui.GetAuiManager()->Update();
 }
@@ -689,6 +701,10 @@ void MainToolBar::OnZoneDropdownSelect(wxCommandEvent& event)
 		case 9: g_gui.SelectBrush(g_gui.market_zone_brush); break;
 		case 10: g_gui.SelectBrush(g_gui.temple_zone_brush); break;
 		case 11: g_gui.SelectBrush(g_gui.depot_zone_brush); break;
+		case 12: g_gui.SelectBrush(g_gui.library_zone_brush); break;
+		case 13: g_gui.SelectBrush(g_gui.shop_zone_brush); break;
+		case 14: g_gui.SelectBrush(g_gui.bank_zone_brush); break;
+		case 15: g_gui.SelectBrush(g_gui.tavern_zone_brush); break;
 		default: break;
 	}
 }

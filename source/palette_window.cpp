@@ -93,7 +93,7 @@ PaletteWindow::PaletteWindow(wxWindow* parent, const TilesetContainer& tilesets)
 
 PaletteWindow::~PaletteWindow()
 {
-	////
+	g_gui.UnregisterPalette(this);
 }
 
 PalettePanel* PaletteWindow::CreateTerrainPalette(wxWindow *parent, const TilesetContainer& tilesets)
@@ -416,6 +416,7 @@ void PaletteWindow::OnClose(wxCloseEvent& event)
 	if(!event.CanVeto()) {
 		// We can't do anything! This sucks!
 		// (application is closed, we have to destroy ourselves)
+		g_gui.UnregisterPalette(this);
 		Destroy();
 	} else {
 		Show(false);

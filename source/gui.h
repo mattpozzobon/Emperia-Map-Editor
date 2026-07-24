@@ -366,7 +366,9 @@ public:
 
 	// Hidden from public view
 protected:
+	friend class PaletteWindow;
 	void DestroyPalettes();
+	void UnregisterPalette(PaletteWindow* palette);
 	PaletteWindow* CreatePalette();
 
 	//=========================================================================
@@ -422,6 +424,10 @@ public:
 	FlagBrush* market_zone_brush;
 	FlagBrush* temple_zone_brush;
 	FlagBrush* depot_zone_brush;
+	FlagBrush* library_zone_brush;
+	FlagBrush* shop_zone_brush;
+	FlagBrush* bank_zone_brush;
+	FlagBrush* tavern_zone_brush;
 
 protected:
 

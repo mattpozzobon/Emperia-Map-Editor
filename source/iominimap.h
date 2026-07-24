@@ -70,6 +70,7 @@ class IOMinimap
 {
 public:
 	IOMinimap(Editor* editor, MinimapExportFormat format, MinimapExportMode mode, bool updateLoadbar);
+	IOMinimap(Map* map, MinimapExportFormat format, MinimapExportMode mode, bool updateLoadbar);
 
 	bool saveMinimap(const std::string& directory, const std::string& name, int floor = -1);
 
@@ -86,6 +87,7 @@ private:
 	}
 
 	Editor* m_editor;
+	Map* m_map;
 	MinimapExportFormat m_format;
 	MinimapExportMode m_mode;
 	bool m_updateLoadbar = false;

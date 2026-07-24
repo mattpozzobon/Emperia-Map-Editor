@@ -200,6 +200,10 @@ static uint32_t pickZoneCategory(uint32_t flags)
 	if(flags & TILESTATE_ZONE_MARKET)   return TILESTATE_ZONE_MARKET;
 	if(flags & TILESTATE_ZONE_TEMPLE)   return TILESTATE_ZONE_TEMPLE;
 	if(flags & TILESTATE_ZONE_DEPOT)    return TILESTATE_ZONE_DEPOT;
+	if(flags & TILESTATE_ZONE_LIBRARY)  return TILESTATE_ZONE_LIBRARY;
+	if(flags & TILESTATE_ZONE_SHOP)     return TILESTATE_ZONE_SHOP;
+	if(flags & TILESTATE_ZONE_BANK)     return TILESTATE_ZONE_BANK;
+	if(flags & TILESTATE_ZONE_TAVERN)   return TILESTATE_ZONE_TAVERN;
 	return 0;
 }
 

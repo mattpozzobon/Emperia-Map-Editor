@@ -44,7 +44,12 @@ enum {
 	TILESTATE_ZONE_MARKET    = 0x8000,
 	TILESTATE_ZONE_TEMPLE    = 0x10000,
 	TILESTATE_ZONE_DEPOT     = 0x20000,
-	TILESTATE_ZONE_MASK      = 0x3FF80, // All zone category bits combined
+	// 0x40000 is reserved by the server for TILESTATE_TUTORIAL.
+	TILESTATE_ZONE_LIBRARY   = 0x80000,
+	TILESTATE_ZONE_SHOP      = 0x100000,
+	TILESTATE_ZONE_BANK      = 0x200000,
+	TILESTATE_ZONE_TAVERN    = 0x400000,
+	TILESTATE_ZONE_MASK      = 0x7BFF80, // All zone category bits combined
 	// Internal (statflags - separate uint16_t, values don't collide with mapflags)
 	TILESTATE_SELECTED  = 0x0001,
 	TILESTATE_UNIQUE    = 0x0002,

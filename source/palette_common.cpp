@@ -514,6 +514,10 @@ void BrushToolPanel::LoadAllContents()
 		zoneChoices.Add("Market Zone");
 		zoneChoices.Add("Temple Zone");
 		zoneChoices.Add("Depot Zone");
+		zoneChoices.Add("Library Zone");
+		zoneChoices.Add("Shop Zone");
+		zoneChoices.Add("Bank Zone");
+		zoneChoices.Add("Tavern Zone");
 		zoneDropdown = newd wxChoice(this, PALETTE_TERRAIN_ZONE_SELECT, wxDefaultPosition, wxDefaultSize, zoneChoices);
 		sub_sizer->Add(zoneDropdown, wxSizerFlags(1).Border(wxLEFT, 6).Expand());
 
@@ -616,6 +620,13 @@ void BrushToolPanel::LoadAllContents()
 		zoneChoices.Add("Cave Zone");
 		zoneChoices.Add("Water Zone");
 		zoneChoices.Add("Desert Zone");
+		zoneChoices.Add("Market Zone");
+		zoneChoices.Add("Temple Zone");
+		zoneChoices.Add("Depot Zone");
+		zoneChoices.Add("Library Zone");
+		zoneChoices.Add("Shop Zone");
+		zoneChoices.Add("Bank Zone");
+		zoneChoices.Add("Tavern Zone");
 		zoneDropdown = newd wxChoice(this, PALETTE_TERRAIN_ZONE_SELECT, wxDefaultPosition, wxDefaultSize, zoneChoices);
 		sub_sizer->Add(zoneDropdown, wxSizerFlags(1).Border(wxLEFT, 4).Expand());
 	}
@@ -652,6 +663,9 @@ void BrushToolPanel::DeselectAll()
 		nopvpBrushButton->SetValue(false);
 		nologBrushButton->SetValue(false);
 		pvpzoneBrushButton->SetValue(false);
+		tradezoneBrushButton->SetValue(false);
+		if(zoneDropdown)
+			zoneDropdown->SetSelection(wxNOT_FOUND);
 	}
 }
 
@@ -683,6 +697,26 @@ Brush* BrushToolPanel::GetSelectedBrush() const
 		return g_gui.pvp_brush;
 	if(tradezoneBrushButton->GetValue())
 		return g_gui.trade_brush;
+	if(zoneDropdown) {
+		switch(zoneDropdown->GetSelection()) {
+			case 0: return g_gui.city_zone_brush;
+			case 1: return g_gui.town_zone_brush;
+			case 2: return g_gui.forest_zone_brush;
+			case 3: return g_gui.plains_zone_brush;
+			case 4: return g_gui.mountain_zone_brush;
+			case 5: return g_gui.cave_zone_brush;
+			case 6: return g_gui.water_zone_brush;
+			case 7: return g_gui.desert_zone_brush;
+			case 8: return g_gui.market_zone_brush;
+			case 9: return g_gui.temple_zone_brush;
+			case 10: return g_gui.depot_zone_brush;
+			case 11: return g_gui.library_zone_brush;
+			case 12: return g_gui.shop_zone_brush;
+			case 13: return g_gui.bank_zone_brush;
+			case 14: return g_gui.tavern_zone_brush;
+			default: break;
+		}
+	}
 	return nullptr;
 }
 
@@ -715,19 +749,32 @@ bool BrushToolPanel::SelectBrush(const Brush* whatbrush)
 		button = pvpzoneBrushButton;
 	} else if(whatbrush == g_gui.trade_brush) {
 		button = tradezoneBrushButton;
-	} else if(whatbrush == g_gui.city_zone_brush ||
-		whatbrush == g_gui.town_zone_brush ||
-		whatbrush == g_gui.forest_zone_brush ||
-		whatbrush == g_gui.plains_zone_brush ||
-		whatbrush == g_gui.mountain_zone_brush ||
-		whatbrush == g_gui.cave_zone_brush ||
-		whatbrush == g_gui.water_zone_brush ||
-		whatbrush == g_gui.desert_zone_brush) {
-		DeselectAll();
-		return true;
 	}
 
 	DeselectAll();
+	if(zoneDropdown) {
+		int zoneSelection = wxNOT_FOUND;
+		if(whatbrush == g_gui.city_zone_brush) zoneSelection = 0;
+		else if(whatbrush == g_gui.town_zone_brush) zoneSelection = 1;
+		else if(whatbrush == g_gui.forest_zone_brush) zoneSelection = 2;
+		else if(whatbrush == g_gui.plains_zone_brush) zoneSelection = 3;
+		else if(whatbrush == g_gui.mountain_zone_brush) zoneSelection = 4;
+		else if(whatbrush == g_gui.cave_zone_brush) zoneSelection = 5;
+		else if(whatbrush == g_gui.water_zone_brush) zoneSelection = 6;
+		else if(whatbrush == g_gui.desert_zone_brush) zoneSelection = 7;
+		else if(whatbrush == g_gui.market_zone_brush) zoneSelection = 8;
+		else if(whatbrush == g_gui.temple_zone_brush) zoneSelection = 9;
+		else if(whatbrush == g_gui.depot_zone_brush) zoneSelection = 10;
+		else if(whatbrush == g_gui.library_zone_brush) zoneSelection = 11;
+		else if(whatbrush == g_gui.shop_zone_brush) zoneSelection = 12;
+		else if(whatbrush == g_gui.bank_zone_brush) zoneSelection = 13;
+		else if(whatbrush == g_gui.tavern_zone_brush) zoneSelection = 14;
+
+		if(zoneSelection != wxNOT_FOUND) {
+			zoneDropdown->SetSelection(zoneSelection);
+			return true;
+		}
+	}
 	if(button) {
 		button->SetValue(true);
 		return true;
@@ -835,6 +882,10 @@ void BrushToolPanel::OnSelectZoneDropdown(wxCommandEvent& event)
 		case 8: g_gui.SelectBrush(g_gui.market_zone_brush); break;
 		case 9: g_gui.SelectBrush(g_gui.temple_zone_brush); break;
 		case 10: g_gui.SelectBrush(g_gui.depot_zone_brush); break;
+		case 11: g_gui.SelectBrush(g_gui.library_zone_brush); break;
+		case 12: g_gui.SelectBrush(g_gui.shop_zone_brush); break;
+		case 13: g_gui.SelectBrush(g_gui.bank_zone_brush); break;
+		case 14: g_gui.SelectBrush(g_gui.tavern_zone_brush); break;
 		default: break;
 	}
 }
@@ -938,4 +989,3 @@ void BrushThicknessPanel::OnSwitchIn()
 	g_gui.ActivatePalette(GetParentPalette());
 	g_gui.SetBrushThickness(lookup_table[slider->GetValue()-1], 100);
 }
-

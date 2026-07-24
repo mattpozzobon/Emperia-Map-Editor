@@ -1536,6 +1536,13 @@ ZoneConfigDialog::ZoneConfigDialog(wxWindow* parent, Editor& editor) :
 	categories.Add("cave");
 	categories.Add("water");
 	categories.Add("desert");
+	categories.Add("market");
+	categories.Add("temple");
+	categories.Add("depot");
+	categories.Add("library");
+	categories.Add("shop");
+	categories.Add("bank");
+	categories.Add("tavern");
 	category_choice = newd wxChoice(this, wxID_ANY, wxDefaultPosition, wxSize(200, -1), categories);
 	category_choice->SetSelection(0);
 	grid->Add(category_choice, 1, wxEXPAND);
@@ -1727,6 +1734,13 @@ void ZoneConfigDialog::LoadZoneToUI(int index)
 	else if(zc.category == "cave") catIdx = 6;
 	else if(zc.category == "water") catIdx = 7;
 	else if(zc.category == "desert") catIdx = 8;
+	else if(zc.category == "market") catIdx = 9;
+	else if(zc.category == "temple") catIdx = 10;
+	else if(zc.category == "depot") catIdx = 11;
+	else if(zc.category == "library") catIdx = 12;
+	else if(zc.category == "shop") catIdx = 13;
+	else if(zc.category == "bank") catIdx = 14;
+	else if(zc.category == "tavern") catIdx = 15;
 	category_choice->SetSelection(catIdx);
 
 	difficulty_field->SetValue(wxstr(zc.difficulty));
@@ -1763,7 +1777,7 @@ void ZoneConfigDialog::LoadZoneToUI(int index)
 
 int ZoneConfigDialog::CountZoneTiles(const std::string& category) const
 {
-	uint16_t flag = 0;
+	uint32_t flag = 0;
 	if(category == "city")           flag = TILESTATE_ZONE_CITY;
 	else if(category == "town")      flag = TILESTATE_ZONE_TOWN;
 	else if(category == "forest")    flag = TILESTATE_ZONE_FOREST;
@@ -1772,6 +1786,13 @@ int ZoneConfigDialog::CountZoneTiles(const std::string& category) const
 	else if(category == "cave")      flag = TILESTATE_ZONE_CAVE;
 	else if(category == "water")     flag = TILESTATE_ZONE_WATER;
 	else if(category == "desert")    flag = TILESTATE_ZONE_DESERT;
+	else if(category == "market")    flag = TILESTATE_ZONE_MARKET;
+	else if(category == "temple")    flag = TILESTATE_ZONE_TEMPLE;
+	else if(category == "depot")     flag = TILESTATE_ZONE_DEPOT;
+	else if(category == "library")   flag = TILESTATE_ZONE_LIBRARY;
+	else if(category == "shop")      flag = TILESTATE_ZONE_SHOP;
+	else if(category == "bank")      flag = TILESTATE_ZONE_BANK;
+	else if(category == "tavern")    flag = TILESTATE_ZONE_TAVERN;
 	else return 0;
 
 	int count = 0;
@@ -1799,8 +1820,11 @@ void ZoneConfigDialog::SaveCurrentZone()
 
 	// Save category from dropdown
 	int catSel = category_choice->GetSelection();
-	static const char* catNames[] = {"", "city", "town", "forest", "plains", "mountain", "cave", "water", "desert"};
-	zc.category = (catSel > 0 && catSel <= 8) ? catNames[catSel] : "";
+	static const char* catNames[] = {
+		"", "city", "town", "forest", "plains", "mountain", "cave", "water",
+		"desert", "market", "temple", "depot", "library", "shop", "bank", "tavern"
+	};
+	zc.category = (catSel > 0 && catSel <= 15) ? catNames[catSel] : "";
 
 	zc.difficulty = nstr(difficulty_field->GetValue());
 	zc.music = nstr(music_field->GetValue());
@@ -1856,6 +1880,10 @@ void ZoneConfigDialog::OnAddZone(wxCommandEvent& event)
 			else if(mf & TILESTATE_ZONE_MARKET)    zc.category = "market";
 			else if(mf & TILESTATE_ZONE_TEMPLE)    zc.category = "temple";
 			else if(mf & TILESTATE_ZONE_DEPOT)     zc.category = "depot";
+			else if(mf & TILESTATE_ZONE_LIBRARY)   zc.category = "library";
+			else if(mf & TILESTATE_ZONE_SHOP)      zc.category = "shop";
+			else if(mf & TILESTATE_ZONE_BANK)      zc.category = "bank";
+			else if(mf & TILESTATE_ZONE_TAVERN)    zc.category = "tavern";
 		}
 	}
 
