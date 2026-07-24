@@ -1697,6 +1697,19 @@ bool IOMapOTBM::saveWorldMapData(Map& map, const FileName& dir)
 	};
 
 	std::unordered_map<std::string, ZoneTileInfo> zoneTiles;
+	std::vector<Position> taskBoardPositions;
+	auto isTaskBoardItem = [](const Item* item) -> bool {
+		if(!item) return false;
+		switch(item->getID()) {
+			case 26204:
+			case 26205:
+			case 26206:
+			case 26209:
+				return true;
+			default:
+				return false;
+		}
+	};
 
 	// Track bounds and tile count per floor to find the primary ground floor
 	struct FloorBounds {
@@ -1724,6 +1737,17 @@ bool IOMapOTBM::saveWorldMapData(Map& map, const FileName& dir)
 				if(pos.x > fb.maxX) fb.maxX = pos.x;
 				if(pos.y > fb.maxY) fb.maxY = pos.y;
 			}
+			bool hasTaskBoard = isTaskBoardItem(tile->ground);
+			if(!hasTaskBoard) {
+				for(Item* item : tile->items) {
+					if(isTaskBoardItem(item)) {
+						hasTaskBoard = true;
+						break;
+					}
+				}
+			}
+			if(hasTaskBoard) taskBoardPositions.push_back(pos);
+
 			// Check zone flags
 			uint32_t flags = tile->getMapFlags();
 			if(flags & TILESTATE_ZONE_MASK) {
@@ -1957,6 +1981,20 @@ bool IOMapOTBM::saveWorldMapData(Map& map, const FileName& dir)
 		m["y"] = wpos.y;
 		m["floor"] = wpos.z;
 		m["label"] = wpName;
+		markersArr.push_back(m);
+	}
+
+	// Task boards are actionable world POIs. Export every floor-7 instance
+	// directly from its item ID so no manually placed waypoint is required.
+	for(const Position& pos : taskBoardPositions) {
+		json m;
+		m["id"] = "task-board-" + std::to_string(pos.x) + "-" + std::to_string(pos.y) + "-" + std::to_string(pos.z);
+		m["type"] = "quest";
+		m["x"] = pos.x;
+		m["y"] = pos.y;
+		m["floor"] = pos.z;
+		m["label"] = "Task Board";
+		m["tooltip"] = "Task Board";
 		markersArr.push_back(m);
 	}
 	manifest["markers"] = markersArr;

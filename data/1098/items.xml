@@ -4034,6 +4034,7 @@
 	<item id="2420" name="machete">
 		<attribute key="weight" value="1650" />
 		<attribute key="weaponType" value="sword" />
+		<attribute key="slotType" value="machete" />
 	</item>
 	<item id="2421" name="thunder hammer">
 		<attribute key="description" value="It is blessed by the gods." />
@@ -11676,6 +11677,7 @@
 	<item id="5908" article="an" name="obsidian knife">
 		<attribute key="description" value="Sharp and light, this is a useful tool for tanners, doctors and assassins." />
 		<attribute key="weight" value="100" />
+		<attribute key="slotType" value="knife" />
 	</item>
 	<item id="5909" name="white piece of cloth">
 		<attribute key="weight" value="500" />
