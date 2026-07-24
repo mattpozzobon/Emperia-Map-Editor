@@ -432,9 +432,13 @@ bool GraphicManager::loadSpriteMetadata(const FileName& datafile, wxString& erro
 	const uint32_t EMPERIA_MAGIC2 = 0x00414952; // "RIA\0" LE
 
 	uint32_t datSignature;
+	uint16_t emperiaFormatVersion = 0;
 	if(magic1 == EMPERIA_MAGIC1 && magic2 == EMPERIA_MAGIC2) {
-		// Emperia format: skip remaining 12 bytes of 20-byte header (already read 8)
-		file.skip(12);
+		// Emperia header: file type (1), format version (2), then 9 bytes.
+		uint8_t fileType;
+		file.getU8(fileType);
+		file.getU16(emperiaFormatVersion);
+		file.skip(9);
 		// Use the client version's default dat format for Emperia files
 		dat_format = client_version->getDatFormatForSignature(0);
 		if(dat_format == DAT_FORMAT_UNKNOWN) {
@@ -458,6 +462,11 @@ bool GraphicManager::loadSpriteMetadata(const FileName& datafile, wxString& erro
 	file.getU16(creature_count);
 	file.getU16(effect_count);
 	file.getU16(distance_count);
+	if(emperiaFormatVersion >= 2) {
+		uint32_t itemMappingCount = 0;
+		file.getU32(itemMappingCount);
+		file.skip(itemMappingCount * 4); // public item ID + internal appearance ID
+	}
 
 	uint32_t minID = 100; // items start with id 100
 	// We don't load distance/effects, if we would, just add effect_count & distance_count here
