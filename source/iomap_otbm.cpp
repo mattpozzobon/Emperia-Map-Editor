@@ -671,18 +671,18 @@ bool IOMapOTBM::loadMap(Map& map, NodeFileReadHandle& f)
 
 	if(!root->getU32(u32) || u32 > (unsigned long)g_items.MajorVersion) { // OTB major version
 		if(g_gui.PopupDialog("Map error",
-			"The loaded map appears to be a items.otb format that deviates from the "
-			"items.otb loaded by the editor. Do you still want to attempt to load the map?", wxYES | wxNO) == wxID_YES)
+			"The loaded map uses an item catalog version newer than the editor supports. "
+			"Do you still want to attempt to load the map?", wxYES | wxNO) == wxID_YES)
 		{
 			warning("Unsupported or damaged map version");
 		} else {
-			error("Outdated items.otb, could not load map");
+			error("Unsupported item catalog version, could not load map");
 			return false;
 		}
 	}
 
 	if(!root->getU32(u32) || u32 > (unsigned long)g_items.MinorVersion) { // OTB minor version
-		warning("This editor needs an updated items.otb version");
+		warning("This editor needs an updated item catalog version");
 	}
 	version.client = (ClientVersionID)u32;
 

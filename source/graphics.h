@@ -295,6 +295,7 @@ public:
 	uint16_t getItemSpriteMinID() const noexcept { return 100; }
 	uint16_t getItemSpriteMaxID() const noexcept { return item_count; }
 	uint16_t getCreatureSpriteMaxID() const noexcept { return creature_count; }
+	const std::map<uint16_t, uint16_t>& getItemAppearances() const noexcept { return item_appearances; }
 
 	// Get an unused texture id (this is acquired by simply increasing a value starting from 0x10000000)
 	GLuint getFreeTextureID();
@@ -335,6 +336,7 @@ private:
 	DatFormat dat_format;
 	uint16_t item_count;
 	uint16_t creature_count;
+	std::map<uint16_t, uint16_t> item_appearances;
 	bool otfi_found;
 	bool is_extended;
 	bool has_transparency;

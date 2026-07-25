@@ -376,16 +376,16 @@ bool IOMapOTMM::loadMap(Map& map, NodeFileReadHandle& f, const FileName& identif
 	map.height = u16;
 
 	if(!root->getU32(u32) || u32 > (unsigned long)g_items.MajorVersion) { // OTB major version
-		if(queryUser("Map error", "The loaded map appears to be a items.otb format that deviates from the items.otb loaded by the editor. Do you still want to attempt to load the map?")) {
+		if(queryUser("Map error", "The loaded map uses an item catalog version newer than the editor supports. Do you still want to attempt to load the map?")) {
 			warning("Unsupported or damaged map version");
 		} else {
-			error("Outdated items.otb, could not load map.");
+			error("Unsupported item catalog version, could not load map.");
 			return false;
 		}
 	}
 
 	if(!root->getU32(u32) || u32 > (unsigned long)g_items.MinorVersion) { // OTB minor version
-		warning("The editor needs an updated items.otb version.");
+		warning("The editor needs an updated item catalog version.");
 	}
 
 	BinaryNode* mapHeaderNode = root->getChild();

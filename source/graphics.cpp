@@ -129,6 +129,7 @@ void GraphicManager::clear()
 
 	item_count = 0;
 	creature_count = 0;
+	item_appearances.clear();
 	loaded_textures = 0;
 	lastclean = time(nullptr);
 	spritefile = "";
@@ -413,7 +414,7 @@ bool GraphicManager::loadOTFI(const FileName& filename, wxString& error, wxArray
 
 bool GraphicManager::loadSpriteMetadata(const FileName& datafile, wxString& error, wxArrayString& warnings)
 {
-	// items.otb has most of the info we need. This only loads the GameSprite metadata
+	// EOBJ supplies the visual catalog and the public item-to-appearance mapping.
 	FileReadHandle file(nstr(datafile.GetFullPath()));
 
 	if(!file.isOk()) {
@@ -482,7 +483,14 @@ bool GraphicManager::loadSpriteMetadata(const FileName& datafile, wxString& erro
 			error = "EOBJ item mapping table is truncated.";
 			return false;
 		}
-		file.skip(mappingBytes); // public item ID + internal appearance ID
+		item_appearances.clear();
+		for(uint32_t mappingIndex = 0; mappingIndex < itemMappingCount; ++mappingIndex) {
+			uint16_t itemId = 0;
+			uint16_t appearanceId = 0;
+			file.getU16(itemId);
+			file.getU16(appearanceId);
+			item_appearances[itemId] = appearanceId;
+		}
 	}
 	if(emperiaFormatVersion >= 5) {
 		uint32_t outfitMappingCount = 0;
