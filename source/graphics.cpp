@@ -422,6 +422,9 @@ bool GraphicManager::loadSpriteMetadata(const FileName& datafile, wxString& erro
 	}
 
 	uint16_t effect_count, distance_count;
+	uint16_t outfit_count = 0;
+	uint16_t equipment_count = 0;
+	uint16_t hair_count = 0;
 
 	// Detect Emperia header: first 8 bytes = "EMPERIA\0"
 	uint32_t magic1, magic2;
@@ -459,9 +462,18 @@ bool GraphicManager::loadSpriteMetadata(const FileName& datafile, wxString& erro
 
 	//get max id
 	file.getU16(item_count);
-	file.getU16(creature_count);
-	file.getU16(effect_count);
-	file.getU16(distance_count);
+	if(emperiaFormatVersion >= 5) {
+		file.getU16(outfit_count);
+		file.getU16(equipment_count);
+		file.getU16(hair_count);
+		file.getU16(effect_count);
+		file.getU16(distance_count);
+		creature_count = outfit_count + equipment_count + hair_count;
+	} else {
+		file.getU16(creature_count);
+		file.getU16(effect_count);
+		file.getU16(distance_count);
+	}
 	if(emperiaFormatVersion >= 2) {
 		uint32_t itemMappingCount = 0;
 		file.getU32(itemMappingCount);
@@ -471,6 +483,16 @@ bool GraphicManager::loadSpriteMetadata(const FileName& datafile, wxString& erro
 			return false;
 		}
 		file.skip(mappingBytes); // public item ID + internal appearance ID
+	}
+	if(emperiaFormatVersion >= 5) {
+		uint32_t outfitMappingCount = 0;
+		file.getU32(outfitMappingCount);
+		const size_t mappingBytes = static_cast<size_t>(outfitMappingCount) * 4;
+		if(file.tell() + mappingBytes > file.size()) {
+			error = "EOBJ outfit mapping table is truncated.";
+			return false;
+		}
+		file.skip(mappingBytes); // public outfit ID + local appearance ID
 	}
 	if(emperiaFormatVersion >= 3) {
 		uint32_t slotTypeCount = 0;
@@ -502,6 +524,26 @@ bool GraphicManager::loadSpriteMetadata(const FileName& datafile, wxString& erro
 				return false;
 			}
 			file.skip(appearanceBytes);
+		}
+
+		if(emperiaFormatVersion >= 6) {
+			uint16_t visualEquipmentCount = 0;
+			file.getU16(visualEquipmentCount);
+			for(uint16_t index = 0; index < visualEquipmentCount; ++index) {
+				// visualEquipmentId, local appearance ID and display name.
+				if(file.tell() + 6 > file.size()) {
+					error = "EOBJ visual equipment catalog is truncated.";
+					return false;
+				}
+				file.skip(4);
+				uint16_t nameLength = 0;
+				file.getU16(nameLength);
+				if(file.tell() + nameLength > file.size()) {
+					error = "EOBJ visual equipment name is truncated.";
+					return false;
+				}
+				file.skip(nameLength);
+			}
 		}
 
 		uint16_t hairCount = 0;

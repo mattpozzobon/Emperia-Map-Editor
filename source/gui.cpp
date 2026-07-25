@@ -379,7 +379,13 @@ bool GUI::LoadDataFiles(wxString& error, wxArrayString& warnings)
 	}
 
 	g_gui.SetLoadDone(20, "Loading items.otb file...");
-	if(!g_items.loadFromOtb(wxString(data_path.GetPath(wxPATH_GET_VOLUME | wxPATH_GET_SEPARATOR) + "items.otb"), error, warnings)) {
+	wxString item_data_directory = data_path.GetPath(wxPATH_GET_VOLUME | wxPATH_GET_SEPARATOR);
+	wxFileName package_otb(client_path.GetFullPath(), "items.otb");
+	wxFileName package_xml(client_path.GetFullPath(), "items.xml");
+	const wxString items_otb_path = package_otb.FileExists()
+		? package_otb.GetFullPath()
+		: item_data_directory + "items.otb";
+	if(!g_items.loadFromOtb(items_otb_path, error, warnings)) {
 		error = "Couldn't load items.otb: " + error;
 		g_gui.DestroyLoadBar();
 		UnloadVersion();
@@ -387,7 +393,10 @@ bool GUI::LoadDataFiles(wxString& error, wxArrayString& warnings)
 	}
 
 	g_gui.SetLoadDone(30, "Loading items.xml ...");
-	if(!g_items.loadFromGameXml(wxString(data_path.GetPath(wxPATH_GET_VOLUME | wxPATH_GET_SEPARATOR) + "items.xml"), error, warnings)) {
+	const wxString items_xml_path = package_xml.FileExists()
+		? package_xml.GetFullPath()
+		: data_path.GetPath(wxPATH_GET_VOLUME | wxPATH_GET_SEPARATOR) + "items.xml";
+	if(!g_items.loadFromGameXml(items_xml_path, error, warnings)) {
 		warnings.push_back("Couldn't load items.xml: " + error);
 	}
 
