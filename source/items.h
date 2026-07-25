@@ -364,6 +364,7 @@ public:
 	uint16_t getMaxID() const noexcept { return maxItemId; }
 	const ItemType& getItemType(uint16_t id) const;
 	ItemType* getRawItemType(uint16_t id);
+	uint16_t resolvePublicItemId(uint16_t id) const;
 
 	bool isValidID(uint16_t id) const;
 
@@ -373,6 +374,7 @@ public:
 	//typedef std::map<int32_t, ItemType*> ItemMap;
 	typedef contigous_vector<ItemType*> ItemMap;
 	typedef std::map<std::string, ItemType*> ItemNameMap;
+	typedef std::map<uint16_t, uint16_t> AppearanceAliasMap;
 
 	// Version information
 	uint32_t MajorVersion;
@@ -391,6 +393,7 @@ protected:
 	uint16_t minClientID;
 	uint16_t maxClientID;
 	uint16_t maxItemId;
+	AppearanceAliasMap appearanceAliases;
 
 	ItemType dummy;
 

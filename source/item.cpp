@@ -38,6 +38,7 @@ Item* Item::Create(uint16_t id, uint16_t subtype /*= 0xFFFF*/)
 	if(type.id == 0) {
 		return newd Item(id, subtype);
 	}
+	id = type.id;
 
 	if(type.isDepot()) {
 		return new Depot(id);

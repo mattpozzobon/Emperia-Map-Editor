@@ -138,6 +138,7 @@ void ItemDatabase::clear()
 		items.set(i, nullptr);
 	}
 	maxItemId = 0;
+	appearanceAliases.clear();
 }
 
 bool ItemDatabase::loadFromPackageJson(const FileName& datafile, wxString& error, wxArrayString& warnings)
@@ -300,6 +301,13 @@ bool ItemDatabase::loadFromPackageJson(const FileName& datafile, wxString& error
 		maxItemId = std::max(maxItemId, itemId);
 		coveredAppearances.insert(item->appearanceID);
 		emittedItemIds.insert(itemId);
+
+		if(item->appearanceID != itemId) {
+			const auto alias = appearanceAliases.find(item->appearanceID);
+			if(alias == appearanceAliases.end() || itemId < alias->second) {
+				appearanceAliases[item->appearanceID] = itemId;
+			}
+		}
 	}
 
 	for(uint32_t appearanceId = g_gui.gfx.getItemSpriteMinID(); appearanceId <= g_gui.gfx.getItemSpriteMaxID(); ++appearanceId) {
@@ -337,6 +345,7 @@ bool ItemDatabase::loadMetaItem(pugi::xml_node node)
 
 const ItemType& ItemDatabase::getItemType(uint16_t id) const
 {
+	id = resolvePublicItemId(id);
 	if(id == 0 || id > maxItemId)
 		return dummy;
 
@@ -348,13 +357,27 @@ const ItemType& ItemDatabase::getItemType(uint16_t id) const
 
 ItemType* ItemDatabase::getRawItemType(uint16_t id)
 {
+	id = resolvePublicItemId(id);
 	if(id == 0 || id > maxItemId)
 		return nullptr;
 	return items[id];
 }
 
+uint16_t ItemDatabase::resolvePublicItemId(uint16_t id) const
+{
+	if(id == 0) {
+		return 0;
+	}
+	if(id <= maxItemId && items[id] != nullptr) {
+		return id;
+	}
+	const auto alias = appearanceAliases.find(id);
+	return alias != appearanceAliases.end() ? alias->second : id;
+}
+
 bool ItemDatabase::isValidID(uint16_t id) const
 {
+	id = resolvePublicItemId(id);
 	if(id == 0 || id > maxItemId)
 		return false;
 	return items[id] != nullptr;
