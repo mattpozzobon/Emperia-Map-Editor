@@ -443,6 +443,13 @@ bool GraphicManager::loadSpriteMetadata(const FileName& datafile, wxString& erro
 		file.getU8(fileType);
 		file.getU16(emperiaFormatVersion);
 		file.skip(9);
+		if(emperiaFormatVersion > 10) {
+			error = wxString::Format(
+				"EOBJ format v%u is newer than the maximum supported version v10.",
+				emperiaFormatVersion
+			);
+			return false;
+		}
 		// Use the client version's default dat format for Emperia files
 		dat_format = client_version->getDatFormatForSignature(0);
 		if(dat_format == DAT_FORMAT_UNKNOWN) {
@@ -570,6 +577,46 @@ bool GraphicManager::loadSpriteMetadata(const FileName& datafile, wxString& erro
 				return false;
 			}
 			file.skip(nameLength);
+		}
+	}
+
+	// Seating metadata is stored between the visual catalogs and the sprite
+	// records. The map editor does not use it, but it must advance past it to
+	// keep the sprite reader aligned with EOBJ v7+.
+	if(emperiaFormatVersion >= 7) {
+		if(file.tell() + 2 > file.size()) {
+			error = "EOBJ seating metadata header is truncated.";
+			return false;
+		}
+
+		uint16_t seatCount = 0;
+		file.getU16(seatCount);
+		const size_t seatEntryBytes = emperiaFormatVersion >= 10
+			? 21 // item, pose set, direction mask and four X/Y offsets
+			: emperiaFormatVersion >= 9
+				? 22 // item, legacy type, mask, pose set and offsets
+				: 20; // item, legacy type, mask and offsets
+		const size_t seatingBytes = static_cast<size_t>(seatCount) * seatEntryBytes;
+		if(file.tell() + seatingBytes > file.size()) {
+			error = "EOBJ seating metadata is truncated.";
+			return false;
+		}
+		file.skip(seatingBytes);
+
+		// v8 stores pose profiles as a UInt16-length JSON string. v9+ stores
+		// the complete Pose Set library in the same string envelope.
+		if(emperiaFormatVersion >= 8) {
+			if(file.tell() + 2 > file.size()) {
+				error = "EOBJ pose library header is truncated.";
+				return false;
+			}
+			uint16_t poseLibraryLength = 0;
+			file.getU16(poseLibraryLength);
+			if(file.tell() + poseLibraryLength > file.size()) {
+				error = "EOBJ pose library is truncated.";
+				return false;
+			}
+			file.skip(poseLibraryLength);
 		}
 	}
 
