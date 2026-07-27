@@ -21,6 +21,7 @@
 #include "main.h"
 
 #include "common_windows.h"
+#include <wx/webrequest.h>
 
 class ContainerItemButton;
 class ContainerItemPopupMenu;
@@ -37,6 +38,8 @@ public:
 
 	void OnClickOK(wxCommandEvent&);
 	void OnClickCancel(wxCommandEvent&);
+	void OnTranslateMapText(wxCommandEvent&);
+	void OnTranslationRequestState(wxWebRequestEvent&);
 
 	void Update();
 
@@ -50,6 +53,12 @@ protected:
 	PositionCtrl* destination_field;
 	wxChoice* splash_type_field;
 	wxTextCtrl* text_field;
+	wxTextCtrl* localized_text_fields[3];
+	wxTextCtrl* translation_token_field;
+	wxButton* translate_text_button;
+	std::string map_text_key;
+	std::vector<wxWebRequest> translation_requests;
+	int pending_translation_requests;
 	wxTextCtrl* description_field;
 	std::vector<ContainerItemButton*> container_items;
 

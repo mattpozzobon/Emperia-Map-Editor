@@ -17,7 +17,14 @@
 
 #include "main.h"
 
+#include <chrono>
+#include <filesystem>
+#include <fstream>
+#include <iomanip>
+#include <random>
+#include <sstream>
 #include <wx/grid.h>
+#include <wx/webrequest.h>
 
 #include "tile.h"
 #include "item.h"
@@ -33,6 +40,191 @@
 #include "old_properties_window.h"
 #include "container_properties_window.h"
 
+namespace {
+
+const char* MAP_TEXT_PREFIX = "@maptext:";
+const char* MAP_TEXT_LOCALES[] = {"en", "pt", "es", "pl"};
+wxString session_translation_token;
+
+struct LocalizedMapText {
+	std::string key;
+	std::string texts[4];
+};
+
+std::filesystem::path mapTextCatalogPath(const Map* map, const char* locale)
+{
+	std::filesystem::path filename(map ? map->getFilename() : "");
+	if(filename.empty())
+		return {};
+	return filename.parent_path() / (filename.stem().string() + ".texts." + locale + ".json");
+}
+
+wxString discoverTranslationToken(const Map* map)
+{
+	if(!session_translation_token.empty())
+		return session_translation_token;
+	if(const char* environment_token = std::getenv("TRANSLATION_ACCESS_TOKEN"))
+		return wxstr(std::string(environment_token));
+	if(!map || map->getFilename().empty())
+		return "";
+
+	std::filesystem::path workspace = std::filesystem::path(map->getFilename()).parent_path();
+	// A server map normally lives in <workspace>/Emperia-Server/data/world.
+	for(size_t index = 0; index < 3 && workspace.has_parent_path(); ++index)
+		workspace = workspace.parent_path();
+	const std::filesystem::path vars = workspace / "Emperia-Web-OB" / ".dev.vars";
+	if(!std::filesystem::exists(vars))
+		return "";
+
+	std::ifstream input(vars);
+	std::string line;
+	const std::string prefix = "TRANSLATION_ACCESS_TOKEN=";
+	while(std::getline(input, line)) {
+		if(line.rfind(prefix, 0) == 0)
+			return wxstr(line.substr(prefix.size()));
+	}
+	return "";
+}
+
+std::string parseMapTextKey(const std::string& content)
+{
+	if(content.rfind(MAP_TEXT_PREFIX, 0) != 0)
+		return "";
+	std::string key = content.substr(std::char_traits<char>::length(MAP_TEXT_PREFIX));
+	if(key.size() < 3 || key.size() > 96)
+		return "";
+	for(char value : key) {
+		if(!((value >= 'a' && value <= 'z') || (value >= '0' && value <= '9')
+			|| value == '.' || value == '_' || value == '-'))
+			return "";
+	}
+	return key;
+}
+
+bool isReservedContentTag(const std::string& content)
+{
+	return !content.empty() && content[0] == '@'
+		&& content.rfind(MAP_TEXT_PREFIX, 0) != 0;
+}
+
+std::string createMapTextKey()
+{
+	static std::mt19937_64 random(std::random_device{}());
+	const uint64_t now = static_cast<uint64_t>(
+		std::chrono::high_resolution_clock::now().time_since_epoch().count());
+	const uint64_t value = now ^ random();
+	std::ostringstream output;
+	output << "text_" << std::hex << std::setfill('0') << std::setw(16) << value;
+	return output.str();
+}
+
+std::string mapTextSourceHash(const std::string& value)
+{
+	uint32_t hash = 0x811c9dc5;
+	for(unsigned char character : value) {
+		hash ^= character;
+		hash *= 0x01000193;
+	}
+	std::ostringstream output;
+	output << std::hex << std::setfill('0') << std::setw(8) << hash;
+	return output.str();
+}
+
+nlohmann::json loadMapTextCatalog(const std::filesystem::path& filename, const char* locale)
+{
+	nlohmann::json result = {
+		{"schemaVersion", 1},
+		{"locale", locale},
+		{"fallbackLocale", "en"},
+		{"texts", nlohmann::json::object()},
+	};
+	if(filename.empty() || !std::filesystem::exists(filename))
+		return result;
+	try {
+		std::ifstream input(filename, std::ios::binary);
+		nlohmann::json parsed;
+		input >> parsed;
+		if(parsed.value("schemaVersion", 0) == 1 && parsed.value("locale", "") == locale
+			&& parsed.contains("texts") && parsed["texts"].is_object())
+			return parsed;
+		result["loadError"] = "Invalid catalog structure: " + filename.string();
+	} catch(const std::exception& exception) {
+		result["loadError"] = "Could not read " + filename.string() + ": " + exception.what();
+	}
+	return result;
+}
+
+LocalizedMapText loadLocalizedMapText(const Map* map, const std::string& content)
+{
+	LocalizedMapText result;
+	result.key = parseMapTextKey(content);
+	if(result.key.empty()) {
+		result.texts[0] = content;
+		return result;
+	}
+	for(size_t index = 0; index < 4; ++index) {
+		const auto filename = mapTextCatalogPath(map, MAP_TEXT_LOCALES[index]);
+		const auto catalog = loadMapTextCatalog(filename, MAP_TEXT_LOCALES[index]);
+		const auto entry = catalog["texts"].find(result.key);
+		if(entry != catalog["texts"].end() && entry->is_object())
+			result.texts[index] = entry->value("text", "");
+	}
+	return result;
+}
+
+bool saveLocalizedMapText(
+	const Map* map,
+	LocalizedMapText& value,
+	std::string& error)
+{
+	if(value.texts[0].empty())
+		return true;
+	if(!map || map->getFilename().empty()) {
+		error = "Save the map once before adding localized text.";
+		return false;
+	}
+	if(value.key.empty())
+		value.key = createMapTextKey();
+	const std::string source_hash = mapTextSourceHash(value.texts[0]);
+	try {
+		for(size_t index = 0; index < 4; ++index) {
+			const auto filename = mapTextCatalogPath(map, MAP_TEXT_LOCALES[index]);
+			auto catalog = loadMapTextCatalog(filename, MAP_TEXT_LOCALES[index]);
+			if(catalog.contains("loadError"))
+				throw std::runtime_error(catalog["loadError"].get<std::string>());
+			if(index == 0) {
+				catalog["texts"][value.key] = {{"text", value.texts[index]}};
+			} else if(value.texts[index].empty()) {
+				catalog["texts"].erase(value.key);
+			} else {
+				catalog["texts"][value.key] = {
+					{"text", value.texts[index]},
+					{"sourceHash", source_hash},
+					{"status", "draft"},
+				};
+			}
+			std::ofstream output(filename, std::ios::binary | std::ios::trunc);
+			if(!output)
+				throw std::runtime_error("Could not write " + filename.string());
+			output << catalog.dump(2) << '\n';
+		}
+	} catch(const std::exception& exception) {
+		error = exception.what();
+		return false;
+	}
+	return true;
+}
+
+int localeIndexFromRequestId(int id)
+{
+	if(id == MAP_TEXT_TRANSLATE_PT) return 1;
+	if(id == MAP_TEXT_TRANSLATE_ES) return 2;
+	if(id == MAP_TEXT_TRANSLATE_PL) return 3;
+	return -1;
+}
+
+} // namespace
+
 // ============================================================================
 // Old Properties Window
 
@@ -40,6 +232,7 @@ BEGIN_EVENT_TABLE(OldPropertiesWindow, wxDialog)
 	EVT_SET_FOCUS(OldPropertiesWindow::OnFocusChange)
 	EVT_BUTTON(wxID_OK, OldPropertiesWindow::OnClickOK)
 	EVT_BUTTON(wxID_CANCEL, OldPropertiesWindow::OnClickCancel)
+	EVT_BUTTON(MAP_TEXT_TRANSLATE_BUTTON, OldPropertiesWindow::OnTranslateMapText)
 END_EVENT_TABLE()
 
 OldPropertiesWindow::OldPropertiesWindow(wxWindow* win_parent, const Map* map, const Tile* tile_parent, Item* item, wxPoint pos) :
@@ -50,11 +243,17 @@ OldPropertiesWindow::OldPropertiesWindow(wxWindow* win_parent, const Map* map, c
 	unique_id_field(nullptr),
 	door_id_field(nullptr),
 	depot_id_field(nullptr),
+	destination_field(nullptr),
 	splash_type_field(nullptr),
 	text_field(nullptr),
-	description_field(nullptr),
-	destination_field(nullptr)
+	translation_token_field(nullptr),
+	translate_text_button(nullptr),
+	pending_translation_requests(0),
+	description_field(nullptr)
 {
+	for(auto& field : localized_text_fields)
+		field = nullptr;
+	Bind(wxEVT_WEBREQUEST_STATE, &OldPropertiesWindow::OnTranslationRequestState, this);
 	ASSERT(edit_item);
 
 	wxSizer* topsizer = newd wxBoxSizer(wxVERTICAL);
@@ -142,10 +341,48 @@ OldPropertiesWindow::OldPropertiesWindow(wxWindow* win_parent, const Map* map, c
 
 		boxsizer->Add(subsizer, wxSizerFlags(1).Expand());
 
-		wxSizer* textsizer = newd wxBoxSizer(wxVERTICAL);
-		textsizer->Add(newd wxStaticText(this, wxID_ANY, "Text"), wxSizerFlags(1).Center());
-		text_field = newd wxTextCtrl(this, wxID_ANY, wxstr(item->getText()), wxDefaultPosition, wxDefaultSize, wxTE_MULTILINE);
-		textsizer->Add(text_field, wxSizerFlags(7).Expand());
+		const LocalizedMapText localized = loadLocalizedMapText(edit_map, item->getText());
+		map_text_key = localized.key;
+		wxSizer* textsizer = newd wxStaticBoxSizer(wxVERTICAL, this, "Localized Text");
+		wxFlexGridSizer* language_grid = newd wxFlexGridSizer(2, 2, 8);
+		language_grid->AddGrowableCol(0);
+		language_grid->AddGrowableCol(1);
+		language_grid->AddGrowableRow(0);
+		language_grid->AddGrowableRow(1);
+
+		const char* labels[] = {"English source", "Português", "Español", "Polski"};
+		wxTextCtrl** fields[] = {
+			&text_field,
+			&localized_text_fields[0],
+			&localized_text_fields[1],
+			&localized_text_fields[2],
+		};
+		for(size_t index = 0; index < 4; ++index) {
+			wxStaticBoxSizer* language_box = newd wxStaticBoxSizer(
+				wxVERTICAL, this, wxstr(std::string(labels[index])));
+			*fields[index] = newd wxTextCtrl(
+				this,
+				wxID_ANY,
+				wxstr(localized.texts[index]),
+				wxDefaultPosition,
+				wxSize(280, 90),
+				wxTE_MULTILINE);
+			language_box->Add(*fields[index], wxSizerFlags(1).Expand());
+			language_grid->Add(language_box, wxSizerFlags(1).Expand());
+		}
+		textsizer->Add(language_grid, wxSizerFlags(1).Expand().Border(wxALL, 4));
+
+		wxFlexGridSizer* translation_controls = newd wxFlexGridSizer(2, 6, 6);
+		translation_controls->AddGrowableCol(1);
+		translation_controls->Add(newd wxStaticText(this, wxID_ANY, "Worker access token"), wxSizerFlags().CenterVertical());
+		translation_token_field = newd wxTextCtrl(
+			this, wxID_ANY, discoverTranslationToken(edit_map), wxDefaultPosition, wxDefaultSize, wxTE_PASSWORD);
+		translation_controls->Add(translation_token_field, wxSizerFlags(1).Expand());
+		translate_text_button = newd wxButton(
+			this, MAP_TEXT_TRANSLATE_BUTTON, "Translate automatically");
+		translation_controls->AddSpacer(1);
+		translation_controls->Add(translate_text_button, wxSizerFlags().Align(wxALIGN_RIGHT));
+		textsizer->Add(translation_controls, wxSizerFlags().Expand().Border(wxTOP, 6));
 
 		boxsizer->Add(textsizer, wxSizerFlags(2).Expand());
 
@@ -512,7 +749,39 @@ void OldPropertiesWindow::OnClickOK(wxCommandEvent& WXUNUSED(event))
 					return;
 				}
 			}
-			edit_item->setText(text);
+			LocalizedMapText localized;
+			localized.key = map_text_key;
+			localized.texts[0] = text;
+			for(size_t index = 0; index < 3; ++index) {
+				localized.texts[index + 1] = localized_text_fields[index]
+					? nstr(localized_text_fields[index]->GetValue())
+					: "";
+			}
+			if(text.empty()) {
+				edit_item->setText("");
+			} else if(map_text_key.empty() && isReservedContentTag(text)) {
+				const bool has_translations = std::any_of(
+					std::begin(localized.texts) + 1,
+					std::end(localized.texts),
+					[](const std::string& value) { return !value.empty(); });
+				if(has_translations) {
+					g_gui.PopupDialog(
+						this,
+						"Reserved content tag",
+						"Special tags such as @book: cannot have map-text translations.",
+						wxOK);
+					return;
+				}
+				edit_item->setText(text);
+			} else {
+				std::string save_error;
+				if(!saveLocalizedMapText(edit_map, localized, save_error)) {
+					g_gui.PopupDialog(this, "Could not save localized text", wxstr(save_error), wxOK);
+					return;
+				}
+				map_text_key = localized.key;
+				edit_item->setText(std::string(MAP_TEXT_PREFIX) + map_text_key);
+			}
 		} else if(edit_item->isSplash() || edit_item->isFluidContainer()) {
 			// Splash
 			int* new_type = reinterpret_cast<int*>(splash_type_field->GetClientData(splash_type_field->GetSelection()));
@@ -615,6 +884,99 @@ void OldPropertiesWindow::OnClickCancel(wxCommandEvent& WXUNUSED(event))
 {
 	// Just close this window
 	EndModal(0);
+}
+
+void OldPropertiesWindow::OnTranslateMapText(wxCommandEvent&)
+{
+	if(!text_field || !translation_token_field)
+		return;
+	const wxString source = text_field->GetValue().Trim(true).Trim(false);
+	const wxString token = translation_token_field->GetValue().Trim(true).Trim(false);
+	if(source.empty()) {
+		g_gui.PopupDialog(this, "Automatic translation", "Enter the English source text first.", wxOK);
+		return;
+	}
+	if(token.empty()) {
+		g_gui.PopupDialog(this, "Automatic translation", "Enter the Worker access token.", wxOK);
+		return;
+	}
+	session_translation_token = token;
+	translation_requests.clear();
+	pending_translation_requests = 3;
+	if(translate_text_button)
+		translate_text_button->Disable();
+
+	const int request_ids[] = {
+		MAP_TEXT_TRANSLATE_PT,
+		MAP_TEXT_TRANSLATE_ES,
+		MAP_TEXT_TRANSLATE_PL,
+	};
+	for(size_t index = 0; index < 3; ++index) {
+		nlohmann::json body = {
+			{"targetLocale", MAP_TEXT_LOCALES[index + 1]},
+			{"items", nlohmann::json::array({
+				{{"id", 1}, {"name", nstr(source)}},
+			})},
+		};
+		wxWebRequest request = wxWebSession::GetDefault().CreateRequest(
+			this,
+			"http://127.0.0.1:8787/translate-items",
+			request_ids[index]);
+		if(!request.IsOk()) {
+			pending_translation_requests--;
+			continue;
+		}
+		request.SetMethod("POST");
+		request.SetHeader("Authorization", "Bearer " + token);
+		request.SetData(wxstr(body.dump()), "application/json");
+		request.SetStorage(wxWebRequest::Storage_Memory);
+		translation_requests.push_back(request);
+		translation_requests.back().Start();
+	}
+	if(pending_translation_requests == 0 && translate_text_button)
+		translate_text_button->Enable();
+}
+
+void OldPropertiesWindow::OnTranslationRequestState(wxWebRequestEvent& event)
+{
+	const wxWebRequest::State state = event.GetState();
+	if(state != wxWebRequest::State_Completed
+		&& state != wxWebRequest::State_Failed
+		&& state != wxWebRequest::State_Cancelled)
+		return;
+
+	const int locale_index = localeIndexFromRequestId(event.GetId());
+	if(locale_index < 1 || locale_index > 3)
+		return;
+
+	if(state == wxWebRequest::State_Completed && event.GetResponse().GetStatus() == 200) {
+		try {
+			const nlohmann::json response = nlohmann::json::parse(
+				nstr(event.GetResponse().AsString()));
+			const auto& items = response.at("items");
+			if(items.is_array() && !items.empty() && items[0].contains("name")
+				&& items[0]["name"].is_string() && localized_text_fields[locale_index - 1]) {
+				localized_text_fields[locale_index - 1]->SetValue(
+					wxstr(items[0]["name"].get<std::string>()));
+			}
+		} catch(const std::exception& exception) {
+			g_gui.PopupDialog(this, "Automatic translation", wxstr(std::string(exception.what())), wxOK);
+		}
+	} else {
+		wxString message = event.GetErrorDescription();
+		if(state == wxWebRequest::State_Completed) {
+			message = "Translation Worker returned HTTP "
+				+ i2ws(event.GetResponse().GetStatus()) + ".";
+		}
+		g_gui.PopupDialog(this, "Automatic translation", message, wxOK);
+	}
+
+	pending_translation_requests = std::max(0, pending_translation_requests - 1);
+	if(pending_translation_requests == 0) {
+		if(translate_text_button)
+			translate_text_button->Enable();
+		translation_requests.clear();
+	}
 }
 
 void OldPropertiesWindow::Update()
