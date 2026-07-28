@@ -24,6 +24,168 @@
 
 #include <sstream>
 
+uint32_t getZoneCategoryFlag(const std::string& category)
+{
+	if(category == "city") return TILESTATE_ZONE_CITY;
+	if(category == "town") return TILESTATE_ZONE_TOWN;
+	if(category == "forest") return TILESTATE_ZONE_FOREST;
+	if(category == "plains") return TILESTATE_ZONE_PLAINS;
+	if(category == "mountain") return TILESTATE_ZONE_MOUNTAIN;
+	if(category == "cave") return TILESTATE_ZONE_CAVE;
+	if(category == "water") return TILESTATE_ZONE_WATER;
+	if(category == "desert") return TILESTATE_ZONE_DESERT;
+	if(category == "market") return TILESTATE_ZONE_MARKET;
+	if(category == "temple") return TILESTATE_ZONE_TEMPLE;
+	if(category == "depot") return TILESTATE_ZONE_DEPOT;
+	if(category == "library") return TILESTATE_ZONE_LIBRARY;
+	if(category == "shop") return TILESTATE_ZONE_SHOP;
+	if(category == "bank") return TILESTATE_ZONE_BANK;
+	if(category == "tavern") return TILESTATE_ZONE_TAVERN;
+	return 0;
+}
+
+std::string getZoneCategoryFromFlags(uint32_t flags)
+{
+	if(flags & TILESTATE_ZONE_CITY) return "city";
+	if(flags & TILESTATE_ZONE_TOWN) return "town";
+	if(flags & TILESTATE_ZONE_FOREST) return "forest";
+	if(flags & TILESTATE_ZONE_PLAINS) return "plains";
+	if(flags & TILESTATE_ZONE_MOUNTAIN) return "mountain";
+	if(flags & TILESTATE_ZONE_CAVE) return "cave";
+	if(flags & TILESTATE_ZONE_WATER) return "water";
+	if(flags & TILESTATE_ZONE_DESERT) return "desert";
+	if(flags & TILESTATE_ZONE_MARKET) return "market";
+	if(flags & TILESTATE_ZONE_TEMPLE) return "temple";
+	if(flags & TILESTATE_ZONE_DEPOT) return "depot";
+	if(flags & TILESTATE_ZONE_LIBRARY) return "library";
+	if(flags & TILESTATE_ZONE_SHOP) return "shop";
+	if(flags & TILESTATE_ZONE_BANK) return "bank";
+	if(flags & TILESTATE_ZONE_TAVERN) return "tavern";
+	return "";
+}
+
+std::string getZoneCategoryDisplayName(const std::string& category)
+{
+	if(category == "city") return "City";
+	if(category == "town") return "Town";
+	if(category == "forest") return "Forest";
+	if(category == "plains") return "Plains";
+	if(category == "mountain") return "Mountain";
+	if(category == "cave") return "Cave";
+	if(category == "water") return "Water";
+	if(category == "desert") return "Desert";
+	if(category == "market") return "Market";
+	if(category == "temple") return "Temple";
+	if(category == "depot") return "Depot";
+	if(category == "library") return "Library";
+	if(category == "shop") return "Shop";
+	if(category == "bank") return "Bank";
+	if(category == "tavern") return "Tavern";
+	return "Not set";
+}
+
+std::vector<Position> getZoneAreaAnchors(const Map& map, const ZoneConfig& config)
+{
+	std::vector<Position> anchors;
+	const std::string configName = as_lower_str(config.name);
+	for(auto it = map.waypoints.begin(); it != map.waypoints.end(); ++it) {
+		if(it->second && as_lower_str(it->second->name) == configName) {
+			anchors.push_back(it->second->pos);
+			break;
+		}
+	}
+
+	for(const Position& position : config.additionalAreas) {
+		if(std::find(anchors.begin(), anchors.end(), position) == anchors.end()) {
+			anchors.push_back(position);
+		}
+	}
+	return anchors;
+}
+
+std::set<Position> collectZoneTiles(const Map& map, const ZoneConfig& config)
+{
+	std::set<Position> tiles;
+	const uint32_t categoryFlag = getZoneCategoryFlag(config.category);
+	if(categoryFlag == 0) {
+		return tiles;
+	}
+
+	std::queue<Position> pending;
+	for(const Position& anchor : getZoneAreaAnchors(map, config)) {
+		const Tile* tile = map.getTile(anchor);
+		if(!tile || !(tile->getMapFlags() & categoryFlag) || tiles.count(anchor)) {
+			continue;
+		}
+
+		tiles.insert(anchor);
+		pending.push(anchor);
+		while(!pending.empty()) {
+			const Position current = pending.front();
+			pending.pop();
+
+			const Position neighbours[] = {
+				Position(current.x + 1, current.y, current.z),
+				Position(current.x - 1, current.y, current.z),
+				Position(current.x, current.y + 1, current.z),
+				Position(current.x, current.y - 1, current.z)
+			};
+			for(const Position& neighbour : neighbours) {
+				if(tiles.count(neighbour)) {
+					continue;
+				}
+				const Tile* neighbourTile = map.getTile(neighbour);
+				if(neighbourTile && (neighbourTile->getMapFlags() & categoryFlag)) {
+					tiles.insert(neighbour);
+					pending.push(neighbour);
+				}
+			}
+		}
+	}
+	return tiles;
+}
+
+bool zoneContainsPosition(const Map& map, const ZoneConfig& config, const Position& position)
+{
+	const uint32_t categoryFlag = getZoneCategoryFlag(config.category);
+	const Tile* target = map.getTile(position);
+	if(categoryFlag == 0 || !target || !(target->getMapFlags() & categoryFlag)) {
+		return false;
+	}
+
+	const std::vector<Position> anchors = getZoneAreaAnchors(map, config);
+	std::set<Position> visited;
+	std::queue<Position> pending;
+	pending.push(position);
+	visited.insert(position);
+
+	while(!pending.empty()) {
+		const Position current = pending.front();
+		pending.pop();
+		if(std::find(anchors.begin(), anchors.end(), current) != anchors.end()) {
+			return true;
+		}
+
+		const Position neighbours[] = {
+			Position(current.x + 1, current.y, current.z),
+			Position(current.x - 1, current.y, current.z),
+			Position(current.x, current.y + 1, current.z),
+			Position(current.x, current.y - 1, current.z)
+		};
+		for(const Position& neighbour : neighbours) {
+			if(visited.count(neighbour)) {
+				continue;
+			}
+			const Tile* neighbourTile = map.getTile(neighbour);
+			if(neighbourTile && (neighbourTile->getMapFlags() & categoryFlag)) {
+				visited.insert(neighbour);
+				pending.push(neighbour);
+			}
+		}
+	}
+	return false;
+}
+
 Map::Map() : BaseMap(),
 	width(512),
 	height(512),

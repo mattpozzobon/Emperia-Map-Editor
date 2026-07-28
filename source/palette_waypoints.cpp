@@ -65,6 +65,8 @@ WaypointPalettePanel::~WaypointPalettePanel()
 void WaypointPalettePanel::OnSwitchIn()
 {
 	PalettePanel::OnSwitchIn();
+	SetMap(g_gui.IsEditorOpen() ? &g_gui.GetCurrentMap() : nullptr);
+	OnUpdate();
 }
 
 void WaypointPalettePanel::OnSwitchOut()

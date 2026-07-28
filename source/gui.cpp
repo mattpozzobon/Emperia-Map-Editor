@@ -1121,6 +1121,7 @@ void GUI::SelectPalettePage(PaletteType pt)
 	if(!p)
 		return;
 
+	p->OnUpdate(IsEditorOpen() ? &GetCurrentMap() : nullptr);
 	ShowPalette();
 	p->SelectPage(pt);
 	aui_manager->Update();

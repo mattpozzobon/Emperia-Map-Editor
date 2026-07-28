@@ -34,6 +34,7 @@ inline bool testFlags(size_t flags, size_t test) noexcept {
 
 int32_t uniform_random(int32_t minNumber, int32_t maxNumber);
 int32_t uniform_random(int32_t maxNumber);
+uint32_t uniform_random(uint32_t minNumber, uint32_t maxNumber);
 
 // Function-like convertions between float, int and doubles
 std::string i2s(int i);

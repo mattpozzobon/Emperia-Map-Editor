@@ -900,9 +900,10 @@ void MainMenuBar::OnSearchForItem(wxCommandEvent& WXUNUSED(event))
 	if(!g_gui.IsEditorOpen())
 		return;
 
-	FindItemDialog dialog(frame, "Search for Item");
+	FindItemDialog dialog(frame, "Search for Item", false, true);
 	dialog.setSearchMode((FindItemDialog::SearchMode)g_settings.getInteger(Config::FIND_ITEM_MODE));
-	if(dialog.ShowModal() == wxID_OK) {
+	const int dialog_result = dialog.ShowModal();
+	if(dialog_result == wxID_OK) {
 		OnSearchForItem::Finder finder(dialog.getResultID(), (uint32_t)g_settings.getInteger(Config::REPLACE_SIZE));
 		g_gui.CreateLoadBar("Searching map...");
 
@@ -924,9 +925,11 @@ void MainMenuBar::OnSearchForItem(wxCommandEvent& WXUNUSED(event))
 			Item* item = iter->second;
 			window->AddPosition(wxstr(item->getName()), tile->getPosition());
 		}
-
-		g_settings.setInteger(Config::FIND_ITEM_MODE, (int)dialog.getSearchMode());
+	} else if(dialog_result == wxID_APPLY) {
+		g_gui.SelectBrush(dialog.getResult(), TILESET_RAW);
 	}
+	if(dialog_result == wxID_OK || dialog_result == wxID_APPLY)
+		g_settings.setInteger(Config::FIND_ITEM_MODE, (int)dialog.getSearchMode());
 	dialog.Destroy();
 }
 

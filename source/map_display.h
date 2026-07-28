@@ -73,6 +73,8 @@ public:
 	void OnBrowseTile(wxCommandEvent& event);
 	void OnPaste(wxCommandEvent& event);
 	void OnDelete(wxCommandEvent& event);
+	void OnAddZoneArea(wxCommandEvent& event);
+	void OnSelectZoneArea(wxCommandEvent& event);
 	// ----
 	void OnGotoDestination(wxCommandEvent& event);
 	void OnCopyDestination(wxCommandEvent& event);
@@ -190,10 +192,12 @@ public:
 	MapPopupMenu(Editor& editor);
 	virtual ~MapPopupMenu();
 
-	void Update();
+	void Update(const Position& contextPosition);
+	const Position& GetContextPosition() const noexcept { return context_position; }
 
 protected:
 	Editor& editor;
+	Position context_position;
 };
 
 class AnimationTimer : public wxTimer

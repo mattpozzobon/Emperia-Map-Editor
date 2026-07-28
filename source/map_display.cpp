@@ -76,6 +76,8 @@ BEGIN_EVENT_TABLE(MapCanvas, wxGLCanvas)
 	EVT_MENU(MAP_POPUP_MENU_COPY_POSITION, MapCanvas::OnCopyPosition)
 	EVT_MENU(MAP_POPUP_MENU_PASTE, MapCanvas::OnPaste)
 	EVT_MENU(MAP_POPUP_MENU_DELETE, MapCanvas::OnDelete)
+	EVT_MENU(MAP_POPUP_MENU_ADD_ZONE_AREA, MapCanvas::OnAddZoneArea)
+	EVT_MENU(MAP_POPUP_MENU_SELECT_ZONE_AREA, MapCanvas::OnSelectZoneArea)
 	//----
 	EVT_MENU(MAP_POPUP_MENU_COPY_SERVER_ID, MapCanvas::OnCopyServerId)
 	EVT_MENU(MAP_POPUP_MENU_COPY_CLIENT_ID, MapCanvas::OnCopyClientId)
@@ -1468,7 +1470,7 @@ void MapCanvas::OnMousePropertiesRelease(wxMouseEvent& event)
 		// Nothing
 	}
 
-	popup_menu->Update();
+	popup_menu->Update(Position(mouse_map_x, mouse_map_y, floor));
 	PopupMenu(popup_menu);
 
 	editor.resetActionsTimer();
@@ -1847,6 +1849,120 @@ void MapCanvas::OnPaste(wxCommandEvent& WXUNUSED(event))
 void MapCanvas::OnDelete(wxCommandEvent& WXUNUSED(event))
 {
 	editor.destroySelection();
+	g_gui.RefreshView();
+}
+
+void MapCanvas::OnAddZoneArea(wxCommandEvent& WXUNUSED(event))
+{
+	const Position position = popup_menu->GetContextPosition();
+	Map& map = editor.getMap();
+	const Tile* tile = map.getTile(position);
+	const std::string category = tile ? getZoneCategoryFromFlags(tile->getMapFlags()) : "";
+	if(category.empty()) {
+		return;
+	}
+
+	wxArrayString choices;
+	std::vector<size_t> configIndices;
+	for(size_t index = 0; index < map.zoneConfigs.size(); ++index) {
+		const ZoneConfig& config = map.zoneConfigs[index];
+		if(config.category != category || zoneContainsPosition(map, config, position)) {
+			continue;
+		}
+		wxString label = wxstr(config.displayName.empty() ? config.name : config.displayName);
+		label += "  (marker: " + wxstr(config.name) + ")";
+		choices.Add(label);
+		configIndices.push_back(index);
+	}
+
+	if(choices.empty()) {
+		wxMessageBox(
+			"No compatible zone is available. Create a " +
+				wxstr(getZoneCategoryDisplayName(category)) +
+				" zone from a waypoint first.",
+			"Cannot Add Zone Area",
+			wxOK | wxICON_INFORMATION,
+			this
+		);
+		return;
+	}
+
+	wxSingleChoiceDialog dialog(
+		this,
+		"Choose the existing zone this connected area belongs to.\n"
+		"The area may be on a different floor; it will keep the same zone identity.",
+		"Add Area to " + wxstr(getZoneCategoryDisplayName(category)) + " Zone",
+		choices
+	);
+	if(dialog.ShowModal() != wxID_OK) {
+		return;
+	}
+
+	const int selection = dialog.GetSelection();
+	if(selection < 0 || selection >= static_cast<int>(configIndices.size())) {
+		return;
+	}
+
+	ZoneConfig& config = map.zoneConfigs[configIndices[selection]];
+	if(std::find(config.additionalAreas.begin(), config.additionalAreas.end(), position) ==
+		config.additionalAreas.end()) {
+		config.additionalAreas.push_back(position);
+		map.doChange();
+		const std::string zoneLabel = config.displayName.empty() ? config.name : config.displayName;
+		g_gui.SetStatusText(
+			"Added floor " + i2ws(position.z) + " area to zone " + wxstr(zoneLabel) + "."
+		);
+	}
+	g_gui.RefreshView();
+}
+
+void MapCanvas::OnSelectZoneArea(wxCommandEvent& WXUNUSED(event))
+{
+	const Position position = popup_menu->GetContextPosition();
+	Map& map = editor.getMap();
+	const Tile* tile = map.getTile(position);
+	const std::string category = tile ? getZoneCategoryFromFlags(tile->getMapFlags()) : "";
+	if(category.empty()) {
+		return;
+	}
+
+	const ZoneConfig* owner = nullptr;
+	for(const ZoneConfig& config : map.zoneConfigs) {
+		if(config.category == category && zoneContainsPosition(map, config, position)) {
+			owner = &config;
+			break;
+		}
+	}
+	if(!owner) {
+		return;
+	}
+
+	Brush* brush = nullptr;
+	if(category == "city") brush = g_gui.city_zone_brush;
+	else if(category == "town") brush = g_gui.town_zone_brush;
+	else if(category == "forest") brush = g_gui.forest_zone_brush;
+	else if(category == "plains") brush = g_gui.plains_zone_brush;
+	else if(category == "mountain") brush = g_gui.mountain_zone_brush;
+	else if(category == "cave") brush = g_gui.cave_zone_brush;
+	else if(category == "water") brush = g_gui.water_zone_brush;
+	else if(category == "desert") brush = g_gui.desert_zone_brush;
+	else if(category == "market") brush = g_gui.market_zone_brush;
+	else if(category == "temple") brush = g_gui.temple_zone_brush;
+	else if(category == "depot") brush = g_gui.depot_zone_brush;
+	else if(category == "library") brush = g_gui.library_zone_brush;
+	else if(category == "shop") brush = g_gui.shop_zone_brush;
+	else if(category == "bank") brush = g_gui.bank_zone_brush;
+	else if(category == "tavern") brush = g_gui.tavern_zone_brush;
+
+	if(!brush || !g_gui.SelectBrush(brush, TILESET_TERRAIN)) {
+		return;
+	}
+
+	const std::string ownerLabel = owner->displayName.empty() ? owner->name : owner->displayName;
+	g_gui.SetStatusText(
+		"Selected " + wxstr(getZoneCategoryDisplayName(category)) +
+		" Zone brush for area " + wxstr(ownerLabel) + "."
+	);
 	g_gui.RefreshView();
 }
 
@@ -2280,8 +2396,10 @@ MapPopupMenu::~MapPopupMenu()
 	////
 }
 
-void MapPopupMenu::Update()
+void MapPopupMenu::Update(const Position& contextPosition)
 {
+	context_position = contextPosition;
+
 	// Clear the menu of all items
 	while(GetMenuItemCount() != 0) {
 		wxMenuItem* m_item = FindItemByPosition(0);
@@ -2305,6 +2423,47 @@ void MapPopupMenu::Update()
 
 	wxMenuItem* deleteItem = Append( MAP_POPUP_MENU_DELETE, "&Delete\tDEL", "Removes all seleceted items");
 	deleteItem->Enable(anything_selected);
+
+	const Tile* contextTile = editor.getMap().getTile(context_position);
+	const std::string contextCategory = contextTile ?
+		getZoneCategoryFromFlags(contextTile->getMapFlags()) : "";
+	if(!contextCategory.empty()) {
+		AppendSeparator();
+
+		const ZoneConfig* owner = nullptr;
+		bool hasCompatibleZone = false;
+		for(const ZoneConfig& config : editor.getMap().zoneConfigs) {
+			if(config.category != contextCategory) {
+				continue;
+			}
+			hasCompatibleZone = true;
+			if(zoneContainsPosition(editor.getMap(), config, context_position)) {
+				owner = &config;
+				break;
+			}
+		}
+
+		if(owner) {
+			const std::string ownerLabel = owner->displayName.empty() ? owner->name : owner->displayName;
+			Append(
+				MAP_POPUP_MENU_SELECT_ZONE_AREA,
+				"Select area: " + wxstr(ownerLabel),
+				"Use this area's zone brush so it can be repainted or expanded"
+			);
+		} else {
+			wxMenuItem* addAreaItem = Append(
+				MAP_POPUP_MENU_ADD_ZONE_AREA,
+				"Add this area to a zone...",
+				"Link this connected painted area to an existing zone, including across floors"
+			);
+			if(!hasCompatibleZone) {
+			addAreaItem->SetItemLabel(
+				"No configured " + wxstr(getZoneCategoryDisplayName(contextCategory)) + " zones"
+			);
+			addAreaItem->Enable(false);
+			}
+		}
+	}
 
 	if(anything_selected) {
 		if(editor.getSelection().size() == 1) {

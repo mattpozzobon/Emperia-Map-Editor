@@ -345,8 +345,12 @@ public:
 	virtual ~ZoneConfigDialog();
 
 	void OnListSelect(wxCommandEvent& event);
+	void OnFilterType(wxCommandEvent& event);
 	void OnAddZone(wxCommandEvent& event);
 	void OnRemoveZone(wxCommandEvent& event);
+	void OnCategoryChanged(wxCommandEvent& event);
+	void OnMarkerChanged(wxCommandEvent& event);
+	void OnAreaRemove(wxCommandEvent& event);
 	void OnClickOK(wxCommandEvent& event);
 	void OnClickCancel(wxCommandEvent& event);
 	void OnResourcesCheck(wxCommandEvent& event);
@@ -358,17 +362,28 @@ private:
 	void LoadZoneToUI(int index);
 	void RefreshList();
 	void RefreshWaypointPicker();
+	void RefreshMarkerPicker(int index);
 	void RefreshSpawnList();
-	int CountZoneTiles(const std::string& category) const;
+	void RefreshResourceControls();
+	void RefreshResourceGroups();
+	void RefreshResourceVariants();
+	void RefreshAreaList();
+	int CountZoneTiles(const ZoneConfig& config) const;
 
 	Editor& editor;
 	std::vector<ZoneConfig> configs;
 	std::vector<ZoneResourceDef> resourceDefs;
+	std::vector<std::string> visibleResourceTypes;
+	std::vector<std::string> visibleResourceGroups;
+	std::vector<int> visibleResourceIndices;
+	std::vector<int> visibleZoneIndices;
+	std::vector<std::string> markerWaypointNames;
 	int currentIndex;
 
+	wxChoice* filter_choice;
 	wxListBox* zone_listbox;
 	wxChoice* waypoint_picker;
-	wxTextCtrl* name_field;
+	wxChoice* marker_picker;
 	wxTextCtrl* display_name_field;
 	wxChoice* category_choice;
 	wxTextCtrl* difficulty_field;
@@ -378,7 +393,12 @@ private:
 	wxSpinCtrl* min_distance_spin;
 	wxSpinCtrl* spawn_interval_spin;
 	wxListBox* spawn_list;
-	wxChoice* resource_picker;
+	wxListBox* area_list;
+	wxButton* area_remove_button;
+	wxChoice* resource_type_picker;
+	wxChoice* resource_group_picker;
+	wxChoice* resource_variant_picker;
+	wxStaticText* resource_filter_label;
 	wxSpinCtrl* chance_spin;
 	wxStaticText* area_label;
 

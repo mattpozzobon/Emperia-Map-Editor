@@ -219,22 +219,22 @@ public:
 
 struct FrameDuration
 {
-	int min;
-	int max;
+	uint32_t min;
+	uint32_t max;
 
-	FrameDuration(int min, int max) : min(min), max(max)
+	FrameDuration(uint32_t min, uint32_t max) : min(min), max(max)
 	{
 		ASSERT(min <= max);
 	}
 
-	int getDuration() const
+	uint32_t getDuration() const
 	{
 		if(min == max)
 			return min;
 		return uniform_random(min, max);
 	};
 
-	void setValues(int min, int max)
+	void setValues(uint32_t min, uint32_t max)
 	{
 		ASSERT(min <= max);
 		this->min = min;
@@ -258,7 +258,7 @@ public:
 	void reset();
 
 private:
-	int getDuration(int frame) const;
+	uint32_t getDuration(int frame) const;
 	int getPingPongFrame();
 	int getLoopFrame();
 	void calculateSynchronous();
@@ -270,8 +270,8 @@ private:
 	std::vector<FrameDuration*> durations;
 	int current_frame;
 	int current_loop;
-	int current_duration;
-	int total_duration;
+	int64_t current_duration;
+	uint64_t total_duration;
 	AnimationDirection direction;
 	long last_time;
 	bool is_complete;
@@ -296,6 +296,7 @@ public:
 	uint16_t getItemSpriteMaxID() const noexcept { return item_count; }
 	uint16_t getCreatureSpriteMaxID() const noexcept { return creature_count; }
 	const std::map<uint16_t, uint16_t>& getItemAppearances() const noexcept { return item_appearances; }
+	const std::map<uint16_t, uint8_t>& getItemIdentities() const noexcept { return item_identities; }
 
 	// Get an unused texture id (this is acquired by simply increasing a value starting from 0x10000000)
 	GLuint getFreeTextureID();
@@ -337,6 +338,7 @@ private:
 	uint16_t item_count;
 	uint16_t creature_count;
 	std::map<uint16_t, uint16_t> item_appearances;
+	std::map<uint16_t, uint8_t> item_identities;
 	bool otfi_found;
 	bool is_extended;
 	bool has_transparency;

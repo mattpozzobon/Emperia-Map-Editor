@@ -47,6 +47,17 @@ int32_t uniform_random(int32_t maxNumber)
 	return uniform_random(0, maxNumber);
 }
 
+uint32_t uniform_random(uint32_t minNumber, uint32_t maxNumber)
+{
+	static std::uniform_int_distribution<uint32_t> uniformRand;
+	if(minNumber == maxNumber) {
+		return minNumber;
+	} else if(minNumber > maxNumber) {
+		std::swap(minNumber, maxNumber);
+	}
+	return uniformRand(getRandomGenerator(), std::uniform_int_distribution<uint32_t>::param_type(minNumber, maxNumber));
+}
+
 //
 std::string i2s(const int _i)
 {

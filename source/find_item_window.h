@@ -48,10 +48,22 @@ public:
 		MagicField,
 		Teleport,
 		Bed,
-		Key
+		Key,
+		Corpse,
+		FluidContainer,
+		Rune,
+		Splash,
+		Window,
+		Stair,
+		Lever,
+		Chest,
+		Wall,
+		ClosedDoor,
+		OpenDoor,
+		Readable
 	};
 
-	FindItemDialog(wxWindow* parent, const wxString& title, bool onlyPickupables = false);
+	FindItemDialog(wxWindow* parent, const wxString& title, bool onlyPickupables = false, bool allowItemSelection = false);
 	~FindItemDialog();
 
 	Brush* getResult() const { return result_brush; }
@@ -71,7 +83,9 @@ private:
 	void OnPropertyChange(wxCommandEvent& event);
 	void OnInputTimer(wxTimerEvent& event);
 	void OnClickOK(wxCommandEvent& event);
+	void OnClickSelectItem(wxCommandEvent& event);
 	void OnClickCancel(wxCommandEvent& event);
+	bool StoreSelectedItem();
 
 	wxRadioBox* options_radio_box;
 
@@ -99,6 +113,7 @@ private:
 	FindDialogListBox* items_list;
 	wxStdDialogButtonSizer* buttons_box_sizer;
 	wxButton* ok_button;
+	wxButton* select_item_button;
 	wxButton* cancel_button;
 	Brush* result_brush;
 	uint16_t result_id;

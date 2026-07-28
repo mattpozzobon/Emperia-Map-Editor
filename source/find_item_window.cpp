@@ -26,12 +26,14 @@
 BEGIN_EVENT_TABLE(FindItemDialog, wxDialog)
 	EVT_TIMER(wxID_ANY, FindItemDialog::OnInputTimer)
 	EVT_BUTTON(wxID_OK, FindItemDialog::OnClickOK)
+	EVT_BUTTON(wxID_APPLY, FindItemDialog::OnClickSelectItem)
 	EVT_BUTTON(wxID_CANCEL, FindItemDialog::OnClickCancel)
 END_EVENT_TABLE()
 
-FindItemDialog::FindItemDialog(wxWindow* parent, const wxString& title, bool onlyPickupables/* = false*/) :
+FindItemDialog::FindItemDialog(wxWindow* parent, const wxString& title, bool onlyPickupables/* = false*/, bool allowItemSelection/* = false*/) :
 	wxDialog(parent, wxID_ANY, title, wxDefaultPosition, wxSize(800, 600), wxDEFAULT_DIALOG_STYLE),
 	input_timer(this),
+	select_item_button(nullptr),
 	result_brush(nullptr),
 	result_id(0),
 	only_pickupables(onlyPickupables)
@@ -66,8 +68,13 @@ FindItemDialog::FindItemDialog(wxWindow* parent, const wxString& title, bool onl
 	// spacer
 	options_box_sizer->Add(0, 0, 4, wxALL | wxEXPAND, 5);
 
+	if(allowItemSelection) {
+		select_item_button = newd wxButton(this, wxID_APPLY, "Select Item");
+		options_box_sizer->Add(select_item_button, 0, wxALIGN_CENTER | wxLEFT | wxRIGHT | wxTOP, 5);
+	}
+
 	buttons_box_sizer = newd wxStdDialogButtonSizer();
-	ok_button = newd wxButton(this, wxID_OK);
+	ok_button = newd wxButton(this, wxID_OK, allowItemSelection ? wxString("Search Map") : wxString());
 	buttons_box_sizer->AddButton(ok_button);
 	cancel_button = newd wxButton(this, wxID_CANCEL);
 	buttons_box_sizer->AddButton(cancel_button);
@@ -88,7 +95,19 @@ FindItemDialog::FindItemDialog(wxWindow* parent, const wxString& title, bool onl
 								 "Magic Field",
 								 "Teleport",
 								 "Bed",
-								 "Key" };
+								 "Key",
+								 "Corpse",
+								 "Fluid Container",
+								 "Rune",
+								 "Splash",
+								 "Window",
+								 "Stair",
+								 "Lever",
+								 "Chest",
+								 "Wall",
+								 "Closed Door",
+								 "Open Door",
+								 "Readable" };
 
 	int types_choices_count = sizeof(types_choices) / sizeof(wxString);
 	types_radio_box = newd wxRadioBox(this, wxID_ANY, wxEmptyString, wxDefaultPosition, wxDefaultSize, types_choices_count, types_choices, 1, wxRA_SPECIFY_COLS);
@@ -267,6 +286,8 @@ void FindItemDialog::RefreshContentsInternal()
 {
 	items_list->Clear();
 	ok_button->Enable(false);
+	if(select_item_button)
+		select_item_button->Enable(false);
 
 	SearchMode selection = (SearchMode)options_radio_box->GetSelection();
 	bool found_search_results = false;
@@ -334,7 +355,19 @@ void FindItemDialog::RefreshContentsInternal()
 				(selection == SearchItemType::MagicField && !item.isMagicField()) ||
 				(selection == SearchItemType::Teleport && !item.isTeleport()) ||
 				(selection == SearchItemType::Bed && !item.isBed()) ||
-				(selection == SearchItemType::Key && !item.isKey())) {
+				(selection == SearchItemType::Key && !item.isKey()) ||
+				(selection == SearchItemType::Corpse && item.type != ITEM_TYPE_CORPSE) ||
+				(selection == SearchItemType::FluidContainer && item.type != ITEM_TYPE_FLUIDCONTAINER) ||
+				(selection == SearchItemType::Rune && item.type != ITEM_TYPE_RUNE) ||
+				(selection == SearchItemType::Splash && item.type != ITEM_TYPE_SPLASH) ||
+				(selection == SearchItemType::Window && item.type != ITEM_TYPE_WINDOW) ||
+				(selection == SearchItemType::Stair && !item.isStair()) ||
+				(selection == SearchItemType::Lever && !item.isLever()) ||
+				(selection == SearchItemType::Chest && !item.isChest()) ||
+				(selection == SearchItemType::Wall && item.type != ITEM_TYPE_WALL) ||
+				(selection == SearchItemType::ClosedDoor && item.type != ITEM_TYPE_DOOR_CLOSED) ||
+				(selection == SearchItemType::OpenDoor && item.type != ITEM_TYPE_DOOR_OPEN) ||
+				(selection == SearchItemType::Readable && !item.isReadable())) {
 				continue;
 			}
 
@@ -373,7 +406,7 @@ void FindItemDialog::RefreshContentsInternal()
 					(unmovable->GetValue() && item.moveable) ||
 					(block_missiles->GetValue() && !item.blockMissiles) ||
 					(block_pathfinder->GetValue() && !item.blockPathfinder) ||
-					(readable->GetValue() && !item.canReadText) ||
+					(readable->GetValue() && !item.isReadable()) ||
 					(writeable->GetValue() && !item.canWriteText) ||
 					(pickupable->GetValue() && !item.pickupable) ||
 					(stackable->GetValue() && !item.stackable) ||
@@ -396,6 +429,8 @@ void FindItemDialog::RefreshContentsInternal()
 	if(found_search_results) {
 		items_list->SetSelection(0);
 		ok_button->Enable(true);
+		if(select_item_button)
+			select_item_button->Enable(true);
 	} else
 		items_list->SetNoMatches();
 
@@ -434,14 +469,28 @@ void FindItemDialog::OnInputTimer(wxTimerEvent& WXUNUSED(event))
 
 void FindItemDialog::OnClickOK(wxCommandEvent& WXUNUSED(event))
 {
-	if(items_list->GetItemCount() != 0) {
-		Brush* brush = items_list->GetSelectedBrush();
-		if(brush) {
-			result_brush = brush;
-			result_id = brush->asRaw()->getItemID();
-			EndModal(wxID_OK);
-		}
-	}
+	if(StoreSelectedItem())
+		EndModal(wxID_OK);
+}
+
+void FindItemDialog::OnClickSelectItem(wxCommandEvent& WXUNUSED(event))
+{
+	if(StoreSelectedItem())
+		EndModal(wxID_APPLY);
+}
+
+bool FindItemDialog::StoreSelectedItem()
+{
+	if(items_list->GetItemCount() == 0)
+		return false;
+
+	Brush* brush = items_list->GetSelectedBrush();
+	if(!brush || !brush->asRaw())
+		return false;
+
+	result_brush = brush;
+	result_id = brush->asRaw()->getItemID();
+	return true;
 }
 
 void FindItemDialog::OnClickCancel(wxCommandEvent& WXUNUSED(event))

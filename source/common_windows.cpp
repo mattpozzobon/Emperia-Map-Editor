@@ -1475,8 +1475,11 @@ void GotoPositionDialog::OnClickOK(wxCommandEvent &)
 
 BEGIN_EVENT_TABLE(ZoneConfigDialog, wxDialog)
 	EVT_LISTBOX(ZONE_CONFIG_LIST, ZoneConfigDialog::OnListSelect)
+	EVT_CHOICE(ZONE_CONFIG_FILTER, ZoneConfigDialog::OnFilterType)
 	EVT_BUTTON(ZONE_CONFIG_ADD, ZoneConfigDialog::OnAddZone)
 	EVT_BUTTON(ZONE_CONFIG_REMOVE, ZoneConfigDialog::OnRemoveZone)
+	EVT_CHOICE(ZONE_CONFIG_CATEGORY, ZoneConfigDialog::OnCategoryChanged)
+	EVT_BUTTON(ZONE_CONFIG_AREA_REMOVE, ZoneConfigDialog::OnAreaRemove)
 	EVT_BUTTON(wxID_OK, ZoneConfigDialog::OnClickOK)
 	EVT_BUTTON(wxID_CANCEL, ZoneConfigDialog::OnClickCancel)
 	EVT_CHECKBOX(ZONE_CONFIG_HAS_RESOURCES, ZoneConfigDialog::OnResourcesCheck)
@@ -1484,8 +1487,86 @@ BEGIN_EVENT_TABLE(ZoneConfigDialog, wxDialog)
 	EVT_BUTTON(ZONE_CONFIG_SPAWN_REMOVE, ZoneConfigDialog::OnSpawnRemove)
 END_EVENT_TABLE()
 
+namespace {
+	const char* ZoneCategoryValues[] = {
+		"", "city", "town", "forest", "plains", "mountain", "cave", "water",
+		"desert", "market", "temple", "depot", "library", "shop", "bank", "tavern"
+	};
+	constexpr int ZoneCategoryCount = sizeof(ZoneCategoryValues) / sizeof(ZoneCategoryValues[0]);
+
+	wxArrayString BuildZoneCategoryChoices(const wxString& firstLabel)
+	{
+		wxArrayString choices;
+		choices.Add(firstLabel);
+		for(int index = 1; index < ZoneCategoryCount; ++index) {
+			choices.Add(wxstr(getZoneCategoryDisplayName(ZoneCategoryValues[index])));
+		}
+		return choices;
+	}
+
+	int FindZoneCategoryIndex(const std::string& category)
+	{
+		for(int index = 1; index < ZoneCategoryCount; ++index) {
+			if(category == ZoneCategoryValues[index]) {
+				return index;
+			}
+		}
+		return 0;
+	}
+
+	std::string GetResourceType(const ZoneResourceDef& def)
+	{
+		return as_lower_str(def.type);
+	}
+
+	std::string GetResourceGroupId(const ZoneResourceDef& def)
+	{
+		return as_lower_str(def.groupId);
+	}
+
+	std::string GetResourceVariant(const ZoneResourceDef& def)
+	{
+		return as_lower_str(def.variant);
+	}
+
+	bool IsResourceCompatibleWithZone(const ZoneResourceDef& def, const std::string& category)
+	{
+		if(category.empty()) {
+			return true;
+		}
+		if(def.zoneTypes.empty()) {
+			return true;
+		}
+		for(const std::string& zoneType : def.zoneTypes) {
+			if(as_lower_str(zoneType) == as_lower_str(category)) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	wxString GetResourceTypeDisplayName(const std::string& type)
+	{
+		if(type == "ore") return "Ore";
+		if(type == "crystal") return "Crystal";
+		if(type == "plant") return "Plant";
+		if(type == "fungus") return "Fungus";
+		return "Other";
+	}
+
+	wxString GetResourceVariantDisplayName(const std::string& variant)
+	{
+		if(variant == "small") return "Small";
+		if(variant == "medium") return "Medium";
+		if(variant == "large") return "Large";
+		if(variant == "default") return "Default";
+		return wxstr(variant);
+	}
+}
+
 ZoneConfigDialog::ZoneConfigDialog(wxWindow* parent, Editor& editor) :
-	wxDialog(parent, wxID_ANY, "Zone Configuration", wxDefaultPosition, wxSize(620, 560)),
+	wxDialog(parent, wxID_ANY, "Zone Configuration", wxDefaultPosition, wxSize(860, 760),
+		wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER),
 	editor(editor),
 	currentIndex(-1)
 {
@@ -1497,17 +1578,25 @@ ZoneConfigDialog::ZoneConfigDialog(wxWindow* parent, Editor& editor) :
 
 	// Left panel: zone list + add/remove
 	wxBoxSizer* leftSizer = newd wxBoxSizer(wxVERTICAL);
+	leftSizer->Add(newd wxStaticText(this, wxID_ANY, "Filter zones by type:"), 0, wxBOTTOM, 4);
+	filter_choice = newd wxChoice(
+		this, ZONE_CONFIG_FILTER, wxDefaultPosition, wxSize(220, -1),
+		BuildZoneCategoryChoices("All types")
+	);
+	filter_choice->SetSelection(0);
+	leftSizer->Add(filter_choice, 0, wxEXPAND | wxBOTTOM, 8);
+
 	leftSizer->Add(newd wxStaticText(this, wxID_ANY, "Zones:"), 0, wxBOTTOM, 4);
-	zone_listbox = newd wxListBox(this, ZONE_CONFIG_LIST, wxDefaultPosition, wxSize(160, 300));
+	zone_listbox = newd wxListBox(this, ZONE_CONFIG_LIST, wxDefaultPosition, wxSize(220, 300));
 	leftSizer->Add(zone_listbox, 1, wxEXPAND);
 
-	leftSizer->Add(newd wxStaticText(this, wxID_ANY, "Add from waypoint:"), 0, wxTOP, 6);
-	waypoint_picker = newd wxChoice(this, wxID_ANY, wxDefaultPosition, wxSize(160, -1));
+	leftSizer->Add(newd wxStaticText(this, wxID_ANY, "Create from marker waypoint:"), 0, wxTOP, 8);
+	waypoint_picker = newd wxChoice(this, wxID_ANY, wxDefaultPosition, wxSize(220, -1));
 	leftSizer->Add(waypoint_picker, 0, wxEXPAND | wxTOP, 2);
 
 	wxBoxSizer* btnSizer = newd wxBoxSizer(wxHORIZONTAL);
-	btnSizer->Add(newd wxButton(this, ZONE_CONFIG_ADD, "Add"), 1, wxRIGHT, 4);
-	btnSizer->Add(newd wxButton(this, ZONE_CONFIG_REMOVE, "Remove"), 1);
+	btnSizer->Add(newd wxButton(this, ZONE_CONFIG_ADD, "Create zone"), 1, wxRIGHT, 4);
+	btnSizer->Add(newd wxButton(this, ZONE_CONFIG_REMOVE, "Delete zone"), 1);
 	leftSizer->Add(btnSizer, 0, wxEXPAND | wxTOP, 4);
 
 	topSizer->Add(leftSizer, 0, wxEXPAND | wxALL, 8);
@@ -1517,33 +1606,23 @@ ZoneConfigDialog::ZoneConfigDialog(wxWindow* parent, Editor& editor) :
 	wxFlexGridSizer* grid = newd wxFlexGridSizer(2, 4, 4);
 	grid->AddGrowableCol(1);
 
-	grid->Add(newd wxStaticText(this, wxID_ANY, "Waypoint:"), 0, wxALIGN_CENTER_VERTICAL);
-	name_field = newd wxTextCtrl(this, wxID_ANY, "", wxDefaultPosition, wxSize(200, -1), wxTE_READONLY);
-	grid->Add(name_field, 1, wxEXPAND);
+	grid->Add(newd wxStaticText(this, wxID_ANY, "Marker waypoint:"), 0, wxALIGN_CENTER_VERTICAL);
+	marker_picker = newd wxChoice(this, wxID_ANY, wxDefaultPosition, wxSize(200, -1));
+	grid->Add(marker_picker, 1, wxEXPAND);
+	marker_picker->SetToolTip(
+		"Select any unassigned waypoint. Missing markers can be replaced directly here."
+	);
+	marker_picker->Bind(wxEVT_CHOICE, &ZoneConfigDialog::OnMarkerChanged, this);
 
 	grid->Add(newd wxStaticText(this, wxID_ANY, "Display Name:"), 0, wxALIGN_CENTER_VERTICAL);
 	display_name_field = newd wxTextCtrl(this, wxID_ANY, "", wxDefaultPosition, wxSize(200, -1));
 	grid->Add(display_name_field, 1, wxEXPAND);
 
-	grid->Add(newd wxStaticText(this, wxID_ANY, "Category:"), 0, wxALIGN_CENTER_VERTICAL);
-	wxArrayString categories;
-	categories.Add("(none)");
-	categories.Add("city");
-	categories.Add("town");
-	categories.Add("forest");
-	categories.Add("plains");
-	categories.Add("mountain");
-	categories.Add("cave");
-	categories.Add("water");
-	categories.Add("desert");
-	categories.Add("market");
-	categories.Add("temple");
-	categories.Add("depot");
-	categories.Add("library");
-	categories.Add("shop");
-	categories.Add("bank");
-	categories.Add("tavern");
-	category_choice = newd wxChoice(this, wxID_ANY, wxDefaultPosition, wxSize(200, -1), categories);
+	grid->Add(newd wxStaticText(this, wxID_ANY, "Zone type:"), 0, wxALIGN_CENTER_VERTICAL);
+	category_choice = newd wxChoice(
+		this, ZONE_CONFIG_CATEGORY, wxDefaultPosition, wxSize(200, -1),
+		BuildZoneCategoryChoices("Select a type")
+	);
 	category_choice->SetSelection(0);
 	grid->Add(category_choice, 1, wxEXPAND);
 
@@ -1555,11 +1634,22 @@ ZoneConfigDialog::ZoneConfigDialog(wxWindow* parent, Editor& editor) :
 	music_field = newd wxTextCtrl(this, wxID_ANY, "", wxDefaultPosition, wxSize(200, -1));
 	grid->Add(music_field, 1, wxEXPAND);
 
-	grid->Add(newd wxStaticText(this, wxID_ANY, "Zone Area:"), 0, wxALIGN_CENTER_VERTICAL);
+	grid->Add(newd wxStaticText(this, wxID_ANY, "Included tiles:"), 0, wxALIGN_CENTER_VERTICAL);
 	area_label = newd wxStaticText(this, wxID_ANY, "—", wxDefaultPosition, wxSize(200, -1));
 	grid->Add(area_label, 1, wxEXPAND);
 
 	rightSizer->Add(grid, 0, wxEXPAND);
+
+	rightSizer->Add(newd wxStaticText(this, wxID_ANY, "Included areas and floors:"), 0, wxTOP, 8);
+	area_list = newd wxListBox(this, ZONE_CONFIG_AREA_LIST, wxDefaultPosition, wxSize(260, 90));
+	rightSizer->Add(area_list, 0, wxEXPAND | wxTOP, 2);
+	area_remove_button = newd wxButton(
+		this, ZONE_CONFIG_AREA_REMOVE, "Remove selected additional area"
+	);
+	rightSizer->Add(area_remove_button, 0, wxALIGN_RIGHT | wxTOP, 4);
+	area_list->Bind(wxEVT_LISTBOX, [this](wxCommandEvent&) {
+		area_remove_button->Enable(area_list->GetSelection() > 0);
+	});
 
 	// Resources section
 	rightSizer->Add(newd wxStaticLine(this), 0, wxEXPAND | wxTOP | wxBOTTOM, 8);
@@ -1588,15 +1678,47 @@ ZoneConfigDialog::ZoneConfigDialog(wxWindow* parent, Editor& editor) :
 	spawn_list = newd wxListBox(this, ZONE_CONFIG_SPAWN_LIST, wxDefaultPosition, wxSize(200, 80));
 	rightSizer->Add(spawn_list, 0, wxEXPAND | wxTOP, 2);
 
+	resource_filter_label = newd wxStaticText(this, wxID_ANY, "");
+	resource_filter_label->SetForegroundColour(wxColour(80, 80, 80));
+	rightSizer->Add(resource_filter_label, 0, wxTOP | wxBOTTOM, 4);
+
+	wxFlexGridSizer* resourceSelectorSizer = newd wxFlexGridSizer(2, 4, 4);
+	resourceSelectorSizer->AddGrowableCol(1);
+
+	resourceSelectorSizer->Add(
+		newd wxStaticText(this, wxID_ANY, "Resource type:"), 0, wxALIGN_CENTER_VERTICAL
+	);
+	resource_type_picker = newd wxChoice(this, wxID_ANY, wxDefaultPosition, wxSize(220, -1));
+	resourceSelectorSizer->Add(resource_type_picker, 1, wxEXPAND);
+
+	resourceSelectorSizer->Add(
+		newd wxStaticText(this, wxID_ANY, "Resource:"), 0, wxALIGN_CENTER_VERTICAL
+	);
+	resource_group_picker = newd wxChoice(this, wxID_ANY, wxDefaultPosition, wxSize(220, -1));
+	resourceSelectorSizer->Add(resource_group_picker, 1, wxEXPAND);
+
+	resourceSelectorSizer->Add(
+		newd wxStaticText(this, wxID_ANY, "Variant:"), 0, wxALIGN_CENTER_VERTICAL
+	);
+	resource_variant_picker = newd wxChoice(this, wxID_ANY, wxDefaultPosition, wxSize(220, -1));
+	resourceSelectorSizer->Add(resource_variant_picker, 1, wxEXPAND);
+	rightSizer->Add(resourceSelectorSizer, 0, wxEXPAND | wxTOP, 4);
+
 	wxBoxSizer* spawnAddSizer = newd wxBoxSizer(wxHORIZONTAL);
-	resource_picker = newd wxChoice(this, wxID_ANY, wxDefaultPosition, wxSize(120, -1));
-	spawnAddSizer->Add(resource_picker, 1, wxRIGHT, 4);
-	spawnAddSizer->Add(newd wxStaticText(this, wxID_ANY, "Chance:"), 0, wxALIGN_CENTER_VERTICAL | wxRIGHT, 2);
+	spawnAddSizer->AddStretchSpacer();
+	spawnAddSizer->Add(newd wxStaticText(this, wxID_ANY, "Weight:"), 0, wxALIGN_CENTER_VERTICAL | wxRIGHT, 2);
 	chance_spin = newd wxSpinCtrl(this, wxID_ANY, "10", wxDefaultPosition, wxSize(60, -1), wxSP_ARROW_KEYS, 1, 9999);
 	spawnAddSizer->Add(chance_spin, 0, wxRIGHT, 4);
-	spawnAddSizer->Add(newd wxButton(this, ZONE_CONFIG_SPAWN_ADD, "+"), 0, wxRIGHT, 2);
-	spawnAddSizer->Add(newd wxButton(this, ZONE_CONFIG_SPAWN_REMOVE, "-"), 0);
+	spawnAddSizer->Add(newd wxButton(this, ZONE_CONFIG_SPAWN_ADD, "Add"), 0, wxRIGHT, 2);
+	spawnAddSizer->Add(newd wxButton(this, ZONE_CONFIG_SPAWN_REMOVE, "Remove"), 0);
 	rightSizer->Add(spawnAddSizer, 0, wxEXPAND | wxTOP, 4);
+
+	resource_type_picker->Bind(wxEVT_CHOICE, [this](wxCommandEvent&) {
+		RefreshResourceGroups();
+	});
+	resource_group_picker->Bind(wxEVT_CHOICE, [this](wxCommandEvent&) {
+		RefreshResourceVariants();
+	});
 
 	topSizer->Add(rightSizer, 1, wxEXPAND | wxALL, 8);
 
@@ -1604,10 +1726,10 @@ ZoneConfigDialog::ZoneConfigDialog(wxWindow* parent, Editor& editor) :
 	wxBoxSizer* mainSizer = newd wxBoxSizer(wxVERTICAL);
 
 	wxStaticText* infoLabel = newd wxStaticText(this, wxID_ANY,
-		"1. Paint a zone category on tiles using the zone brush.\n"
-		"2. Place a waypoint inside the painted area.\n"
-		"3. Select the waypoint below and click Add to configure it.");
-	infoLabel->SetForegroundColour(wxColour(100, 100, 100));
+		"A zone has one marker waypoint and may include multiple connected painted areas on any floor.\n"
+		"To extend it, paint the same type elsewhere, right-click that area, and choose "
+		"\"Add this area to a zone...\".");
+	infoLabel->SetForegroundColour(wxColour(80, 80, 80));
 	mainSizer->Add(infoLabel, 0, wxALL, 8);
 
 	mainSizer->Add(topSizer, 1, wxEXPAND);
@@ -1620,15 +1742,10 @@ ZoneConfigDialog::ZoneConfigDialog(wxWindow* parent, Editor& editor) :
 
 	SetSizer(mainSizer);
 
-	// Populate resource picker from loaded definitions
-	for(const auto& def : resourceDefs) {
-		resource_picker->Append(wxstr(def.id) + " (" + wxstr(def.name) + ")");
-	}
-	if(resource_picker->GetCount() > 0)
-		resource_picker->SetSelection(0);
+	RefreshResourceControls();
 
 	// Disable right panel until a zone is selected
-	name_field->Disable();
+	marker_picker->Disable();
 	display_name_field->Disable();
 	category_choice->Disable();
 	difficulty_field->Disable();
@@ -1638,11 +1755,16 @@ ZoneConfigDialog::ZoneConfigDialog(wxWindow* parent, Editor& editor) :
 	min_distance_spin->Disable();
 	spawn_interval_spin->Disable();
 	spawn_list->Disable();
-	resource_picker->Disable();
+	area_list->Disable();
+	area_remove_button->Disable();
+	resource_type_picker->Disable();
+	resource_group_picker->Disable();
+	resource_variant_picker->Disable();
 	chance_spin->Disable();
 
 	RefreshList();
 	RefreshWaypointPicker();
+	SetMinSize(wxSize(760, 700));
 	Centre(wxBOTH);
 }
 
@@ -1653,11 +1775,38 @@ ZoneConfigDialog::~ZoneConfigDialog()
 void ZoneConfigDialog::RefreshList()
 {
 	zone_listbox->Clear();
-	for(const auto& zc : configs) {
-		wxString label = wxstr(zc.name);
-		if(!zc.category.empty())
-			label += " [" + wxstr(zc.category) + "]";
+	visibleZoneIndices.clear();
+
+	const int filterIndex = filter_choice ? filter_choice->GetSelection() : 0;
+	const std::string filterCategory =
+		filterIndex > 0 && filterIndex < ZoneCategoryCount ? ZoneCategoryValues[filterIndex] : "";
+
+	int selectedListIndex = wxNOT_FOUND;
+	for(size_t configIndex = 0; configIndex < configs.size(); ++configIndex) {
+		const ZoneConfig& zc = configs[configIndex];
+		if(!filterCategory.empty() && zc.category != filterCategory) {
+			continue;
+		}
+
+		std::set<int> floors;
+		for(const Position& anchor : getZoneAreaAnchors(editor.getMap(), zc)) {
+			floors.insert(anchor.z);
+		}
+
+		wxString label = wxstr(zc.displayName.empty() ? zc.name : zc.displayName);
+		label += "  [" + wxstr(getZoneCategoryDisplayName(zc.category)) + "]";
+		if(!floors.empty()) {
+			label += wxString::Format("  - %d floor%s", static_cast<int>(floors.size()),
+				floors.size() == 1 ? "" : "s");
+		}
 		zone_listbox->Append(label);
+		visibleZoneIndices.push_back(static_cast<int>(configIndex));
+		if(static_cast<int>(configIndex) == currentIndex) {
+			selectedListIndex = static_cast<int>(visibleZoneIndices.size()) - 1;
+		}
+	}
+	if(selectedListIndex != wxNOT_FOUND) {
+		zone_listbox->SetSelection(selectedListIndex);
 	}
 }
 
@@ -1668,13 +1817,13 @@ void ZoneConfigDialog::RefreshWaypointPicker()
 	// Collect names already used by configs
 	std::set<std::string> usedNames;
 	for(const auto& zc : configs) {
-		usedNames.insert(zc.name);
+		usedNames.insert(as_lower_str(zc.name));
 	}
 
 	// Add only waypoints not already configured
 	const Waypoints& wps = editor.getMap().waypoints;
 	for(auto it = wps.begin(); it != wps.end(); ++it) {
-		if(usedNames.find(it->first) == usedNames.end()) {
+		if(usedNames.find(as_lower_str(it->first)) == usedNames.end()) {
 			waypoint_picker->Append(wxstr(it->first));
 		}
 	}
@@ -1683,10 +1832,57 @@ void ZoneConfigDialog::RefreshWaypointPicker()
 		waypoint_picker->SetSelection(0);
 }
 
+void ZoneConfigDialog::RefreshMarkerPicker(int index)
+{
+	marker_picker->Clear();
+	markerWaypointNames.clear();
+	if(index < 0 || index >= static_cast<int>(configs.size())) {
+		return;
+	}
+
+	const std::string currentName = configs[index].name;
+	const std::string currentNameLower = as_lower_str(currentName);
+	std::set<std::string> namesUsedByOtherZones;
+	for(size_t configIndex = 0; configIndex < configs.size(); ++configIndex) {
+		if(static_cast<int>(configIndex) != index) {
+			namesUsedByOtherZones.insert(as_lower_str(configs[configIndex].name));
+		}
+	}
+
+	bool currentMarkerFound = false;
+	int selectedIndex = wxNOT_FOUND;
+	const Waypoints& waypoints = editor.getMap().waypoints;
+	for(auto waypoint = waypoints.begin(); waypoint != waypoints.end(); ++waypoint) {
+		const std::string name = waypoint->first;
+		const std::string lowerName = as_lower_str(name);
+		if(namesUsedByOtherZones.find(lowerName) != namesUsedByOtherZones.end()) {
+			continue;
+		}
+
+		marker_picker->Append(wxstr(name));
+		markerWaypointNames.push_back(name);
+		if(lowerName == currentNameLower) {
+			currentMarkerFound = true;
+			selectedIndex = static_cast<int>(markerWaypointNames.size()) - 1;
+		}
+	}
+
+	if(!currentMarkerFound && !currentName.empty()) {
+		marker_picker->Insert("[Missing] " + wxstr(currentName), 0);
+		markerWaypointNames.insert(markerWaypointNames.begin(), currentName);
+		selectedIndex = 0;
+	}
+	if(selectedIndex != wxNOT_FOUND) {
+		marker_picker->SetSelection(selectedIndex);
+	} else if(marker_picker->GetCount() > 0) {
+		marker_picker->SetSelection(0);
+	}
+}
+
 void ZoneConfigDialog::LoadZoneToUI(int index)
 {
 	if(index < 0 || index >= (int)configs.size()) {
-		name_field->SetValue("");
+		RefreshMarkerPicker(-1);
 		display_name_field->SetValue("");
 		category_choice->SetSelection(0);
 		difficulty_field->SetValue("");
@@ -1696,9 +1892,10 @@ void ZoneConfigDialog::LoadZoneToUI(int index)
 		min_distance_spin->SetValue(0);
 		spawn_interval_spin->SetValue(0);
 		spawn_list->Clear();
+		area_list->Clear();
 		area_label->SetLabel(wxT("\u2014"));
 
-		name_field->Disable();
+		marker_picker->Disable();
 		display_name_field->Disable();
 		category_choice->Disable();
 		difficulty_field->Disable();
@@ -1708,40 +1905,31 @@ void ZoneConfigDialog::LoadZoneToUI(int index)
 		min_distance_spin->Disable();
 		spawn_interval_spin->Disable();
 		spawn_list->Disable();
-		resource_picker->Disable();
+		area_list->Disable();
+		area_remove_button->Disable();
+		resource_type_picker->Disable();
+		resource_group_picker->Disable();
+		resource_variant_picker->Disable();
 		chance_spin->Disable();
+		RefreshResourceControls();
 		return;
 	}
 
 	const ZoneConfig& zc = configs[index];
-	name_field->Enable();
+	marker_picker->Enable();
 	display_name_field->Enable();
 	category_choice->Enable();
 	difficulty_field->Enable();
 	music_field->Enable();
 	has_resources_check->Enable();
+	area_list->Enable();
+	area_remove_button->Disable();
 
-	name_field->SetValue(wxstr(zc.name));
+	RefreshMarkerPicker(index);
 	display_name_field->SetValue(wxstr(zc.displayName));
 
-	// Set category dropdown
-	int catIdx = 0;
-	if(zc.category == "city") catIdx = 1;
-	else if(zc.category == "town") catIdx = 2;
-	else if(zc.category == "forest") catIdx = 3;
-	else if(zc.category == "plains") catIdx = 4;
-	else if(zc.category == "mountain") catIdx = 5;
-	else if(zc.category == "cave") catIdx = 6;
-	else if(zc.category == "water") catIdx = 7;
-	else if(zc.category == "desert") catIdx = 8;
-	else if(zc.category == "market") catIdx = 9;
-	else if(zc.category == "temple") catIdx = 10;
-	else if(zc.category == "depot") catIdx = 11;
-	else if(zc.category == "library") catIdx = 12;
-	else if(zc.category == "shop") catIdx = 13;
-	else if(zc.category == "bank") catIdx = 14;
-	else if(zc.category == "tavern") catIdx = 15;
-	category_choice->SetSelection(catIdx);
+	category_choice->SetSelection(FindZoneCategoryIndex(zc.category));
+	RefreshResourceControls();
 
 	difficulty_field->SetValue(wxstr(zc.difficulty));
 	music_field->SetValue(wxstr(zc.music));
@@ -1751,7 +1939,9 @@ void ZoneConfigDialog::LoadZoneToUI(int index)
 	min_distance_spin->Enable(zc.hasResources);
 	spawn_interval_spin->Enable(zc.hasResources);
 	spawn_list->Enable(zc.hasResources);
-	resource_picker->Enable(zc.hasResources);
+	resource_type_picker->Enable(zc.hasResources);
+	resource_group_picker->Enable(zc.hasResources);
+	resource_variant_picker->Enable(zc.hasResources);
 	chance_spin->Enable(zc.hasResources);
 
 	if(zc.hasResources) {
@@ -1766,47 +1956,62 @@ void ZoneConfigDialog::LoadZoneToUI(int index)
 
 	// Update area label
 	if(!zc.category.empty()) {
-		int tileCount = CountZoneTiles(zc.category);
+		int tileCount = CountZoneTiles(zc);
 		area_label->SetLabel(wxString::Format("%d tiles", tileCount));
 	} else {
 		area_label->SetLabel(wxT("\u2014"));
 	}
 
 	RefreshSpawnList();
+	RefreshAreaList();
 }
 
-int ZoneConfigDialog::CountZoneTiles(const std::string& category) const
+int ZoneConfigDialog::CountZoneTiles(const ZoneConfig& config) const
 {
-	uint32_t flag = 0;
-	if(category == "city")           flag = TILESTATE_ZONE_CITY;
-	else if(category == "town")      flag = TILESTATE_ZONE_TOWN;
-	else if(category == "forest")    flag = TILESTATE_ZONE_FOREST;
-	else if(category == "plains")    flag = TILESTATE_ZONE_PLAINS;
-	else if(category == "mountain")  flag = TILESTATE_ZONE_MOUNTAIN;
-	else if(category == "cave")      flag = TILESTATE_ZONE_CAVE;
-	else if(category == "water")     flag = TILESTATE_ZONE_WATER;
-	else if(category == "desert")    flag = TILESTATE_ZONE_DESERT;
-	else if(category == "market")    flag = TILESTATE_ZONE_MARKET;
-	else if(category == "temple")    flag = TILESTATE_ZONE_TEMPLE;
-	else if(category == "depot")     flag = TILESTATE_ZONE_DEPOT;
-	else if(category == "library")   flag = TILESTATE_ZONE_LIBRARY;
-	else if(category == "shop")      flag = TILESTATE_ZONE_SHOP;
-	else if(category == "bank")      flag = TILESTATE_ZONE_BANK;
-	else if(category == "tavern")    flag = TILESTATE_ZONE_TAVERN;
-	else return 0;
+	return static_cast<int>(collectZoneTiles(editor.getMap(), config).size());
+}
 
-	int count = 0;
-	Map& map = const_cast<Editor&>(editor).getMap();
-	MapIterator it = map.begin();
-	MapIterator end = map.end();
-	while(it != end) {
-		Tile* tile = (*it)->get();
-		if(tile && (tile->getMapFlags() & flag)) {
-			++count;
-		}
-		++it;
+void ZoneConfigDialog::RefreshAreaList()
+{
+	area_list->Clear();
+	area_remove_button->Disable();
+	if(currentIndex < 0 || currentIndex >= static_cast<int>(configs.size())) {
+		return;
 	}
-	return count;
+
+	const ZoneConfig& config = configs[currentIndex];
+	const uint32_t categoryFlag = getZoneCategoryFlag(config.category);
+	bool markerFound = false;
+	const std::string markerName = as_lower_str(config.name);
+	for(auto it = editor.getMap().waypoints.begin(); it != editor.getMap().waypoints.end(); ++it) {
+		if(it->second && as_lower_str(it->second->name) == markerName) {
+			const Position& position = it->second->pos;
+			area_list->Append(wxString::Format(
+				"Marker area - floor %d at %d, %d", position.z, position.x, position.y
+			));
+			const Tile* tile = editor.getMap().getTile(position);
+			if(categoryFlag != 0 && (!tile || !(tile->getMapFlags() & categoryFlag))) {
+				area_list->SetString(area_list->GetCount() - 1,
+					area_list->GetString(area_list->GetCount() - 1) + "  [type mismatch]");
+			}
+			markerFound = true;
+			break;
+		}
+	}
+	if(!markerFound) {
+		area_list->Append("Marker area - waypoint is missing");
+	}
+
+	for(const Position& position : config.additionalAreas) {
+		area_list->Append(wxString::Format(
+			"Additional area - floor %d at %d, %d", position.z, position.x, position.y
+		));
+		const Tile* tile = editor.getMap().getTile(position);
+		if(categoryFlag != 0 && (!tile || !(tile->getMapFlags() & categoryFlag))) {
+			area_list->SetString(area_list->GetCount() - 1,
+				area_list->GetString(area_list->GetCount() - 1) + "  [type mismatch]");
+		}
+	}
 }
 
 void ZoneConfigDialog::SaveCurrentZone()
@@ -1815,16 +2020,16 @@ void ZoneConfigDialog::SaveCurrentZone()
 		return;
 
 	ZoneConfig& zc = configs[currentIndex];
-	zc.name = nstr(name_field->GetValue());
+	const int markerSelection = marker_picker->GetSelection();
+	if(markerSelection >= 0 &&
+		markerSelection < static_cast<int>(markerWaypointNames.size())) {
+		zc.name = markerWaypointNames[markerSelection];
+	}
 	zc.displayName = nstr(display_name_field->GetValue());
 
 	// Save category from dropdown
 	int catSel = category_choice->GetSelection();
-	static const char* catNames[] = {
-		"", "city", "town", "forest", "plains", "mountain", "cave", "water",
-		"desert", "market", "temple", "depot", "library", "shop", "bank", "tavern"
-	};
-	zc.category = (catSel > 0 && catSel <= 15) ? catNames[catSel] : "";
+	zc.category = (catSel > 0 && catSel < ZoneCategoryCount) ? ZoneCategoryValues[catSel] : "";
 
 	zc.difficulty = nstr(difficulty_field->GetValue());
 	zc.music = nstr(music_field->GetValue());
@@ -1846,7 +2051,22 @@ void ZoneConfigDialog::SaveCurrentZone()
 void ZoneConfigDialog::OnListSelect(wxCommandEvent& event)
 {
 	SaveCurrentZone();
-	currentIndex = zone_listbox->GetSelection();
+	const int listIndex = zone_listbox->GetSelection();
+	currentIndex = listIndex >= 0 && listIndex < static_cast<int>(visibleZoneIndices.size()) ?
+		visibleZoneIndices[listIndex] : -1;
+	LoadZoneToUI(currentIndex);
+}
+
+void ZoneConfigDialog::OnFilterType(wxCommandEvent& event)
+{
+	SaveCurrentZone();
+	RefreshList();
+	if(zone_listbox->GetSelection() == wxNOT_FOUND) {
+		currentIndex = visibleZoneIndices.empty() ? -1 : visibleZoneIndices.front();
+		if(currentIndex >= 0) {
+			zone_listbox->SetSelection(0);
+		}
+	}
 	LoadZoneToUI(currentIndex);
 }
 
@@ -1868,32 +2088,17 @@ void ZoneConfigDialog::OnAddZone(wxCommandEvent& event)
 	if(wp) {
 		Tile* tile = editor.getMap().getTile(wp->pos);
 		if(tile) {
-			uint32_t mf = tile->getMapFlags();
-			if(mf & TILESTATE_ZONE_CITY)          zc.category = "city";
-			else if(mf & TILESTATE_ZONE_TOWN)      zc.category = "town";
-			else if(mf & TILESTATE_ZONE_FOREST)    zc.category = "forest";
-			else if(mf & TILESTATE_ZONE_PLAINS)    zc.category = "plains";
-			else if(mf & TILESTATE_ZONE_MOUNTAIN)  zc.category = "mountain";
-			else if(mf & TILESTATE_ZONE_CAVE)      zc.category = "cave";
-			else if(mf & TILESTATE_ZONE_WATER)     zc.category = "water";
-			else if(mf & TILESTATE_ZONE_DESERT)    zc.category = "desert";
-			else if(mf & TILESTATE_ZONE_MARKET)    zc.category = "market";
-			else if(mf & TILESTATE_ZONE_TEMPLE)    zc.category = "temple";
-			else if(mf & TILESTATE_ZONE_DEPOT)     zc.category = "depot";
-			else if(mf & TILESTATE_ZONE_LIBRARY)   zc.category = "library";
-			else if(mf & TILESTATE_ZONE_SHOP)      zc.category = "shop";
-			else if(mf & TILESTATE_ZONE_BANK)      zc.category = "bank";
-			else if(mf & TILESTATE_ZONE_TAVERN)    zc.category = "tavern";
+			zc.category = getZoneCategoryFromFlags(tile->getMapFlags());
 		}
 	}
 
 	configs.push_back(zc);
+	currentIndex = static_cast<int>(configs.size()) - 1;
+	filter_choice->SetSelection(0);
 
 	RefreshList();
 	RefreshWaypointPicker();
 
-	currentIndex = (int)configs.size() - 1;
-	zone_listbox->SetSelection(currentIndex);
 	LoadZoneToUI(currentIndex);
 }
 
@@ -1909,6 +2114,77 @@ void ZoneConfigDialog::OnRemoveZone(wxCommandEvent& event)
 	LoadZoneToUI(-1);
 }
 
+void ZoneConfigDialog::OnCategoryChanged(wxCommandEvent& event)
+{
+	SaveCurrentZone();
+	const int filterIndex = filter_choice->GetSelection();
+	if(filterIndex > 0 && configs[currentIndex].category != ZoneCategoryValues[filterIndex]) {
+		filter_choice->SetSelection(0);
+	}
+	RefreshList();
+	LoadZoneToUI(currentIndex);
+}
+
+void ZoneConfigDialog::OnMarkerChanged(wxCommandEvent& event)
+{
+	if(currentIndex < 0 || currentIndex >= static_cast<int>(configs.size())) {
+		return;
+	}
+	const int selection = marker_picker->GetSelection();
+	if(selection < 0 || selection >= static_cast<int>(markerWaypointNames.size())) {
+		return;
+	}
+
+	ZoneConfig& config = configs[currentIndex];
+	config.name = markerWaypointNames[selection];
+
+	Waypoint* waypoint = editor.getMap().waypoints.getWaypoint(config.name);
+	if(waypoint) {
+		const Tile* tile = editor.getMap().getTile(waypoint->pos);
+		if(tile) {
+			const std::string detectedCategory = getZoneCategoryFromFlags(tile->getMapFlags());
+			if(!detectedCategory.empty()) {
+				config.category = detectedCategory;
+				category_choice->SetSelection(FindZoneCategoryIndex(config.category));
+			}
+		}
+	}
+
+	const int filterIndex = filter_choice->GetSelection();
+	if(filterIndex > 0 && config.category != ZoneCategoryValues[filterIndex]) {
+		filter_choice->SetSelection(0);
+	}
+	RefreshWaypointPicker();
+	RefreshResourceControls();
+	RefreshAreaList();
+	area_label->SetLabel(
+		config.category.empty() ?
+			wxString(wxT("\u2014")) :
+			wxString::Format("%d tiles", CountZoneTiles(config))
+	);
+	RefreshList();
+}
+
+void ZoneConfigDialog::OnAreaRemove(wxCommandEvent& event)
+{
+	if(currentIndex < 0 || currentIndex >= static_cast<int>(configs.size())) {
+		return;
+	}
+	const int areaIndex = area_list->GetSelection();
+	if(areaIndex <= 0) {
+		return;
+	}
+
+	std::vector<Position>& areas = configs[currentIndex].additionalAreas;
+	const int additionalIndex = areaIndex - 1;
+	if(additionalIndex >= 0 && additionalIndex < static_cast<int>(areas.size())) {
+		areas.erase(areas.begin() + additionalIndex);
+	}
+	RefreshAreaList();
+	area_label->SetLabel(wxString::Format("%d tiles", CountZoneTiles(configs[currentIndex])));
+	RefreshList();
+}
+
 void ZoneConfigDialog::OnResourcesCheck(wxCommandEvent& event)
 {
 	bool checked = has_resources_check->GetValue();
@@ -1916,7 +2192,9 @@ void ZoneConfigDialog::OnResourcesCheck(wxCommandEvent& event)
 	min_distance_spin->Enable(checked);
 	spawn_interval_spin->Enable(checked);
 	spawn_list->Enable(checked);
-	resource_picker->Enable(checked);
+	resource_type_picker->Enable(checked);
+	resource_group_picker->Enable(checked);
+	resource_variant_picker->Enable(checked);
 	chance_spin->Enable(checked);
 }
 
@@ -1928,16 +2206,156 @@ void ZoneConfigDialog::RefreshSpawnList()
 
 	const auto& table = configs[currentIndex].resources.spawnTable;
 	for(const auto& se : table) {
-		// Try to find display name from resourceDefs
 		wxString label = wxstr(se.resourceId);
 		for(const auto& def : resourceDefs) {
 			if(def.id == se.resourceId) {
-				label = wxstr(def.name) + " (" + wxstr(def.id) + ")";
+				label = "[" + GetResourceTypeDisplayName(GetResourceType(def)) + "] " +
+					wxstr(def.name) + " - " +
+					GetResourceVariantDisplayName(GetResourceVariant(def));
 				break;
 			}
 		}
-		label += " - " + wxString::Format("%d", se.weight);
+		label += wxString::Format(" - weight %d", se.weight);
 		spawn_list->Append(label);
+	}
+}
+
+void ZoneConfigDialog::RefreshResourceControls()
+{
+	std::string selectedType;
+	const int oldSelection = resource_type_picker->GetSelection();
+	if(oldSelection >= 0 && oldSelection < static_cast<int>(visibleResourceTypes.size())) {
+		selectedType = visibleResourceTypes[oldSelection];
+	}
+
+	resource_type_picker->Clear();
+	visibleResourceTypes.clear();
+
+	std::string category;
+	if(currentIndex >= 0 && currentIndex < static_cast<int>(configs.size())) {
+		category = configs[currentIndex].category;
+	}
+	resource_filter_label->SetLabel(
+		category.empty() ?
+			wxString("Showing all resources. Select a zone type to apply compatibility filtering.") :
+			wxString("Compatible with this ") + wxstr(getZoneCategoryDisplayName(category)) +
+				" zone. Global resources are also included."
+	);
+
+	int newSelection = wxNOT_FOUND;
+	for(const ZoneResourceDef& def : resourceDefs) {
+		if(!IsResourceCompatibleWithZone(def, category)) {
+			continue;
+		}
+
+		const std::string type = GetResourceType(def);
+		if(std::find(visibleResourceTypes.begin(), visibleResourceTypes.end(), type) !=
+			visibleResourceTypes.end()) {
+			continue;
+		}
+		resource_type_picker->Append(GetResourceTypeDisplayName(type));
+		visibleResourceTypes.push_back(type);
+		if(type == selectedType) {
+			newSelection = static_cast<int>(visibleResourceTypes.size()) - 1;
+		}
+	}
+
+	if(resource_type_picker->GetCount() > 0) {
+		resource_type_picker->SetSelection(newSelection == wxNOT_FOUND ? 0 : newSelection);
+	}
+	RefreshResourceGroups();
+}
+
+void ZoneConfigDialog::RefreshResourceGroups()
+{
+	std::string selectedGroup;
+	const int oldSelection = resource_group_picker->GetSelection();
+	if(oldSelection >= 0 && oldSelection < static_cast<int>(visibleResourceGroups.size())) {
+		selectedGroup = visibleResourceGroups[oldSelection];
+	}
+
+	resource_group_picker->Clear();
+	visibleResourceGroups.clear();
+
+	const int typeSelection = resource_type_picker->GetSelection();
+	if(typeSelection < 0 || typeSelection >= static_cast<int>(visibleResourceTypes.size())) {
+		RefreshResourceVariants();
+		return;
+	}
+	const std::string& selectedType = visibleResourceTypes[typeSelection];
+	const std::string category =
+		currentIndex >= 0 && currentIndex < static_cast<int>(configs.size()) ?
+			configs[currentIndex].category : "";
+
+	int newSelection = wxNOT_FOUND;
+	for(const ZoneResourceDef& def : resourceDefs) {
+		if(GetResourceType(def) != selectedType ||
+			!IsResourceCompatibleWithZone(def, category)) {
+			continue;
+		}
+
+		const std::string groupId = GetResourceGroupId(def);
+		if(std::find(visibleResourceGroups.begin(), visibleResourceGroups.end(), groupId) !=
+			visibleResourceGroups.end()) {
+			continue;
+		}
+		resource_group_picker->Append(wxstr(def.name));
+		visibleResourceGroups.push_back(groupId);
+		if(groupId == selectedGroup) {
+			newSelection = static_cast<int>(visibleResourceGroups.size()) - 1;
+		}
+	}
+
+	if(resource_group_picker->GetCount() > 0) {
+		resource_group_picker->SetSelection(newSelection == wxNOT_FOUND ? 0 : newSelection);
+	}
+	RefreshResourceVariants();
+}
+
+void ZoneConfigDialog::RefreshResourceVariants()
+{
+	std::string selectedId;
+	const int oldSelection = resource_variant_picker->GetSelection();
+	if(oldSelection >= 0 && oldSelection < static_cast<int>(visibleResourceIndices.size())) {
+		selectedId = resourceDefs[visibleResourceIndices[oldSelection]].id;
+	}
+
+	resource_variant_picker->Clear();
+	visibleResourceIndices.clear();
+
+	const int typeSelection = resource_type_picker->GetSelection();
+	const int groupSelection = resource_group_picker->GetSelection();
+	if(typeSelection < 0 || typeSelection >= static_cast<int>(visibleResourceTypes.size()) ||
+		groupSelection < 0 || groupSelection >= static_cast<int>(visibleResourceGroups.size())) {
+		return;
+	}
+
+	const std::string& selectedType = visibleResourceTypes[typeSelection];
+	const std::string& selectedGroup = visibleResourceGroups[groupSelection];
+	const std::string category =
+		currentIndex >= 0 && currentIndex < static_cast<int>(configs.size()) ?
+			configs[currentIndex].category : "";
+
+	int newSelection = wxNOT_FOUND;
+	for(size_t index = 0; index < resourceDefs.size(); ++index) {
+		const ZoneResourceDef& def = resourceDefs[index];
+		if(GetResourceType(def) != selectedType ||
+			GetResourceGroupId(def) != selectedGroup ||
+			!IsResourceCompatibleWithZone(def, category)) {
+			continue;
+		}
+
+		resource_variant_picker->Append(
+			GetResourceVariantDisplayName(GetResourceVariant(def))
+		);
+		visibleResourceIndices.push_back(static_cast<int>(index));
+		if(def.id == selectedId) {
+			newSelection = static_cast<int>(visibleResourceIndices.size()) - 1;
+		}
+	}
+
+	if(resource_variant_picker->GetCount() > 0) {
+		resource_variant_picker->SetSelection(newSelection == wxNOT_FOUND ? 0 : newSelection);
 	}
 }
 
@@ -1945,15 +2363,17 @@ void ZoneConfigDialog::OnSpawnAdd(wxCommandEvent& event)
 {
 	if(currentIndex < 0 || currentIndex >= (int)configs.size())
 		return;
-	if(resource_picker->GetCount() == 0 || resource_picker->GetSelection() == wxNOT_FOUND)
+	if(resource_variant_picker->GetCount() == 0 ||
+		resource_variant_picker->GetSelection() == wxNOT_FOUND)
 		return;
 
-	int sel = resource_picker->GetSelection();
-	if(sel < 0 || sel >= (int)resourceDefs.size())
+	int sel = resource_variant_picker->GetSelection();
+	if(sel < 0 || sel >= static_cast<int>(visibleResourceIndices.size()))
 		return;
+	const int resourceIndex = visibleResourceIndices[sel];
 
 	ZoneResourceSpawnEntry se;
-	se.resourceId = resourceDefs[sel].id;
+	se.resourceId = resourceDefs[resourceIndex].id;
 	se.weight = chance_spin->GetValue();
 	configs[currentIndex].resources.spawnTable.push_back(se);
 	RefreshSpawnList();
@@ -1979,15 +2399,60 @@ void ZoneConfigDialog::OnClickOK(wxCommandEvent& event)
 {
 	SaveCurrentZone();
 
-	// Update the list names in case name_field changed
+	// Validate every configured marker before committing the dialog changes.
 	for(int i = 0; i < (int)configs.size(); ++i) {
 		if(configs[i].name.empty()) {
 			wxMessageBox("Zone at index " + wxString::Format("%d", i) + " has an empty name. Please fix it.", "Error", wxOK | wxICON_ERROR);
 			return;
 		}
+		if(configs[i].category.empty()) {
+			wxMessageBox(
+				"Zone \"" + wxstr(configs[i].name) +
+					"\" does not have a zone type. Select a type before saving.",
+				"Zone Type Required",
+				wxOK | wxICON_ERROR
+			);
+			return;
+		}
+		bool markerFound = false;
+		const std::string markerName = as_lower_str(configs[i].name);
+		for(auto waypoint = editor.getMap().waypoints.begin();
+			waypoint != editor.getMap().waypoints.end(); ++waypoint) {
+			if(waypoint->second && as_lower_str(waypoint->second->name) == markerName) {
+				markerFound = true;
+				break;
+			}
+		}
+		if(!markerFound) {
+			wxMessageBox(
+				"Zone \"" + wxstr(configs[i].name) +
+					"\" no longer has its marker waypoint. Select another marker in the "
+					"zone configuration or restore the missing waypoint before saving.",
+				"Marker Waypoint Missing",
+				wxOK | wxICON_ERROR
+			);
+			return;
+		}
+		const uint32_t categoryFlag = getZoneCategoryFlag(configs[i].category);
+		for(const Position& anchor : getZoneAreaAnchors(editor.getMap(), configs[i])) {
+			const Tile* tile = editor.getMap().getTile(anchor);
+			if(!tile || !(tile->getMapFlags() & categoryFlag)) {
+				wxMessageBox(
+					"An area of zone \"" + wxstr(configs[i].name) +
+						wxString::Format("\" at %d, %d, floor %d is not painted as ",
+							anchor.x, anchor.y, anchor.z) +
+						wxstr(getZoneCategoryDisplayName(configs[i].category)) + ".\n" +
+						"Repaint that tile with the selected type or remove the additional area.",
+					"Zone Area Type Mismatch",
+					wxOK | wxICON_ERROR
+				);
+				return;
+			}
+		}
 	}
 
 	editor.getMap().zoneConfigs = configs;
+	editor.getMap().doChange();
 	EndModal(wxID_OK);
 }
 

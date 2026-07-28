@@ -1582,14 +1582,51 @@ bool IOMapOTBM::loadZones(Map& map, const FileName& dir)
 	if(resIfs.is_open()) {
 		try {
 			json rj = json::parse(resIfs);
-			for(auto it = rj.begin(); it != rj.end(); ++it) {
-				ZoneResourceDef def;
-				def.id = it.key();
-				if(it.value().contains("name") && it.value()["name"].is_string())
-					def.name = it.value()["name"].get<std::string>();
-				else
-					def.name = def.id;
-				map.zoneResourceDefs.push_back(def);
+			if(rj.contains("schemaVersion") && rj["schemaVersion"].is_number_integer() &&
+				rj["schemaVersion"].get<int>() == 2 &&
+				rj.contains("resources") && rj["resources"].is_array()) {
+				for(const auto& group : rj["resources"]) {
+					if(!group.is_object() || !group.contains("variants") ||
+						!group["variants"].is_array()) {
+						continue;
+					}
+
+					const std::string groupId =
+						group.contains("id") && group["id"].is_string() ?
+							group["id"].get<std::string>() : "";
+					const std::string groupName =
+						group.contains("name") && group["name"].is_string() ?
+							group["name"].get<std::string>() : groupId;
+					const std::string resourceType =
+						group.contains("type") && group["type"].is_string() ?
+							group["type"].get<std::string>() : "other";
+
+					for(const auto& variant : group["variants"]) {
+						if(!variant.is_object() || !variant.contains("id") ||
+							!variant["id"].is_string()) {
+							continue;
+						}
+
+						ZoneResourceDef def;
+						def.id = variant["id"].get<std::string>();
+						def.name = groupName.empty() ? def.id : groupName;
+						def.type = resourceType;
+						def.groupId = groupId.empty() ? def.id : groupId;
+						def.variant =
+							variant.contains("variant") && variant["variant"].is_string() ?
+								variant["variant"].get<std::string>() : "default";
+						if(variant.contains("zoneTypes") && variant["zoneTypes"].is_array()) {
+							for(const auto& zoneType : variant["zoneTypes"]) {
+								if(zoneType.is_string()) {
+									def.zoneTypes.push_back(zoneType.get<std::string>());
+								}
+							}
+						}
+						map.zoneResourceDefs.push_back(def);
+					}
+				}
+			} else {
+				warning("Unsupported resources.json schema (expected schemaVersion 2)");
 			}
 		} catch(const json::exception&) {
 			warning("Failed to parse resources.json");
@@ -1620,10 +1657,30 @@ bool IOMapOTBM::loadZones(Map& map, const FileName& dir)
 				cont = wxZonesDir.GetNext(&filename);
 				continue;
 			}
+			zc.sourceFileName = nstr(filename);
 			if(j.contains("displayName") && j["displayName"].is_string())
 				zc.displayName = j["displayName"].get<std::string>();
 			if(j.contains("category") && j["category"].is_string())
 				zc.category = j["category"].get<std::string>();
+			if(j.contains("additionalAreas") && j["additionalAreas"].is_array()) {
+				for(const auto& area : j["additionalAreas"]) {
+					if(!area.is_object() ||
+						!area.contains("x") || !area["x"].is_number_integer() ||
+						!area.contains("y") || !area["y"].is_number_integer() ||
+						!area.contains("z") || !area["z"].is_number_integer()) {
+						continue;
+					}
+					Position anchor(
+						area["x"].get<int>(),
+						area["y"].get<int>(),
+						area["z"].get<int>()
+					);
+					if(anchor.isValid() &&
+						std::find(zc.additionalAreas.begin(), zc.additionalAreas.end(), anchor) == zc.additionalAreas.end()) {
+						zc.additionalAreas.push_back(anchor);
+					}
+				}
+			}
 			if(j.contains("difficulty") && j["difficulty"].is_string())
 				zc.difficulty = j["difficulty"].get<std::string>();
 			if(j.contains("music") && j["music"].is_string())
@@ -2028,13 +2085,22 @@ bool IOMapOTBM::saveZones(Map& map, const FileName& dir)
 		wxFileName::Mkdir(wxstr(zonesDir), wxS_DIR_DEFAULT, wxPATH_MKDIR_FULL);
 	}
 
-	for(const ZoneConfig& zc : map.zoneConfigs) {
+	for(ZoneConfig& zc : map.zoneConfigs) {
 		if(zc.name.empty()) continue;
 
 		json j;
 		j["name"] = zc.name;
 		if(!zc.displayName.empty()) j["displayName"] = zc.displayName;
 		if(!zc.category.empty()) j["category"] = zc.category;
+		json additionalAreas = json::array();
+		for(const Position& anchor : zc.additionalAreas) {
+			additionalAreas.push_back({
+				{"x", anchor.x},
+				{"y", anchor.y},
+				{"z", anchor.z}
+			});
+		}
+		j["additionalAreas"] = additionalAreas;
 		if(!zc.difficulty.empty()) j["difficulty"] = zc.difficulty;
 		if(!zc.music.empty()) j["music"] = zc.music;
 
@@ -2066,6 +2132,15 @@ bool IOMapOTBM::saveZones(Map& map, const FileName& dir)
 		std::ofstream ofs(fullPath);
 		if(ofs.is_open()) {
 			ofs << j.dump(2);
+			ofs.close();
+
+			if(!zc.sourceFileName.empty() && zc.sourceFileName != fname) {
+				const std::string stalePath = zonesDir + "/" + zc.sourceFileName;
+				if(wxFileExists(wxstr(stalePath)) && !wxRemoveFile(wxstr(stalePath))) {
+					warning("Unable to remove renamed zone config: %s", stalePath.c_str());
+				}
+			}
+			zc.sourceFileName = fname;
 		}
 	}
 	return true;

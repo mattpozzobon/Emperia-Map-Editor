@@ -29,10 +29,15 @@
 
 #include <vector>
 #include <string>
+#include <set>
 
 struct ZoneResourceDef {
-	std::string id;   // e.g. "coal_node"
-	std::string name; // e.g. "Coal Deposit"
+	std::string id;        // e.g. "copper_mountain_small"
+	std::string name;      // e.g. "Copper Vein"
+	std::string type;      // ore, crystal, plant, fungus, other
+	std::string groupId;   // e.g. "copper"
+	std::string variant;   // small, medium, large, default
+	std::vector<std::string> zoneTypes; // Empty means usable in every zone type
 };
 
 struct ZoneResourceSpawnEntry {
@@ -49,8 +54,14 @@ struct ZoneResourceConfig {
 
 struct ZoneConfig {
 	std::string name;
+	// Original JSON filename. Used to remove the stale file after a rename.
+	std::string sourceFileName;
 	std::string displayName;
 	std::string category; // city, town, forest, plains, mountain, cave, water, desert
+	// The waypoint named by `name` anchors the primary painted area. Each
+	// additional anchor links another connected painted area (on any floor)
+	// to this same logical zone.
+	std::vector<Position> additionalAreas;
 	std::string difficulty;
 	std::string music;
 	bool hasResources;
@@ -62,6 +73,15 @@ struct ZoneConfig {
 		resources.spawnIntervalSeconds = 0;
 	}
 };
+
+class Map;
+
+uint32_t getZoneCategoryFlag(const std::string& category);
+std::string getZoneCategoryFromFlags(uint32_t flags);
+std::string getZoneCategoryDisplayName(const std::string& category);
+std::vector<Position> getZoneAreaAnchors(const Map& map, const ZoneConfig& config);
+std::set<Position> collectZoneTiles(const Map& map, const ZoneConfig& config);
+bool zoneContainsPosition(const Map& map, const ZoneConfig& config, const Position& position);
 
 class Map : public BaseMap
 {

@@ -74,6 +74,20 @@ enum ItemTypes_t {
 	ITEM_TYPE_TELEPORT,
 	ITEM_TYPE_BED,
 	ITEM_TYPE_KEY,
+	ITEM_TYPE_CORPSE,
+	ITEM_TYPE_FLUIDCONTAINER,
+	ITEM_TYPE_RUNE,
+	ITEM_TYPE_SPLASH,
+	ITEM_TYPE_WINDOW,
+	ITEM_TYPE_STAIR,
+	ITEM_TYPE_LEVER,
+	ITEM_TYPE_CHEST,
+	ITEM_TYPE_WALL,
+	ITEM_TYPE_DOOR_CLOSED,
+	ITEM_TYPE_DOOR_OPEN,
+	ITEM_TYPE_READABLE,
+	ITEM_TYPE_TRAPDOOR,
+	ITEM_TYPE_TASKBOARD,
 	ITEM_TYPE_LAST
 };
 
@@ -252,12 +266,18 @@ public:
 	bool isDepot() const noexcept { return type == ITEM_TYPE_DEPOT; }
 	bool isMailbox() const noexcept { return type == ITEM_TYPE_MAILBOX; }
 	bool isTrashHolder() const noexcept { return type == ITEM_TYPE_TRASHHOLDER; }
-	bool isContainer() const noexcept { return type == ITEM_TYPE_CONTAINER; }
-	bool isDoor() const noexcept { return type == ITEM_TYPE_DOOR; }
+	bool isContainer() const noexcept { return type == ITEM_TYPE_CONTAINER || type == ITEM_TYPE_CHEST; }
+	bool isDoor() const noexcept { return type == ITEM_TYPE_DOOR || type == ITEM_TYPE_DOOR_CLOSED || type == ITEM_TYPE_DOOR_OPEN; }
 	bool isMagicField() const noexcept { return type == ITEM_TYPE_MAGICFIELD; }
 	bool isTeleport() const noexcept { return type == ITEM_TYPE_TELEPORT; }
 	bool isBed() const noexcept { return type == ITEM_TYPE_BED; }
 	bool isKey() const noexcept { return type == ITEM_TYPE_KEY; }
+	bool isStair() const noexcept { return type == ITEM_TYPE_STAIR; }
+	bool isLever() const noexcept { return type == ITEM_TYPE_LEVER; }
+	bool isChest() const noexcept { return type == ITEM_TYPE_CHEST; }
+	bool isReadable() const noexcept { return type == ITEM_TYPE_READABLE || canReadText; }
+	bool isTrapdoor() const noexcept { return type == ITEM_TYPE_TRAPDOOR; }
+	bool isTaskboard() const noexcept { return type == ITEM_TYPE_TASKBOARD; }
 
 	bool isStackable() const noexcept { return stackable; }
 	bool isMetaItem() const noexcept { return is_metaitem; }

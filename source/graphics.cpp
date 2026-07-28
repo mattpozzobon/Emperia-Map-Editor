@@ -130,6 +130,7 @@ void GraphicManager::clear()
 	item_count = 0;
 	creature_count = 0;
 	item_appearances.clear();
+	item_identities.clear();
 	loaded_textures = 0;
 	lastclean = time(nullptr);
 	spritefile = "";
@@ -443,9 +444,9 @@ bool GraphicManager::loadSpriteMetadata(const FileName& datafile, wxString& erro
 		file.getU8(fileType);
 		file.getU16(emperiaFormatVersion);
 		file.skip(9);
-		if(emperiaFormatVersion > 10) {
+		if(emperiaFormatVersion > 11) {
 			error = wxString::Format(
-				"EOBJ format v%u is newer than the maximum supported version v10.",
+				"EOBJ format v%u is newer than the maximum supported version v11.",
 				emperiaFormatVersion
 			);
 			return false;
@@ -518,6 +519,27 @@ bool GraphicManager::loadSpriteMetadata(const FileName& datafile, wxString& erro
 			return false;
 		}
 		file.skip(slotTypeBytes); // public item ID + compact slot type
+	}
+	item_identities.clear();
+	if(emperiaFormatVersion >= 11) {
+		uint32_t identityCount = 0;
+		file.getU32(identityCount);
+		const size_t identityBytes = static_cast<size_t>(identityCount) * 3;
+		if(file.tell() + identityBytes > file.size()) {
+			error = "EOBJ item identity table is truncated.";
+			return false;
+		}
+		for(uint32_t index = 0; index < identityCount; ++index) {
+			uint16_t itemId = 0;
+			uint8_t identity = 0;
+			file.getU16(itemId);
+			file.getU8(identity);
+			if(identity == 0 || identity > 22) {
+				error = wxString::Format("EOBJ item %u has unknown identity code %u.", itemId, identity);
+				return false;
+			}
+			item_identities[itemId] = identity;
+		}
 	}
 	if(emperiaFormatVersion >= 4) {
 		uint32_t equipmentCount = 0;
@@ -692,7 +714,7 @@ bool GraphicManager::loadSpriteMetadata(const FileName& datafile, wxString& erro
 						file.getU32(min);
 						file.getU32(max);
 						FrameDuration* frame_duration = sType->animator->getFrameDuration(i);
-						frame_duration->setValues(int(min), int(max));
+						frame_duration->setValues(min, max);
 					}
 					sType->animator->reset();
 				}
@@ -1868,7 +1890,7 @@ int Animator::getFrame()
 {
 	long time = g_gui.gfx.getElapsedTime();
 	if(time != last_time && !is_complete) {
-		long elapsed = time - last_time;
+		int64_t elapsed = static_cast<int64_t>(time) - static_cast<int64_t>(last_time);
 		if(elapsed >= current_duration) {
 			int frame = 0;
 			if(loop_count < 0)
@@ -1877,12 +1899,12 @@ int Animator::getFrame()
 				frame = getLoopFrame();
 
 			if(current_frame != frame) {
-				int duration = getDuration(frame) - (elapsed - current_duration);
+				int64_t duration = static_cast<int64_t>(getDuration(frame)) - (elapsed - current_duration);
 				if(duration < 0 && !async) {
 					calculateSynchronous();
 				} else {
 					current_frame = frame;
-					current_duration = std::max<int>(0, duration);
+					current_duration = std::max<int64_t>(0, duration);
 				}
 			} else {
 				is_complete = true;
@@ -1935,7 +1957,7 @@ void Animator::reset()
 	setFrame(-1);
 }
 
-int Animator::getDuration(int frame) const
+uint32_t Animator::getDuration(int frame) const
 {
 	ASSERT(frame >= 0 && frame < frame_count);
 	return durations[frame]->getDuration();
@@ -1972,10 +1994,10 @@ void Animator::calculateSynchronous()
 {
 	long time = g_gui.gfx.getElapsedTime();
 	if(time > 0 && total_duration > 0) {
-		long elapsed = time % total_duration;
-		int total_time = 0;
+		uint64_t elapsed = static_cast<uint64_t>(time) % total_duration;
+		uint64_t total_time = 0;
 		for(int i = 0; i < frame_count; i++) {
-			int duration = getDuration(i);
+			uint32_t duration = getDuration(i);
 			if(elapsed >= total_time && elapsed < total_time + duration) {
 				current_frame = i;
 				current_duration = duration - (elapsed - total_time);

@@ -26,6 +26,35 @@
 
 ItemDatabase g_items;
 
+static ItemTypes_t itemTypeFromIdentityCode(uint8_t identity)
+{
+	switch(identity) {
+		case 1: return ITEM_TYPE_BED;
+		case 2: return ITEM_TYPE_CONTAINER;
+		case 3: return ITEM_TYPE_CORPSE;
+		case 4: return ITEM_TYPE_DEPOT;
+		case 5: return ITEM_TYPE_DOOR_CLOSED;
+		case 6: return ITEM_TYPE_DOOR_OPEN;
+		case 7: return ITEM_TYPE_FLUIDCONTAINER;
+		case 8: return ITEM_TYPE_KEY;
+		case 9: return ITEM_TYPE_MAGICFIELD;
+		case 10: return ITEM_TYPE_MAILBOX;
+		case 11: return ITEM_TYPE_RUNE;
+		case 12: return ITEM_TYPE_SPLASH;
+		case 13: return ITEM_TYPE_STAIR;
+		case 14: return ITEM_TYPE_TELEPORT;
+		case 15: return ITEM_TYPE_TRASHHOLDER;
+		case 16: return ITEM_TYPE_LEVER;
+		case 17: return ITEM_TYPE_CHEST;
+		case 18: return ITEM_TYPE_WINDOW;
+		case 19: return ITEM_TYPE_WALL;
+		case 20: return ITEM_TYPE_READABLE;
+		case 21: return ITEM_TYPE_TRAPDOOR;
+		case 22: return ITEM_TYPE_TASKBOARD;
+		default: return ITEM_TYPE_NONE;
+	}
+}
+
 ItemType::ItemType() :
 	sprite(nullptr),
 	id(0),
@@ -163,6 +192,7 @@ bool ItemDatabase::loadFromPackageJson(const FileName& datafile, wxString& error
 	}
 
 	const std::map<uint16_t, uint16_t>& appearances = g_gui.gfx.getItemAppearances();
+	const std::map<uint16_t, uint8_t>& identities = g_gui.gfx.getItemIdentities();
 	if(appearances.empty()) {
 		error = "EOBJ has no public item mappings.";
 		return false;
@@ -214,6 +244,12 @@ bool ItemDatabase::loadFromPackageJson(const FileName& datafile, wxString& error
 		if(item->group == ITEM_GROUP_CONTAINER) {
 			item->type = ITEM_TYPE_CONTAINER;
 		}
+		const auto identity = identities.find(itemId);
+		if(identity != identities.end()) {
+			item->type = itemTypeFromIdentityCode(identity->second);
+			item->isOpen = item->type == ITEM_TYPE_DOOR_OPEN;
+			item->isWall = item->type == ITEM_TYPE_WALL;
+		}
 
 		const uint32_t flags = entry.value("flags", 0u);
 		item->unpassable = (flags & FLAG_UNPASSABLE) != 0;
@@ -251,13 +287,30 @@ bool ItemDatabase::loadFromPackageJson(const FileName& datafile, wxString& error
 			else if(type == "mailbox") item->type = ITEM_TYPE_MAILBOX;
 			else if(type == "trashholder") item->type = ITEM_TYPE_TRASHHOLDER;
 			else if(type == "container") item->type = ITEM_TYPE_CONTAINER;
+			else if(type == "chest") item->type = ITEM_TYPE_CHEST;
 			else if(type == "door") item->type = ITEM_TYPE_DOOR;
+			else if(type == "doorClosed") item->type = ITEM_TYPE_DOOR_CLOSED;
+			else if(type == "doorOpen") item->type = ITEM_TYPE_DOOR_OPEN;
 			else if(type == "magicfield") {
 				item->group = ITEM_GROUP_MAGICFIELD;
 				item->type = ITEM_TYPE_MAGICFIELD;
 			} else if(type == "teleport") item->type = ITEM_TYPE_TELEPORT;
 			else if(type == "bed") item->type = ITEM_TYPE_BED;
 			else if(type == "key") item->type = ITEM_TYPE_KEY;
+			else if(type == "corpse") item->type = ITEM_TYPE_CORPSE;
+			else if(type == "fluidContainer") item->type = ITEM_TYPE_FLUIDCONTAINER;
+			else if(type == "rune") item->type = ITEM_TYPE_RUNE;
+			else if(type == "splash") item->type = ITEM_TYPE_SPLASH;
+			else if(type == "window") item->type = ITEM_TYPE_WINDOW;
+			else if(type == "stair") item->type = ITEM_TYPE_STAIR;
+			else if(type == "lever") item->type = ITEM_TYPE_LEVER;
+			else if(type == "wall") item->type = ITEM_TYPE_WALL;
+			else if(type == "readable") item->type = ITEM_TYPE_READABLE;
+			else if(type == "trapdoor") item->type = ITEM_TYPE_TRAPDOOR;
+			else if(type == "taskboard") item->type = ITEM_TYPE_TASKBOARD;
+
+			item->isOpen = item->type == ITEM_TYPE_DOOR_OPEN;
+			item->isWall = item->type == ITEM_TYPE_WALL;
 
 			if(properties.contains("weight") && properties["weight"].is_number()) item->weight = properties["weight"].get<float>() / 100.f;
 			if(properties.contains("armor") && properties["armor"].is_number_integer()) item->armor = properties["armor"].get<int>();
