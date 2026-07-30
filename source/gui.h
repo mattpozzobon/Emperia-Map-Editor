@@ -53,6 +53,7 @@ class SearchResultWindow;
 class DuplicatedItemsWindow;
 class MinimapWindow;
 class ActionsHistoryWindow;
+class TileInspectorWindow;
 class PaletteWindow;
 class OldPropertiesWindow;
 class EditTownsDialog;
@@ -211,6 +212,11 @@ public:
 
 	ActionsHistoryWindow* ShowActionsWindow();
 	void HideActionsWindow();
+
+	TileInspectorWindow* ShowInspectorWindow();
+	void HideInspectorWindow();
+	void UpdateInspector(const Editor* editor, const Position& position);
+	void RefreshInspector();
 
 	// Minimap
 	void CreateMinimap();
@@ -387,6 +393,7 @@ public:
 	SearchResultWindow* search_result_window;
 	DuplicatedItemsWindow* duplicated_items_window;
 	ActionsHistoryWindow* actions_history_window;
+	TileInspectorWindow* inspector_window;
 	GraphicManager gfx;
 
 	BaseMap* secondary_map; // A buffer map

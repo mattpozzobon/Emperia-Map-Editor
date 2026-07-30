@@ -48,19 +48,23 @@ wxConnectionBase* RMEProcessServer::OnAcceptConnection(const wxString& topic)
 
 //Client
 
-RMEProcessClient::RMEProcessClient() : proc(nullptr)
+RMEProcessClient::RMEProcessClient()
 {
 	////
 }
 
 RMEProcessClient::~RMEProcessClient()
 {
-	delete proc;
+	////
 }
 
 wxConnectionBase* RMEProcessClient::OnMakeConnection()
 {
-	return proc = newd RMEProcessConnection();
+	// wxClient returns the connection to the caller, which owns and deletes it.
+	// Keeping a second owning pointer here caused a double deletion when the
+	// stack-allocated client was destroyed after Application::OnInit deleted
+	// the connection.
+	return newd RMEProcessConnection();
 }
 
 

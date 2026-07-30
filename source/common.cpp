@@ -245,6 +245,10 @@ bool posFromClipboard(int& x, int& y, int& z)
 							break;
 					}
 				}
+
+				if(r && values.size() < 3) {
+					values.push_back(ws2i(sv));
+				}
 			}
 
 			if(values.size() == 3) {

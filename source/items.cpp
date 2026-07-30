@@ -23,6 +23,7 @@
 
 #include "items.h"
 #include "item.h"
+#include "outfit.h"
 
 ItemDatabase g_items;
 
@@ -46,11 +47,12 @@ static ItemTypes_t itemTypeFromIdentityCode(uint8_t identity)
 		case 15: return ITEM_TYPE_TRASHHOLDER;
 		case 16: return ITEM_TYPE_LEVER;
 		case 17: return ITEM_TYPE_CHEST;
-		case 18: return ITEM_TYPE_WINDOW;
+		case 18: return ITEM_TYPE_WINDOW_CLOSED;
 		case 19: return ITEM_TYPE_WALL;
 		case 20: return ITEM_TYPE_READABLE;
 		case 21: return ITEM_TYPE_TRAPDOOR;
 		case 22: return ITEM_TYPE_TASKBOARD;
+		case 23: return ITEM_TYPE_WINDOW_OPEN;
 		default: return ITEM_TYPE_NONE;
 	}
 }
@@ -68,6 +70,7 @@ ItemType::ItemType() :
 	group(ITEM_GROUP_NONE),
 	type(ITEM_TYPE_NONE),
 	volume(0),
+	containerSize(0),
 	maxTextLen(0),
 	//writeOnceItemID(0),
 	ground_equivalent(0),
@@ -81,6 +84,12 @@ ItemType::ItemType() :
 	defense(0),
 	armor(0),
 	charges(0),
+	harvestType(HARVEST_NONE),
+	harvestResultItemId(0),
+	harvestTier(0),
+	harvestRequiredToolType(0),
+	marketable(false),
+	autoLootable(false),
 	client_chargeable(false),
 	extra_chargeable(false),
 	ignoreLook(false),
@@ -247,7 +256,7 @@ bool ItemDatabase::loadFromPackageJson(const FileName& datafile, wxString& error
 		const auto identity = identities.find(itemId);
 		if(identity != identities.end()) {
 			item->type = itemTypeFromIdentityCode(identity->second);
-			item->isOpen = item->type == ITEM_TYPE_DOOR_OPEN;
+			item->isOpen = item->type == ITEM_TYPE_DOOR_OPEN || item->type == ITEM_TYPE_WINDOW_OPEN;
 			item->isWall = item->type == ITEM_TYPE_WALL;
 		}
 
@@ -279,72 +288,85 @@ bool ItemDatabase::loadFromPackageJson(const FileName& datafile, wxString& error
 		const auto propertiesIt = entry.find("properties");
 		if(propertiesIt != entry.end() && propertiesIt->is_object()) {
 			const nlohmann::json& properties = *propertiesIt;
-			item->name = properties.value("name", std::string());
-			item->description = properties.value("description", std::string());
+			item->name = properties.value("1", std::string());
+			item->description = properties.value("3", std::string());
 
-			const std::string type = properties.value("type", std::string());
-			if(type == "depot") item->type = ITEM_TYPE_DEPOT;
-			else if(type == "mailbox") item->type = ITEM_TYPE_MAILBOX;
-			else if(type == "trashholder") item->type = ITEM_TYPE_TRASHHOLDER;
-			else if(type == "container") item->type = ITEM_TYPE_CONTAINER;
-			else if(type == "chest") item->type = ITEM_TYPE_CHEST;
-			else if(type == "door") item->type = ITEM_TYPE_DOOR;
-			else if(type == "doorClosed") item->type = ITEM_TYPE_DOOR_CLOSED;
-			else if(type == "doorOpen") item->type = ITEM_TYPE_DOOR_OPEN;
-			else if(type == "magicfield") {
-				item->group = ITEM_GROUP_MAGICFIELD;
-				item->type = ITEM_TYPE_MAGICFIELD;
-			} else if(type == "teleport") item->type = ITEM_TYPE_TELEPORT;
-			else if(type == "bed") item->type = ITEM_TYPE_BED;
-			else if(type == "key") item->type = ITEM_TYPE_KEY;
-			else if(type == "corpse") item->type = ITEM_TYPE_CORPSE;
-			else if(type == "fluidContainer") item->type = ITEM_TYPE_FLUIDCONTAINER;
-			else if(type == "rune") item->type = ITEM_TYPE_RUNE;
-			else if(type == "splash") item->type = ITEM_TYPE_SPLASH;
-			else if(type == "window") item->type = ITEM_TYPE_WINDOW;
-			else if(type == "stair") item->type = ITEM_TYPE_STAIR;
-			else if(type == "lever") item->type = ITEM_TYPE_LEVER;
-			else if(type == "wall") item->type = ITEM_TYPE_WALL;
-			else if(type == "readable") item->type = ITEM_TYPE_READABLE;
-			else if(type == "trapdoor") item->type = ITEM_TYPE_TRAPDOOR;
-			else if(type == "taskboard") item->type = ITEM_TYPE_TASKBOARD;
-
-			item->isOpen = item->type == ITEM_TYPE_DOOR_OPEN;
-			item->isWall = item->type == ITEM_TYPE_WALL;
-
-			if(properties.contains("weight") && properties["weight"].is_number()) item->weight = properties["weight"].get<float>() / 100.f;
-			if(properties.contains("armor") && properties["armor"].is_number_integer()) item->armor = properties["armor"].get<int>();
-			if(properties.contains("defense") && properties["defense"].is_number_integer()) item->defense = properties["defense"].get<int>();
-			if(properties.contains("rotateTo") && properties["rotateTo"].is_number_unsigned()) item->rotateTo = properties["rotateTo"].get<uint16_t>();
+			if(properties.contains("160") && properties["160"].is_number()) item->weight = properties["160"].get<float>() / 100.f;
+			if(properties.contains("26") && properties["26"].is_number_integer()) item->armor = properties["26"].get<int>();
+			if(properties.contains("22") && properties["22"].is_number_integer()) item->defense = properties["22"].get<int>();
+			if(properties.contains("132") && properties["132"].is_number_unsigned()) item->rotateTo = properties["132"].get<uint16_t>();
 
 			uint32_t volume = 0;
-			if(properties.contains("containerSize") && properties["containerSize"].is_number_unsigned()) volume = properties["containerSize"].get<uint32_t>();
-			if(properties.contains("exclusiveSlots") && properties["exclusiveSlots"].is_array()) volume += static_cast<uint32_t>(properties["exclusiveSlots"].size());
+			if(properties.contains("90") && properties["90"].is_number_unsigned()) {
+				volume = properties["90"].get<uint32_t>();
+				item->containerSize = static_cast<uint16_t>(std::min<uint32_t>(volume, std::numeric_limits<uint16_t>::max()));
+			}
+			if(properties.contains("144") && properties["144"].is_array()) {
+				for(const nlohmann::json& slotDefinition : properties["144"]) {
+					int outfitSlot = -1;
+					const auto allowedTypes = slotDefinition.find("allowedItemTypes");
+					if(allowedTypes != slotDefinition.end() && allowedTypes->is_array()) {
+						for(const nlohmann::json& allowedType : *allowedTypes) {
+							if(!allowedType.is_number_integer()) {
+								continue;
+							}
+							switch(allowedType.get<int>()) {
+								case 10: outfitSlot = OUTFIT_SLOT_HEAD; break;
+								case 11: outfitSlot = OUTFIT_SLOT_BODY; break;
+								case 12: outfitSlot = OUTFIT_SLOT_LEGS; break;
+								case 13: outfitSlot = OUTFIT_SLOT_FEET; break;
+								default: break;
+							}
+							if(outfitSlot >= 0) {
+								break;
+							}
+						}
+					}
+					item->mannequinOutfitSlots.push_back(outfitSlot);
+				}
+				volume += static_cast<uint32_t>(properties["144"].size());
+			}
 			item->volume = static_cast<uint16_t>(std::min<uint32_t>(volume, std::numeric_limits<uint16_t>::max()));
 
-			if(properties.contains("readable") && properties["readable"].is_boolean()) item->canReadText = properties["readable"].get<bool>();
-			if(properties.contains("writeable") && properties["writeable"].is_boolean()) {
-				item->canWriteText = properties["writeable"].get<bool>();
+			if(properties.contains("150") && properties["150"].is_boolean()) item->canReadText = properties["150"].get<bool>();
+			if(properties.contains("151") && properties["151"].is_boolean()) {
+				item->canWriteText = properties["151"].get<bool>();
 				item->canReadText = item->canReadText || item->canWriteText;
 			}
-			if(properties.contains("maxTextLen") && properties["maxTextLen"].is_number_unsigned()) {
-				item->maxTextLen = properties["maxTextLen"].get<uint16_t>();
+			if(properties.contains("165") && properties["165"].is_number_unsigned()) {
+				item->maxTextLen = properties["165"].get<uint16_t>();
 				item->canReadText = item->canReadText || item->maxTextLen > 0;
 			}
-			if(properties.contains("allowDistRead") && properties["allowDistRead"].is_boolean()) item->allowDistRead = properties["allowDistRead"].get<bool>();
-			item->decays = properties.contains("decayTo");
-			if(properties.contains("charges") && properties["charges"].is_number_unsigned()) {
-				item->charges = properties["charges"].get<uint32_t>();
+			item->decays = properties.contains("124");
+			if(properties.contains("120") && properties["120"].is_number_unsigned()) {
+				item->charges = properties["120"].get<uint32_t>();
 				item->extra_chargeable = true;
 			}
+			if(properties.contains("270") && properties["270"].is_number_unsigned()) {
+				const uint8_t value = properties["270"].get<uint8_t>();
+				if(value <= HARVEST_CHOPPING) item->harvestType = static_cast<HarvestType_t>(value);
+			}
+			if(properties.contains("271") && properties["271"].is_number_unsigned()) item->harvestResultItemId = properties["271"].get<uint16_t>();
+			if(properties.contains("274") && properties["274"].is_number_unsigned()) item->harvestTier = properties["274"].get<uint8_t>();
+			if(properties.contains("276") && properties["276"].is_number_unsigned()) item->harvestRequiredToolType = properties["276"].get<uint8_t>();
+			if(properties.contains("291")) {
+				item->marketable = properties["291"].is_boolean()
+					? properties["291"].get<bool>()
+					: properties["291"].is_number_integer() && properties["291"].get<int>() != 0;
+			}
+			if(properties.contains("292")) {
+				item->autoLootable = properties["292"].is_boolean()
+					? properties["292"].get<bool>()
+					: properties["292"].is_number_integer() && properties["292"].get<int>() != 0;
+			}
 
-			const std::string floorchange = properties.value("floorchange", std::string());
-			if(floorchange == "down") item->floorChangeDown = true;
-			else if(floorchange == "north") item->floorChangeNorth = true;
-			else if(floorchange == "south") item->floorChangeSouth = true;
-			else if(floorchange == "east") item->floorChangeEast = true;
-			else if(floorchange == "west") item->floorChangeWest = true;
-			if(!floorchange.empty()) item->floorChange = true;
+			const uint8_t floorchange = properties.value("112", static_cast<uint8_t>(0));
+			if(floorchange == 5) item->floorChangeDown = true;
+			else if(floorchange == 1) item->floorChangeNorth = true;
+			else if(floorchange == 3 || floorchange == 6) item->floorChangeSouth = true;
+			else if(floorchange == 2 || floorchange == 7) item->floorChangeEast = true;
+			else if(floorchange == 4) item->floorChangeWest = true;
+			if(floorchange != 0) item->floorChange = true;
 		}
 
 		if(items[itemId]) {

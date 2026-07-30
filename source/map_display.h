@@ -119,6 +119,7 @@ public:
 
 	void ShowPositionIndicator(const Position& position);
 	void TakeScreenshot(wxFileName path, wxString format);
+	bool EditTileProperties(const Position& position);
 
 protected:
 	void getTilesToDraw(int mouse_map_x, int mouse_map_y, int floor, PositionVector* tilestodraw, PositionVector* tilestoborder, bool fill = false);
@@ -177,7 +178,9 @@ private:
 
 	uint32_t current_house_id;
 
-	wxStopWatch refresh_watch;
+	double average_frame_ms;
+	uint32_t slow_frame_count;
+	wxStopWatch metric_update_watch;
 	MapPopupMenu* popup_menu;
 	AnimationTimer* animation_timer;
 

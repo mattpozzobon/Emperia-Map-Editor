@@ -44,6 +44,7 @@ public:
 	Item* getItem(size_t index) const;
 
 	ItemVector& getVector() noexcept { return contents; }
+	const ItemVector& getVector() const noexcept { return contents; }
 	size_t getItemCount() const noexcept { return contents.size(); }
 	size_t getVolume() const noexcept { return getItemType().volume; }
 	double getWeight() noexcept { return getItemType().weight; }

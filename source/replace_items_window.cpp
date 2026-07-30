@@ -17,6 +17,8 @@
 
 #include "main.h"
 #include "replace_items_window.h"
+
+#include <wx/settings.h>
 #include "find_item_window.h"
 #include "graphics.h"
 #include "gui.h"
@@ -67,8 +69,10 @@ void ReplaceItemsButton::SetItemId(uint16_t id)
 ReplaceItemsListBox::ReplaceItemsListBox(wxWindow* parent) :
 	wxVListBox(parent, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxLB_SINGLE)
 {
-	m_arrow_bitmap = wxArtProvider::GetBitmap(ART_POSITION_GO, wxART_TOOLBAR, wxSize(16, 16));
-	m_flag_bitmap = wxArtProvider::GetBitmap(ART_PZ_BRUSH, wxART_TOOLBAR, wxSize(16, 16));
+	SetName("Item replacement operations");
+	const wxSize icon_size = FROM_DIP(this, wxSize(16, 16));
+	m_arrow_bitmap = wxArtProvider::GetBitmap(ART_POSITION_GO, wxART_TOOLBAR, icon_size);
+	m_flag_bitmap = wxArtProvider::GetBitmap(ART_PZ_BRUSH, wxART_TOOLBAR, icon_size);
 }
 
 bool ReplaceItemsListBox::AddItem(const ReplacingItem& item)
@@ -128,6 +132,8 @@ void ReplaceItemsListBox::OnDrawItem(wxDC& dc, const wxRect& rect, size_t index)
 	Sprite* sprite1 = g_gui.gfx.getSprite(type1.appearanceID);
 	const ItemType& type2 = g_items.getItemType(item.withId);
 	Sprite* sprite2 = g_gui.gfx.getSprite(type2.appearanceID);
+	dc.SetTextForeground(wxSystemSettings::GetColour(
+		IsSelected(index) ? wxSYS_COLOUR_HIGHLIGHTTEXT : wxSYS_COLOUR_WINDOWTEXT));
 
 	if(sprite1 && sprite2) {
 		int x = rect.GetX();
@@ -144,19 +150,11 @@ void ReplaceItemsListBox::OnDrawItem(wxDC& dc, const wxRect& rect, size_t index)
 		}
 	}
 
-	if(IsSelected(index)) {
-		if(HasFocus())
-			dc.SetTextForeground(wxColor(0xFF, 0xFF, 0xFF));
-		else
-			dc.SetTextForeground(wxColor(0x00, 0x00, 0xFF));
-	} else {
-		dc.SetTextForeground(wxColor(0x00, 0x00, 0x00));
-	}
 }
 
 wxCoord ReplaceItemsListBox::OnMeasureItem(size_t WXUNUSED(index)) const
 {
-	return 40;
+	return FROM_DIP(this, 44);
 }
 
 // ============================================================================

@@ -20,6 +20,34 @@
 #include "palette_brushlist.h"
 #include "gui.h"
 #include "brush.h"
+#include "raw_brush.h"
+
+#include <wx/combobox.h>
+#include <wx/settings.h>
+
+namespace
+{
+	wxString BrushSearchLabel(const Brush* brush)
+	{
+		if(brush->isRaw()) {
+			return wxstr(brush->getName());
+		}
+		return wxString::Format("%s (ID: %d)", wxstr(brush->getName()), brush->getLookID());
+	}
+
+	wxString BrushSearchItemID(const Brush* brush)
+	{
+		if(brush->isRaw()) {
+			return wxString::Format("%u", static_cast<const RAWBrush*>(brush)->getItemID());
+		}
+		return wxString::Format("%d", brush->getLookID());
+	}
+}
+
+Brush* BrushBoxInterface::GetBrush(size_t index) const
+{
+	return index < brushes.size() ? brushes[index] : nullptr;
+}
 
 // ============================================================================
 // Brush Palette Panel
@@ -34,13 +62,32 @@ BrushPalettePanel::BrushPalettePanel(wxWindow* parent, const TilesetContainer& t
 	PalettePanel(parent, id),
 	palette_type(category),
 	choicebook(nullptr),
+	search_control(nullptr),
+	search_candidates(),
+	search_results(),
+	updating_search(false),
+	restore_hotkeys_on_blur(false),
 	size_panel(nullptr)
 {
 	wxSizer* topsizer = newd wxBoxSizer(wxVERTICAL);
 
+	search_control = newd wxComboBox(
+		this, wxID_ANY, wxEmptyString, wxDefaultPosition, wxDefaultSize,
+		0, nullptr, wxCB_DROPDOWN | wxTE_PROCESS_ENTER);
+	search_control->SetHint("Find item by name or ID");
+	search_control->SetName("Item finder");
+	search_control->SetToolTip("Type an item name or ID, then choose a result.");
+	search_control->Bind(wxEVT_TEXT, &BrushPalettePanel::OnSearchChanged, this);
+	search_control->Bind(wxEVT_COMBOBOX, &BrushPalettePanel::OnSearchSelected, this);
+	search_control->Bind(wxEVT_SET_FOCUS, &BrushPalettePanel::OnSearchFocus, this);
+	search_control->Bind(wxEVT_KILL_FOCUS, &BrushPalettePanel::OnSearchBlur, this);
+	search_control->Bind(wxEVT_KEY_DOWN, &BrushPalettePanel::OnSearchKeyDown, this);
+	topsizer->Add(search_control, 0, wxEXPAND | wxALL, FROM_DIP(this, 6));
+
 	// Create the tileset panel
 	wxSizer* ts_sizer = newd wxStaticBoxSizer(wxVERTICAL, this, "Tileset");
-	wxChoicebook* tmp_choicebook = newd wxChoicebook(this, wxID_ANY, wxDefaultPosition, wxSize(180,250));
+	wxChoicebook* tmp_choicebook = newd wxChoicebook(this, wxID_ANY);
+	tmp_choicebook->SetMinSize(FROM_DIP(this, wxSize(170, 180)));
 	ts_sizer->Add(tmp_choicebook, 1, wxEXPAND);
 	topsizer->Add(ts_sizer, 1, wxEXPAND);
 
@@ -53,6 +100,15 @@ BrushPalettePanel::BrushPalettePanel(wxWindow* parent, const TilesetContainer& t
 		}
 	}
 
+	std::set<Brush*> unique_search_candidates;
+	for(const auto& entry : g_brushes.getMap()) {
+		Brush* brush = entry.second;
+		if(brush && brush->visibleInPalette() && unique_search_candidates.insert(brush).second) {
+			search_candidates.push_back(brush);
+		}
+	}
+
+	UpdateSearchResults(wxEmptyString);
 	SetSizerAndFit(topsizer);
 
 	choicebook = tmp_choicebook;
@@ -60,7 +116,14 @@ BrushPalettePanel::BrushPalettePanel(wxWindow* parent, const TilesetContainer& t
 
 BrushPalettePanel::~BrushPalettePanel()
 {
-	////
+	if(restore_hotkeys_on_blur) {
+		g_gui.EnableHotkeys();
+	}
+	search_control->Unbind(wxEVT_TEXT, &BrushPalettePanel::OnSearchChanged, this);
+	search_control->Unbind(wxEVT_COMBOBOX, &BrushPalettePanel::OnSearchSelected, this);
+	search_control->Unbind(wxEVT_SET_FOCUS, &BrushPalettePanel::OnSearchFocus, this);
+	search_control->Unbind(wxEVT_KILL_FOCUS, &BrushPalettePanel::OnSearchBlur, this);
+	search_control->Unbind(wxEVT_KEY_DOWN, &BrushPalettePanel::OnSearchKeyDown, this);
 }
 
 void BrushPalettePanel::InvalidateContents()
@@ -216,6 +279,145 @@ void BrushPalettePanel::OnPageChanged(wxChoicebookEvent& event)
 	g_gui.SelectBrush();
 }
 
+void BrushPalettePanel::OnSearchChanged(wxCommandEvent& event)
+{
+	// Selecting a dropdown row also emits a text event on some platforms.
+	// Keep the existing rows intact so the following combo event can resolve it.
+	if(!updating_search && search_control->FindString(event.GetString()) == wxNOT_FOUND) {
+		const wxString query = event.GetString();
+		UpdateSearchResults(query);
+		if(!query.Strip(wxString::both).IsEmpty() && !search_results.empty()) {
+			// Opening a native editable combo can automatically select its first
+			// row and replace the typed text. Restore the query after the native
+			// popup has finished opening so subsequent keys append normally.
+			search_control->CallAfter([this, query]() {
+				if(!search_control->HasFocus()) {
+					return;
+				}
+				updating_search = true;
+				search_control->Popup();
+				search_control->SetSelection(wxNOT_FOUND);
+				search_control->ChangeValue(query);
+				search_control->SetInsertionPointEnd();
+				updating_search = false;
+			});
+		}
+	}
+}
+
+void BrushPalettePanel::OnSearchSelected(wxCommandEvent& event)
+{
+	if(updating_search) {
+		return;
+	}
+	const int selection = event.GetSelection();
+	if(selection != wxNOT_FOUND && static_cast<size_t>(selection) < search_results.size()) {
+		Brush* brush = search_results[selection];
+		// Let the native combo finish closing before changing palette pages.
+		search_control->CallAfter([this, brush]() {
+			SelectSearchResult(brush);
+		});
+	}
+}
+
+void BrushPalettePanel::UpdateSearchResults(const wxString& query)
+{
+	struct SearchMatch {
+		Brush* brush;
+		wxString label;
+		int rank;
+	};
+
+	const wxString normalized_query = query.Lower().Strip(wxString::both);
+	std::vector<SearchMatch> matches;
+	for(Brush* brush : search_candidates) {
+		const wxString name = wxstr(brush->getName()).Lower();
+		const wxString item_id = BrushSearchItemID(brush);
+		const wxString brush_id = wxString::Format("%u", brush->getID());
+		int rank = 4;
+		if(normalized_query.IsEmpty()) {
+			rank = 3;
+		} else if(item_id == normalized_query || brush_id == normalized_query) {
+			rank = 0;
+		} else if(name.StartsWith(normalized_query)) {
+			rank = 1;
+		} else if(name.Find(normalized_query) != wxNOT_FOUND ||
+			item_id.Find(normalized_query) != wxNOT_FOUND ||
+			brush_id.Find(normalized_query) != wxNOT_FOUND) {
+			rank = 2;
+		} else {
+			continue;
+		}
+		matches.push_back({brush, BrushSearchLabel(brush), rank});
+	}
+
+	std::stable_sort(matches.begin(), matches.end(), [](const SearchMatch& left, const SearchMatch& right) {
+		if(left.rank != right.rank) {
+			return left.rank < right.rank;
+		}
+		return left.label.CmpNoCase(right.label) < 0;
+	});
+
+	constexpr size_t maximum_results = 200;
+	updating_search = true;
+	search_control->Freeze();
+	search_control->Clear();
+	search_results.clear();
+	for(size_t index = 0; index < std::min(matches.size(), maximum_results); ++index) {
+		search_control->Append(matches[index].label);
+		search_results.push_back(matches[index].brush);
+	}
+	search_control->ChangeValue(query);
+	search_control->SetInsertionPointEnd();
+	search_control->Thaw();
+	updating_search = false;
+}
+
+void BrushPalettePanel::SelectSearchResult(Brush* brush)
+{
+	if(!brush) {
+		return;
+	}
+	search_control->ChangeValue(BrushSearchLabel(brush));
+	g_gui.ActivatePalette(GetParentPalette());
+	g_gui.SelectBrush(brush, brush->isRaw() ? TILESET_ITEM : TILESET_UNKNOWN);
+}
+
+void BrushPalettePanel::OnSearchFocus(wxFocusEvent& event)
+{
+	restore_hotkeys_on_blur = g_gui.AreHotkeysEnabled();
+	if(restore_hotkeys_on_blur) {
+		g_gui.DisableHotkeys();
+	}
+	event.Skip();
+}
+
+void BrushPalettePanel::OnSearchBlur(wxFocusEvent& event)
+{
+	if(restore_hotkeys_on_blur) {
+		g_gui.EnableHotkeys();
+		restore_hotkeys_on_blur = false;
+	}
+	event.Skip();
+}
+
+void BrushPalettePanel::OnSearchKeyDown(wxKeyEvent& event)
+{
+	if(event.GetKeyCode() == WXK_ESCAPE && !search_control->GetValue().IsEmpty()) {
+		UpdateSearchResults(wxEmptyString);
+		return;
+	}
+	if(event.GetKeyCode() == WXK_RETURN && !search_results.empty()) {
+		const int selection = search_control->GetSelection();
+		const size_t result_index = selection == wxNOT_FOUND ? 0 : static_cast<size_t>(selection);
+		if(result_index < search_results.size()) {
+			SelectSearchResult(search_results[result_index]);
+		}
+		return;
+	}
+	event.Skip();
+}
+
 void BrushPalettePanel::OnSwitchIn() {
 	LoadCurrentContents();
 	g_gui.ActivatePalette(GetParentPalette());
@@ -291,15 +493,16 @@ void BrushPanel::LoadContents()
 	}
 	loaded = true;
 	ASSERT(tileset != nullptr);
+
 	switch (list_type) {
 		case BRUSHLIST_LARGE_ICONS:
-			brushbox = newd BrushIconBox(this, tileset, RENDER_SIZE_32x32);
+			brushbox = newd BrushIconBox(this, tileset, tileset->brushlist, RENDER_SIZE_32x32);
 			break;
 		case BRUSHLIST_SMALL_ICONS:
-			brushbox = newd BrushIconBox(this, tileset, RENDER_SIZE_16x16);
+			brushbox = newd BrushIconBox(this, tileset, tileset->brushlist, RENDER_SIZE_16x16);
 			break;
 		case BRUSHLIST_LISTBOX:
-			brushbox = newd BrushListBox(this, tileset);
+			brushbox = newd BrushListBox(this, tileset, tileset->brushlist);
 			break;
 		default:
 			break;
@@ -365,6 +568,7 @@ void BrushPanel::OnClickListBoxRow(wxCommandEvent& event)
 	// We just notify the GUI of the action, it will take care of everything else
 	ASSERT(brushbox);
 	size_t n = event.GetSelection();
+	Brush* brush = brushbox->GetBrush(n);
 
 
 	wxWindow* w = this;
@@ -373,7 +577,9 @@ void BrushPanel::OnClickListBoxRow(wxCommandEvent& event)
 	if(w)
 		g_gui.ActivatePalette(static_cast<PaletteWindow*>(w));
 
-	g_gui.SelectBrush(tileset->brushlist[n], tileset->getType());
+	if(brush) {
+		g_gui.SelectBrush(brush, tileset->getType());
+	}
 }
 
 // ============================================================================
@@ -384,9 +590,9 @@ BEGIN_EVENT_TABLE(BrushIconBox, wxScrolledWindow)
 	EVT_TOGGLEBUTTON(wxID_ANY, BrushIconBox::OnClickBrushButton)
 END_EVENT_TABLE()
 
-BrushIconBox::BrushIconBox(wxWindow *parent, const TilesetCategory *_tileset, RenderSize rsz) :
+BrushIconBox::BrushIconBox(wxWindow *parent, const TilesetCategory *_tileset, const BrushVector& brushes, RenderSize rsz) :
 	wxScrolledWindow(parent, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxVSCROLL),
-	BrushBoxInterface(_tileset),
+	BrushBoxInterface(_tileset, brushes),
 	icon_size(rsz)
 {
 	ASSERT(tileset->getType() >= TILESET_UNKNOWN && tileset->getType() <= TILESET_HOUSE);
@@ -401,7 +607,7 @@ BrushIconBox::BrushIconBox(wxWindow *parent, const TilesetCategory *_tileset, Re
 	wxSizer* stacksizer = newd wxBoxSizer(wxVERTICAL);
 	wxSizer* rowsizer = nullptr;
 	int item_counter = 0;
-	for(BrushVector::const_iterator iter = tileset->brushlist.begin(); iter != tileset->brushlist.end(); ++iter) {
+	for(BrushVector::const_iterator iter = this->brushes.begin(); iter != this->brushes.end(); ++iter) {
 		ASSERT(*iter);
 		++item_counter;
 
@@ -422,7 +628,10 @@ BrushIconBox::BrushIconBox(wxWindow *parent, const TilesetCategory *_tileset, Re
 		stacksizer->Add(rowsizer);
 	}
 
-	SetScrollbars(20,20, 8, item_counter/width, 0, 0);
+	const int density = std::clamp(g_settings.getInteger(Config::UI_DENSITY), 0, 2);
+	const int scroll_units[] = {16, 20, 24};
+	const int scroll_unit = FROM_DIP(this, scroll_units[density]);
+	SetScrollbars(scroll_unit, scroll_unit, 8, item_counter/width, 0, 0);
 	SetSizer(stacksizer);
 }
 
@@ -433,7 +642,7 @@ BrushIconBox::~BrushIconBox()
 
 void BrushIconBox::SelectFirstBrush()
 {
-	if(tileset && tileset->size() > 0) {
+	if(!brush_buttons.empty()) {
 		DeselectAll();
 		brush_buttons[0]->SetValue(true);
 		EnsureVisible((size_t)0);
@@ -528,11 +737,11 @@ BEGIN_EVENT_TABLE(BrushListBox, wxVListBox)
 	EVT_KEY_DOWN(BrushListBox::OnKey)
 END_EVENT_TABLE()
 
-BrushListBox::BrushListBox(wxWindow* parent, const TilesetCategory* tileset) :
+BrushListBox::BrushListBox(wxWindow* parent, const TilesetCategory* tileset, const BrushVector& brushes) :
 	wxVListBox(parent, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxLB_SINGLE),
-	BrushBoxInterface(tileset)
+	BrushBoxInterface(tileset, brushes)
 {
-	SetItemCount(tileset->size());
+	SetItemCount(this->brushes.size());
 }
 
 BrushListBox::~BrushListBox()
@@ -542,8 +751,10 @@ BrushListBox::~BrushListBox()
 
 void BrushListBox::SelectFirstBrush()
 {
-	SetSelection(0);
-	wxWindow::ScrollLines(-1);
+	if(!brushes.empty()) {
+		SetSelection(0);
+		wxWindow::ScrollLines(-1);
+	}
 }
 
 Brush* BrushListBox::GetSelectedBrush() const
@@ -553,18 +764,18 @@ Brush* BrushListBox::GetSelectedBrush() const
 	}
 
 	int n = GetSelection();
-	if(n != wxNOT_FOUND) {
-		return tileset->brushlist[n];
-	} else if(tileset->size() > 0) {
-		return tileset->brushlist[0];
+	if(n != wxNOT_FOUND && static_cast<size_t>(n) < brushes.size()) {
+		return brushes[n];
+	} else if(!brushes.empty()) {
+		return brushes[0];
 	}
 	return nullptr;
 }
 
 bool BrushListBox::SelectBrush(const Brush* whatbrush)
 {
-	for(size_t n = 0; n < tileset->size(); ++n) {
-		if(tileset->brushlist[n] == whatbrush) {
+	for(size_t n = 0; n < brushes.size(); ++n) {
+		if(brushes[n] == whatbrush) {
 			SetSelection(n);
 			return true;
 		}
@@ -574,25 +785,30 @@ bool BrushListBox::SelectBrush(const Brush* whatbrush)
 
 void BrushListBox::OnDrawItem(wxDC& dc, const wxRect& rect, size_t n) const
 {
-	ASSERT(n < tileset->size());
-	Sprite* spr = g_gui.gfx.getSprite(tileset->brushlist[n]->getLookID());
+	ASSERT(n < brushes.size());
+	Sprite* spr = g_gui.gfx.getSprite(brushes[n]->getLookID());
 	if(spr) {
 		spr->DrawTo(&dc, SPRITE_SIZE_32x32, rect.GetX(), rect.GetY(), rect.GetWidth(), rect.GetHeight());
 	}
-	if(IsSelected(n)) {
-		if(HasFocus())
-			dc.SetTextForeground(wxColor(0xFF, 0xFF, 0xFF));
-		else
-			dc.SetTextForeground(wxColor(0x00, 0x00, 0xFF));
-	} else {
-		dc.SetTextForeground(wxColor(0x00, 0x00, 0x00));
-	}
-	dc.DrawText(wxstr(tileset->brushlist[n]->getName()), rect.GetX() + 40, rect.GetY() + 6);
+	const wxSystemColour text_colour = IsSelected(n) ?
+		wxSYS_COLOUR_HIGHLIGHTTEXT : wxSYS_COLOUR_WINDOWTEXT;
+	dc.SetTextForeground(wxSystemSettings::GetColour(text_colour));
+	const wxString name = wxstr(brushes[n]->getName());
+	wxCoord text_width;
+	wxCoord text_height;
+	dc.GetTextExtent(name, &text_width, &text_height);
+	const int density = std::clamp(g_settings.getInteger(Config::UI_DENSITY), 0, 2);
+	const int text_offsets[] = {36, 40, 44};
+	const int text_x = rect.GetX() + FROM_DIP(this, text_offsets[density]);
+	const int text_y = rect.GetY() + std::max(0, (rect.GetHeight() - text_height) / 2);
+	dc.DrawText(name, text_x, text_y);
 }
 
 wxCoord BrushListBox::OnMeasureItem(size_t n) const
 {
-	return 32;
+	const int density = std::clamp(g_settings.getInteger(Config::UI_DENSITY), 0, 2);
+	const int row_heights[] = {28, 36, 44};
+	return FROM_DIP(this, row_heights[density]);
 }
 
 void BrushListBox::OnKey(wxKeyEvent& event)

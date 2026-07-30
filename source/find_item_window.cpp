@@ -360,7 +360,7 @@ void FindItemDialog::RefreshContentsInternal()
 				(selection == SearchItemType::FluidContainer && item.type != ITEM_TYPE_FLUIDCONTAINER) ||
 				(selection == SearchItemType::Rune && item.type != ITEM_TYPE_RUNE) ||
 				(selection == SearchItemType::Splash && item.type != ITEM_TYPE_SPLASH) ||
-				(selection == SearchItemType::Window && item.type != ITEM_TYPE_WINDOW) ||
+				(selection == SearchItemType::Window && !item.isWindow()) ||
 				(selection == SearchItemType::Stair && !item.isStair()) ||
 				(selection == SearchItemType::Lever && !item.isLever()) ||
 				(selection == SearchItemType::Chest && !item.isChest()) ||

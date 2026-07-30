@@ -45,7 +45,14 @@ inline wxBitmap* _wxGetBitmapFromMemory(const unsigned char* data, int length)
 
 MainToolBar::MainToolBar(wxWindow* parent, wxAuiManager* manager)
 {
-	wxSize icon_size = FROM_DIP(parent, wxSize(16, 16));
+	const int density = std::clamp(g_settings.getInteger(Config::UI_DENSITY), 0, 2);
+	const int icon_dips[] = {16, 20, 24};
+	const int control_heights[] = {22, 26, 30};
+	const int zone_widths[] = {110, 124, 138};
+	const int coordinate_widths[] = {58, 64, 70};
+	const int z_widths[] = {36, 40, 44};
+	const int button_widths[] = {24, 28, 32};
+	wxSize icon_size = FROM_DIP(parent, wxSize(icon_dips[density], icon_dips[density]));
 	wxBitmap new_bitmap = wxArtProvider::GetBitmap(wxART_NEW, wxART_TOOLBAR, icon_size);
 	wxBitmap open_bitmap = wxArtProvider::GetBitmap(wxART_FILE_OPEN, wxART_TOOLBAR, icon_size);
 	wxBitmap save_bitmap = wxArtProvider::GetBitmap(wxART_FILE_SAVE, wxART_TOOLBAR, icon_size);
@@ -56,7 +63,9 @@ MainToolBar::MainToolBar(wxWindow* parent, wxAuiManager* manager)
 	wxBitmap copy_bitmap = wxArtProvider::GetBitmap(wxART_COPY, wxART_TOOLBAR, icon_size);
 	wxBitmap paste_bitmap = wxArtProvider::GetBitmap(wxART_PASTE, wxART_TOOLBAR, icon_size);
 
-	standard_toolbar = newd wxAuiToolBar(parent, TOOLBAR_STANDARD, wxDefaultPosition, wxDefaultSize, wxAUI_TB_DEFAULT_STYLE);
+	const long toolbar_style = wxAUI_TB_DEFAULT_STYLE | wxAUI_TB_OVERFLOW;
+
+	standard_toolbar = newd wxAuiToolBar(parent, TOOLBAR_STANDARD, wxDefaultPosition, wxDefaultSize, toolbar_style);
 	standard_toolbar->SetToolBitmapSize(icon_size);
 	standard_toolbar->AddTool(wxID_NEW, wxEmptyString, new_bitmap, wxNullBitmap, wxITEM_NORMAL, "New Map", wxEmptyString, NULL);
 	standard_toolbar->AddTool(wxID_OPEN, wxEmptyString, open_bitmap, wxNullBitmap, wxITEM_NORMAL, "Open Map", wxEmptyString, NULL);
@@ -85,7 +94,7 @@ MainToolBar::MainToolBar(wxWindow* parent, wxAuiManager* manager)
 	wxBitmap* hatch_bitmap = loadPNGFile(window_hatch_small_png);
 	wxBitmap* window_bitmap = loadPNGFile(window_normal_small_png);
 
-	brushes_toolbar = newd wxAuiToolBar(parent, TOOLBAR_BRUSHES, wxDefaultPosition, wxDefaultSize, wxAUI_TB_DEFAULT_STYLE);
+	brushes_toolbar = newd wxAuiToolBar(parent, TOOLBAR_BRUSHES, wxDefaultPosition, wxDefaultSize, toolbar_style);
 	brushes_toolbar->SetToolBitmapSize(icon_size);
 	brushes_toolbar->AddTool(PALETTE_TERRAIN_OPTIONAL_BORDER_TOOL, wxEmptyString, *border_bitmap, wxNullBitmap, wxITEM_CHECK, "Border", wxEmptyString, NULL);
 	brushes_toolbar->AddTool(PALETTE_TERRAIN_ERASER, wxEmptyString, *eraser_bitmap, wxNullBitmap, wxITEM_CHECK, "Eraser", wxEmptyString, NULL);
@@ -103,7 +112,8 @@ MainToolBar::MainToolBar(wxWindow* parent, wxAuiManager* manager)
 	brushes_toolbar->AddTool(PALETTE_TERRAIN_HATCH_DOOR, wxEmptyString, *hatch_bitmap, wxNullBitmap, wxITEM_CHECK, "Hatch Window", wxEmptyString, NULL);
 	brushes_toolbar->AddTool(PALETTE_TERRAIN_WINDOW_DOOR, wxEmptyString, *window_bitmap, wxNullBitmap, wxITEM_CHECK, "Window", wxEmptyString, NULL);
 	brushes_toolbar->AddSeparator();
-	zone_dropdown = newd wxChoice(brushes_toolbar, TOOLBAR_ZONE_DROPDOWN, wxDefaultPosition, FROM_DIP(parent, wxSize(110, 22)));
+	zone_dropdown = newd wxChoice(brushes_toolbar, TOOLBAR_ZONE_DROPDOWN, wxDefaultPosition,
+		FROM_DIP(parent, wxSize(zone_widths[density], control_heights[density])));
 	zone_dropdown->Append("-- Zone --");
 	zone_dropdown->Append("City");
 	zone_dropdown->Append("Town");
@@ -127,15 +137,19 @@ MainToolBar::MainToolBar(wxWindow* parent, wxAuiManager* manager)
 
 	wxBitmap go_bitmap = wxArtProvider::GetBitmap(ART_POSITION_GO, wxART_TOOLBAR, icon_size);
 
-	position_toolbar = newd wxAuiToolBar(parent, TOOLBAR_POSITION, wxDefaultPosition, wxDefaultSize, wxAUI_TB_DEFAULT_STYLE | wxAUI_TB_HORZ_TEXT);
+	position_toolbar = newd wxAuiToolBar(parent, TOOLBAR_POSITION, wxDefaultPosition, wxDefaultSize, toolbar_style | wxAUI_TB_HORZ_TEXT);
 	position_toolbar->SetToolBitmapSize(icon_size);
-	x_control = newd NumberTextCtrl(position_toolbar, wxID_ANY, 0, 0, rme::MapMaxWidth, wxTE_PROCESS_ENTER, "X", wxDefaultPosition, FROM_DIP(parent, wxSize(60, 20)));
+	x_control = newd NumberTextCtrl(position_toolbar, wxID_ANY, 0, 0, rme::MapMaxWidth, wxTE_PROCESS_ENTER, "X", wxDefaultPosition,
+		FROM_DIP(parent, wxSize(coordinate_widths[density], control_heights[density])));
 	x_control->SetToolTip("X Coordinate");
-	y_control = newd NumberTextCtrl(position_toolbar, wxID_ANY, 0, 0, rme::MapMaxHeight, wxTE_PROCESS_ENTER, "Y", wxDefaultPosition, FROM_DIP(parent, wxSize(60, 20)));
+	y_control = newd NumberTextCtrl(position_toolbar, wxID_ANY, 0, 0, rme::MapMaxHeight, wxTE_PROCESS_ENTER, "Y", wxDefaultPosition,
+		FROM_DIP(parent, wxSize(coordinate_widths[density], control_heights[density])));
 	y_control->SetToolTip("Y Coordinate");
-	z_control = newd NumberTextCtrl(position_toolbar, wxID_ANY, 0, 0, rme::MapMaxLayer, wxTE_PROCESS_ENTER, "Z", wxDefaultPosition, FROM_DIP(parent, wxSize(35, 20)));
+	z_control = newd NumberTextCtrl(position_toolbar, wxID_ANY, 0, 0, rme::MapMaxLayer, wxTE_PROCESS_ENTER, "Z", wxDefaultPosition,
+		FROM_DIP(parent, wxSize(z_widths[density], control_heights[density])));
 	z_control->SetToolTip("Z Coordinate");
-	go_button = newd wxButton(position_toolbar, TOOLBAR_POSITION_GO, wxEmptyString, wxDefaultPosition, FROM_DIP(parent, wxSize(22, 20)));
+	go_button = newd wxButton(position_toolbar, TOOLBAR_POSITION_GO, wxEmptyString, wxDefaultPosition,
+		FROM_DIP(parent, wxSize(button_widths[density], control_heights[density])));
 	go_button->SetBitmap(go_bitmap);
 	go_button->SetToolTip("Go To Position");
 	position_toolbar->AddControl(x_control);
@@ -154,7 +168,7 @@ MainToolBar::MainToolBar(wxWindow* parent, wxAuiManager* manager)
 	wxBitmap size6_bitmap = wxArtProvider::GetBitmap(ART_RECTANGULAR_6, wxART_TOOLBAR, icon_size);
 	wxBitmap size7_bitmap = wxArtProvider::GetBitmap(ART_RECTANGULAR_7, wxART_TOOLBAR, icon_size);
 
-	sizes_toolbar = newd wxAuiToolBar(parent, TOOLBAR_SIZES, wxDefaultPosition, wxDefaultSize, wxAUI_TB_DEFAULT_STYLE);
+	sizes_toolbar = newd wxAuiToolBar(parent, TOOLBAR_SIZES, wxDefaultPosition, wxDefaultSize, toolbar_style);
 	sizes_toolbar->SetToolBitmapSize(icon_size);
 	sizes_toolbar->AddTool(TOOLBAR_SIZES_RECTANGULAR, wxEmptyString, rectangular_bitmap, wxNullBitmap, wxITEM_CHECK, "Rectangular Brush", wxEmptyString, NULL);
 	sizes_toolbar->AddTool(TOOLBAR_SIZES_CIRCULAR, wxEmptyString, circular_bitmap, wxNullBitmap, wxITEM_CHECK, "Circular Brush", wxEmptyString, NULL);
@@ -174,7 +188,7 @@ MainToolBar::MainToolBar(wxWindow* parent, wxAuiManager* manager)
 	wxBitmap pickupables_bitmap = wxArtProvider::GetBitmap(ART_PICKUPABLE_TOOLBAR, wxART_TOOLBAR, icon_size);
 	wxBitmap moveables_bitmap = wxArtProvider::GetBitmap(ART_MOVEABLE_TOOLBAR, wxART_TOOLBAR, icon_size);
 
-	indicators_toolbar = newd wxAuiToolBar(parent, TOOLBAR_INDICATORS, wxDefaultPosition, wxDefaultSize, wxAUI_TB_DEFAULT_STYLE);
+	indicators_toolbar = newd wxAuiToolBar(parent, TOOLBAR_INDICATORS, wxDefaultPosition, wxDefaultSize, toolbar_style);
 	indicators_toolbar->SetToolBitmapSize(icon_size);
 	indicators_toolbar->AddTool(TOOLBAR_HOOKS, wxEmptyString, hooks_bitmap, wxNullBitmap, wxITEM_CHECK, "Wall Hooks", wxEmptyString, NULL);
 	indicators_toolbar->AddTool(TOOLBAR_PICKUPABLES, wxEmptyString, pickupables_bitmap, wxNullBitmap, wxITEM_CHECK, "Pickupables", wxEmptyString, NULL);
@@ -339,11 +353,14 @@ void MainToolBar::UpdateBrushButtons()
 
 void MainToolBar::UpdateBrushSize(BrushShape shape, int size)
 {
+	const int density = std::clamp(g_settings.getInteger(Config::UI_DENSITY), 0, 2);
+	const int icon_dips[] = {16, 20, 24};
+	const wxSize icon_size = FROM_DIP(sizes_toolbar, wxSize(icon_dips[density], icon_dips[density]));
+
 	if(shape == BRUSHSHAPE_CIRCLE) {
 		sizes_toolbar->ToggleTool(TOOLBAR_SIZES_CIRCULAR, true);
 		sizes_toolbar->ToggleTool(TOOLBAR_SIZES_RECTANGULAR, false);
 
-		wxSize icon_size = wxSize(16, 16);
 		sizes_toolbar->SetToolBitmap(TOOLBAR_SIZES_1, wxArtProvider::GetBitmap(ART_CIRCULAR_1, wxART_TOOLBAR, icon_size));
 		sizes_toolbar->SetToolBitmap(TOOLBAR_SIZES_2, wxArtProvider::GetBitmap(ART_CIRCULAR_2, wxART_TOOLBAR, icon_size));
 		sizes_toolbar->SetToolBitmap(TOOLBAR_SIZES_3, wxArtProvider::GetBitmap(ART_CIRCULAR_3, wxART_TOOLBAR, icon_size));
@@ -355,7 +372,6 @@ void MainToolBar::UpdateBrushSize(BrushShape shape, int size)
 		sizes_toolbar->ToggleTool(TOOLBAR_SIZES_CIRCULAR, false);
 		sizes_toolbar->ToggleTool(TOOLBAR_SIZES_RECTANGULAR, true);
 
-		wxSize icon_size = wxSize(16, 16);
 		sizes_toolbar->SetToolBitmap(TOOLBAR_SIZES_1, wxArtProvider::GetBitmap(ART_RECTANGULAR_1, wxART_TOOLBAR, icon_size));
 		sizes_toolbar->SetToolBitmap(TOOLBAR_SIZES_2, wxArtProvider::GetBitmap(ART_RECTANGULAR_2, wxART_TOOLBAR, icon_size));
 		sizes_toolbar->SetToolBitmap(TOOLBAR_SIZES_3, wxArtProvider::GetBitmap(ART_RECTANGULAR_3, wxART_TOOLBAR, icon_size));

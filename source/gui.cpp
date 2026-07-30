@@ -39,6 +39,7 @@
 #include "application.h"
 #include "welcome_dialog.h"
 #include "actions_history_window.h"
+#include "tile_inspector_window.h"
 
 #include "live_client.h"
 #include "live_tab.h"
@@ -63,6 +64,7 @@ GUI::GUI() :
 	search_result_window(nullptr),
 	duplicated_items_window(nullptr),
 	actions_history_window(nullptr),
+	inspector_window(nullptr),
 	secondary_map(nullptr),
 	doodad_buffer_map(nullptr),
 
@@ -592,15 +594,22 @@ bool GUI::LoadMap(const FileName& fileName)
 		g_gui.CloseCurrentEditor();
 
 	Editor* editor;
+	wxStopWatch load_timer;
 	try
 	{
 		editor = newd Editor(copybuffer, fileName);
 	}
 	catch(std::runtime_error& e)
 	{
+		if(g_settings.getBoolean(Config::SHOW_CANVAS_PERFORMANCE)) {
+			const wxString timing = wxString::Format("Map open failed after %ld ms", load_timer.Time());
+			SetStatusText(timing);
+			wxLogMessage(timing);
+		}
 		PopupDialog(root, "Error!", wxString(e.what(), wxConvUTF8), wxOK);
 		return false;
 	}
+	const long load_ms = load_timer.Time();
 
 	auto *mapTab = newd MapTab(tabbook, editor);
 	mapTab->OnSwitchEditorMode(mode);
@@ -624,6 +633,11 @@ bool GUI::LoadMap(const FileName& fileName)
 			stream >> position;
 			mapTab->SetScreenCenterPosition(position);
 		}
+	}
+	if(g_settings.getBoolean(Config::SHOW_CANVAS_PERFORMANCE)) {
+		const wxString timing = wxString::Format("Opened map in %ld ms", load_ms);
+		SetStatusText(timing);
+		wxLogMessage(timing);
 	}
 	return true;
 }
@@ -700,6 +714,7 @@ void GUI::CloseCurrentEditor()
 {
 	RefreshPalettes();
 	tabbook->DeleteTab(tabbook->GetSelection());
+	RefreshInspector();
 	root->UpdateMenubar();
 
 	if(duplicated_items_window) {
@@ -806,6 +821,10 @@ void GUI::LoadPerspective()
 
 			wxAuiPaneInfo& info = aui_manager->GetPane(palette);
 			aui_manager->LoadPaneInfo(wxstr(name), info);
+			info.MinSize(FROM_DIP(root, wxSize(200, 220)));
+			if(info.best_size.GetWidth() < FROM_DIP(root, 230)) {
+				info.BestSize(FROM_DIP(root, wxSize(230, 300)));
+			}
 
 			if(info.IsFloatable()) {
 				bool offscreen = true;
@@ -891,7 +910,37 @@ void GUI::LoadPerspective()
 			}
 		}
 
+		if(g_settings.getInteger(Config::INSPECTOR_VISIBLE)) {
+			wxAuiPaneInfo info;
+			const wxString& data = wxstr(g_settings.getString(Config::INSPECTOR_LAYOUT));
+			aui_manager->LoadPaneInfo(data, info);
+
+			if(!inspector_window) {
+				inspector_window = newd TileInspectorWindow(root);
+				aui_manager->AddPane(inspector_window, info);
+			} else {
+				aui_manager->LoadPaneInfo(data, aui_manager->GetPane(inspector_window));
+			}
+
+			wxAuiPaneInfo& inspector_info = aui_manager->GetPane(inspector_window);
+			if(inspector_info.IsFloatable()) {
+				bool offscreen = true;
+				for(uint32_t index = 0; index < wxDisplay::GetCount(); ++index) {
+					wxDisplay display(index);
+					if(display.GetClientArea().Contains(inspector_info.floating_pos)) {
+						offscreen = false;
+						break;
+					}
+				}
+
+				if(offscreen) {
+					inspector_info.Dock();
+				}
+			}
+		}
+
 		aui_manager->Update();
+		RefreshInspector();
 		root->UpdateMenubar();
 	}
 
@@ -905,6 +954,8 @@ void GUI::SavePerspective()
 	g_settings.setInteger(Config::WINDOW_HEIGHT, root->GetSize().GetHeight());
 	g_settings.setInteger(Config::MINIMAP_VISIBLE, minimap? 1: 0);
 	g_settings.setInteger(Config::ACTIONS_HISTORY_VISIBLE, actions_history_window ? 1 : 0);
+	g_settings.setInteger(Config::INSPECTOR_VISIBLE,
+		inspector_window && aui_manager->GetPane(inspector_window).IsShown() ? 1 : 0);
 
 	wxString pinfo;
 	for(auto &palette : palettes) {
@@ -921,6 +972,11 @@ void GUI::SavePerspective()
 	if(actions_history_window) {
 		wxString info = aui_manager->SavePaneInfo(aui_manager->GetPane(actions_history_window));
 		g_settings.setString(Config::ACTIONS_HISTORY_LAYOUT, nstr(info));
+	}
+
+	if(inspector_window) {
+		wxString info = aui_manager->SavePaneInfo(aui_manager->GetPane(inspector_window));
+		g_settings.setString(Config::INSPECTOR_LAYOUT, nstr(info));
 	}
 
 	root->GetAuiToolBar()->SavePerspective();
@@ -988,6 +1044,54 @@ void GUI::HideActionsWindow()
 	}
 }
 
+TileInspectorWindow* GUI::ShowInspectorWindow()
+{
+	if(!inspector_window) {
+		inspector_window = newd TileInspectorWindow(root);
+		aui_manager->AddPane(
+			inspector_window,
+			wxAuiPaneInfo()
+				.Name("tile_inspector")
+				.Caption("Inspector")
+				.Right()
+				.BestSize(FROM_DIP(root, wxSize(280, 420)))
+				.MinSize(FROM_DIP(root, wxSize(230, 260)))
+				.CloseButton(true)
+		);
+	} else {
+		aui_manager->GetPane(inspector_window).Show();
+	}
+
+	aui_manager->Update();
+	RefreshInspector();
+	return inspector_window;
+}
+
+void GUI::HideInspectorWindow()
+{
+	if(inspector_window) {
+		aui_manager->GetPane(inspector_window).Show(false);
+		aui_manager->Update();
+	}
+}
+
+void GUI::UpdateInspector(const Editor* editor, const Position& position)
+{
+	if(inspector_window && aui_manager->GetPane(inspector_window).IsShown()) {
+		inspector_window->SetTile(editor, position);
+	}
+}
+
+void GUI::RefreshInspector()
+{
+	MapTab* map_tab = GetCurrentMapTab();
+	if(!map_tab) {
+		UpdateInspector(nullptr, Position());
+		return;
+	}
+	UpdateInspector(map_tab->GetEditor(), map_tab->GetCanvas()->GetCursorPosition());
+}
+
 //=============================================================================
 // Palette Window Interface implementation
 
@@ -1028,6 +1132,7 @@ void GUI::RefreshPalettes(Map* m, bool usedefault)
 	}
 
 	RefreshActions();
+	RefreshInspector();
 }
 
 void GUI::RefreshOtherPalettes(PaletteWindow* p)
@@ -1045,7 +1150,16 @@ PaletteWindow* GUI::CreatePalette()
 		return nullptr;
 
 	auto *palette = newd PaletteWindow(root, g_materials.tilesets);
-	aui_manager->AddPane(palette, wxAuiPaneInfo().Caption("Palette").TopDockable(false).BottomDockable(false));
+	aui_manager->AddPane(
+		palette,
+		wxAuiPaneInfo()
+			.Caption("Palette")
+			.Left()
+			.BestSize(FROM_DIP(root, wxSize(230, 500)))
+			.MinSize(FROM_DIP(root, wxSize(200, 220)))
+			.TopDockable(false)
+			.BottomDockable(false)
+	);
 	aui_manager->Update();
 
 	// Make us the active palette

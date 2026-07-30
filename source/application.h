@@ -54,8 +54,8 @@ private:
 	virtual void OnFatalException();
 
 #ifdef _USE_PROCESS_COM
-	RMEProcessServer* m_proc_server;
-	wxSingleInstanceChecker* m_single_instance_checker;
+	RMEProcessServer* m_proc_server = nullptr;
+	wxSingleInstanceChecker* m_single_instance_checker = nullptr;
 #endif
 
 };
@@ -78,6 +78,7 @@ public:
 	void AddRecentFile(const FileName& file);
 	void LoadRecentFiles();
 	void SaveRecentFiles();
+	void SaveOpenMaps();
 	std::vector<wxString> GetRecentFiles();
 
 	MainToolBar* GetAuiToolBar() const { return tool_bar; }
@@ -87,6 +88,7 @@ public:
 	void UpdateFloorMenu();
 	void UpdateIndicatorsMenu();
 	void OnIdle(wxIdleEvent& event);
+	void OnAutosave(wxTimerEvent& event);
 	void OnExit(wxCloseEvent& event);
 
 #ifdef _USE_UPDATER_
@@ -101,6 +103,7 @@ public:
 protected:
 	MainMenuBar* menu_bar;
 	MainToolBar* tool_bar;
+	wxTimer autosave_timer;
 
 	friend class Application;
 	friend class GUI;

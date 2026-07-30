@@ -189,6 +189,8 @@ protected:
 
 	uint32_t id;
 	wxMemoryDC* dc[SPRITE_SIZE_COUNT];
+	uint32_t outfit_dc_color_hash;
+	bool outfit_dc_valid;
 
 public:
 	// GameSprite info
@@ -288,6 +290,9 @@ public:
 
 	Sprite* getSprite(int id);
 	GameSprite* getCreatureSprite(int id);
+	GameSprite* getOutfitSprite(int publicOutfitId);
+	GameSprite* getOutfitSlotSprite(int slot, int sourceId, bool directAppearance = false);
+	void drawOutfitTo(wxDC& dc, const wxRect& rect, const Outfit& outfit);
 	GameSprite* getEditorSprite(int id);
 
 	long getElapsedTime() const { return (animation_timer->TimeInMicro() / 1000).ToLong(); }
@@ -337,8 +342,17 @@ private:
 	DatFormat dat_format;
 	uint16_t item_count;
 	uint16_t creature_count;
+	uint16_t outfit_count;
+	uint16_t equipment_count;
+	uint16_t hair_count;
 	std::map<uint16_t, uint16_t> item_appearances;
 	std::map<uint16_t, uint8_t> item_identities;
+	std::map<uint16_t, uint16_t> outfit_appearances;
+	std::map<uint16_t, uint16_t> equipment_default_appearances;
+	std::map<uint16_t, uint16_t> equipment_left_appearances;
+	std::map<uint16_t, uint16_t> equipment_right_appearances;
+	std::map<uint16_t, uint16_t> visual_equipment_appearances;
+	std::map<uint16_t, uint16_t> hair_appearances;
 	bool otfi_found;
 	bool is_extended;
 	bool has_transparency;

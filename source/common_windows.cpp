@@ -31,6 +31,8 @@
 #include "gui.h"
 #include "application.h"
 #include "common_windows.h"
+
+#include <wx/settings.h>
 #include "positionctrl.h"
 
 #include "iominimap.h"
@@ -909,6 +911,7 @@ FindDialogListBox::FindDialogListBox(wxWindow* parent, wxWindowID id) :
 	cleared(false),
 	no_matches(false)
 {
+	SetName("Search results");
 	Clear();
 }
 
@@ -970,28 +973,24 @@ void FindDialogListBox::OnDrawItem(wxDC& dc, const wxRect& rect, size_t n) const
 				return;
 			}
 
-			auto creatureSprite = g_gui.gfx.getCreatureSprite(creatureType->outfit.lookType);
-			if (creatureSprite) {
-				creatureSprite->DrawTo(&dc, rect, creatureType->outfit);
-			}
+			const wxRect iconRect(rect.GetX(), rect.GetY(), FROM_DIP(this, 32), rect.GetHeight());
+			g_gui.gfx.drawOutfitTo(dc, iconRect, creatureType->outfit);
 		}
 
 		if(IsSelected(n)) {
-			if(HasFocus())
-				dc.SetTextForeground(wxColor(0xFF, 0xFF, 0xFF));
-			else
-				dc.SetTextForeground(wxColor(0x00, 0x00, 0xFF));
+			dc.SetTextForeground(wxSystemSettings::GetColour(wxSYS_COLOUR_HIGHLIGHTTEXT));
 		} else {
-			dc.SetTextForeground(wxColor(0x00, 0x00, 0x00));
+			dc.SetTextForeground(wxSystemSettings::GetColour(wxSYS_COLOUR_WINDOWTEXT));
 		}
 
-		dc.DrawText(wxstr(brushlist[n]->getName()), rect.GetX() + 40, rect.GetY() + 6);
+		dc.DrawText(wxstr(brushlist[n]->getName()),
+			rect.GetX() + FROM_DIP(this, 40), rect.GetY() + FROM_DIP(this, 6));
 	}
 }
 
 wxCoord FindDialogListBox::OnMeasureItem(size_t n) const
 {
-	return 32;
+	return FROM_DIP(this, 36);
 }
 
 // ============================================================================
@@ -1418,7 +1417,6 @@ void EditTownsDialog::OnClickOK(wxCommandEvent& WXUNUSED(event))
 		editor.getMap().doChange();
 
 		EndModal(1);
-		g_gui.RefreshPalettes();
 	}
 }
 
@@ -1679,7 +1677,7 @@ ZoneConfigDialog::ZoneConfigDialog(wxWindow* parent, Editor& editor) :
 	rightSizer->Add(spawn_list, 0, wxEXPAND | wxTOP, 2);
 
 	resource_filter_label = newd wxStaticText(this, wxID_ANY, "");
-	resource_filter_label->SetForegroundColour(wxColour(80, 80, 80));
+	resource_filter_label->SetForegroundColour(wxSystemSettings::GetColour(wxSYS_COLOUR_GRAYTEXT));
 	rightSizer->Add(resource_filter_label, 0, wxTOP | wxBOTTOM, 4);
 
 	wxFlexGridSizer* resourceSelectorSizer = newd wxFlexGridSizer(2, 4, 4);
@@ -1729,7 +1727,7 @@ ZoneConfigDialog::ZoneConfigDialog(wxWindow* parent, Editor& editor) :
 		"A zone has one marker waypoint and may include multiple connected painted areas on any floor.\n"
 		"To extend it, paint the same type elsewhere, right-click that area, and choose "
 		"\"Add this area to a zone...\".");
-	infoLabel->SetForegroundColour(wxColour(80, 80, 80));
+	infoLabel->SetForegroundColour(wxSystemSettings::GetColour(wxSYS_COLOUR_GRAYTEXT));
 	mainSizer->Add(infoLabel, 0, wxALL, 8);
 
 	mainSizer->Add(topSizer, 1, wxEXPAND);

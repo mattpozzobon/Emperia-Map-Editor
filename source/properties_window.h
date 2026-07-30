@@ -45,6 +45,12 @@ public:
 
 protected:
 	// Simple pane
+	wxSpinCtrl* action_id_field;
+	wxSpinCtrl* unique_id_field;
+	wxSpinCtrl* minimum_level_field;
+	wxCheckBox* noble_only_field;
+	wxTextCtrl* required_quests_field;
+	wxTextCtrl* required_storage_field;
 	wxWindow* createGeneralPanel(wxWindow* parent);
 	void saveGeneralPanel();
 

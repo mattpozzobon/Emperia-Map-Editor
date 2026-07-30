@@ -211,6 +211,7 @@ void Settings::IO(IOMode mode)
 	Int(SHOW_TOOLTIPS, 1);
 	Int(SHOW_ONLY_TILEFLAGS, 0);
 	Int(SHOW_ONLY_MODIFIED_TILES, 0);
+	Int(SHOW_CANVAS_PERFORMANCE, 0);
 	Int(SHOW_PREVIEW, 1);
 	Int(SHOW_WALL_HOOKS, 0);
 	Int(SHOW_PICKUPABLES, 0);
@@ -245,6 +246,8 @@ void Settings::IO(IOMode mode)
 	Int(BORDERIZE_DRAG_THRESHOLD, 6000);
 	Int(BORDERIZE_PASTE_THRESHOLD, 10000);
 	Int(ALWAYS_MAKE_BACKUP, 0);
+	Int(AUTOSAVE_INTERVAL_MINUTES, 0);
+	Int(AUTOSAVE_RETAIN_COUNT, 3);
 	Int(USE_AUTOMAGIC, 1);
 	Int(HOUSE_BRUSH_REMOVE_ITEMS, 0);
 	Int(AUTO_ASSIGN_DOORID, 1);
@@ -299,6 +302,7 @@ void Settings::IO(IOMode mode)
 	Int(USE_LARGE_HOUSE_SIZEBAR, 1);
 	Int(USE_LARGE_RAW_SIZEBAR, 1);
 	Int(USE_GUI_SELECTION_SHADOW, 0);
+	Int(UI_DENSITY, 1);
 	Int(PALETTE_COL_COUNT, 8);
 	String(PALETTE_TERRAIN_STYLE, "large icons");
 	String(PALETTE_DOODAD_STYLE, "large icons");
@@ -311,10 +315,14 @@ void Settings::IO(IOMode mode)
 	String(MINIMAP_LAYOUT, "name=066e2bc8486298990000259a00000003;caption=Minimap;state=2099151;dir=4;layer=0;row=0;pos=0;prop=100000;bestw=170;besth=130;minw=-1;minh=-1;maxw=-1;maxh=-1;floatx=-1;floaty=-1;floatw=221;floath=164");
 	Int(ACTIONS_HISTORY_VISIBLE, 0);
 	String(ACTIONS_HISTORY_LAYOUT, "name=945c6eb52a414f1B817e8befd4479412;caption=Actions;state=2099151;dir=2;layer=0;row=0;pos=0;prop=100000;bestw=170;besth=130;minw=-1;minh=-1;maxw=-1;maxh=-1;floatx=-1;floaty=-1;floatw=221;floath=164");
+	Int(INSPECTOR_VISIBLE, 0);
+	String(INSPECTOR_LAYOUT, "name=tile_inspector;caption=Inspector;state=2099151;dir=2;layer=0;row=0;pos=0;prop=100000;bestw=280;besth=420;minw=230;minh=260;maxw=-1;maxh=-1;floatx=-1;floaty=-1;floatw=300;floath=460");
 	Int(WINDOW_HEIGHT, 500);
 	Int(WINDOW_WIDTH, 700);
 	Int(WINDOW_MAXIMIZED, 0);
 	Int(WELCOME_DIALOG, 1);
+	Int(RESTORE_PREVIOUS_WORKSPACE, 1);
+	String(OPEN_MAP_FILES, "");
 
 	section("Hotkeys");
 	String(NUMERICAL_HOTKEYS, "none:{}\nnone:{}\nnone:{}\nnone:{}\nnone:{}\nnone:{}\nnone:{}\nnone:{}\nnone:{}\nnone:{}\n");

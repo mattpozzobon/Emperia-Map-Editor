@@ -51,7 +51,7 @@
 
 BEGIN_EVENT_TABLE(MapCanvas, wxGLCanvas)
 	EVT_KEY_DOWN(MapCanvas::OnKeyDown)
-	EVT_KEY_DOWN(MapCanvas::OnKeyUp)
+	EVT_KEY_UP(MapCanvas::OnKeyUp)
 
 	// Mouse events
 	EVT_MOTION(MapCanvas::OnMouseMove)
@@ -139,7 +139,9 @@ MapCanvas::MapCanvas(MapWindow* parent, Editor& editor, int* attriblist) :
 	last_click_y(-1),
 
 	last_mmb_click_x(-1),
-	last_mmb_click_y(-1)
+	last_mmb_click_y(-1),
+	average_frame_ms(0.0),
+	slow_frame_count(0)
 {
 	popup_menu = newd MapPopupMenu(editor);
 	animation_timer = newd AnimationTimer(this);
@@ -157,11 +159,10 @@ MapCanvas::~MapCanvas()
 
 void MapCanvas::Refresh()
 {
-	if(refresh_watch.Time() > g_settings.getInteger(Config::HARD_REFRESH_RATE)) {
-		refresh_watch.Start();
-		wxGLCanvas::Update();
-	}
-	wxGLCanvas::Refresh();
+	// Queue one paint for the current event-loop cycle. wxWidgets coalesces
+	// repeated refresh requests, which keeps mouse interaction responsive and
+	// avoids blocking the UI thread with synchronous Update() calls.
+	wxGLCanvas::Refresh(false);
 }
 
 void MapCanvas::SetZoom(double value)
@@ -194,6 +195,8 @@ void MapCanvas::GetViewBox(int* view_scroll_x, int* view_scroll_y, int* screensi
 
 void MapCanvas::OnPaint(wxPaintEvent& event)
 {
+	const bool measure_performance = g_settings.getBoolean(Config::SHOW_CANVAS_PERFORMANCE);
+	wxStopWatch frame_timer;
 	SetCurrent(*g_gui.GetGLContext(this));
 
 	if(g_gui.IsRenderingEnabled()) {
@@ -253,6 +256,19 @@ void MapCanvas::OnPaint(wxPaintEvent& event)
 
 	// Send newd node requests
 	editor.SendNodeRequests();
+
+	if(measure_performance) {
+		const double frame_ms = static_cast<double>(frame_timer.Time());
+		average_frame_ms = average_frame_ms <= 0.0 ?
+			frame_ms : average_frame_ms * 0.9 + frame_ms * 0.1;
+		if(frame_ms > 33.0) {
+			++slow_frame_count;
+		}
+		if(metric_update_watch.Time() >= 500) {
+			metric_update_watch.Start();
+			UpdateZoomStatus();
+		}
+	}
 }
 
 void MapCanvas::ShowPositionIndicator(const Position& position)
@@ -395,6 +411,7 @@ void MapCanvas::UpdatePositionStatus(int x, int y)
 
 	int map_x, map_y;
 	ScreenToMap(x, y, &map_x, &map_y);
+	g_gui.UpdateInspector(&editor, Position(map_x, map_y, floor));
 
 	wxString ss;
 	ss << "x: " << map_x << " y:" << map_y << " z:" << floor;
@@ -442,7 +459,11 @@ void MapCanvas::UpdateZoomStatus()
 	int percentage = (int)((1.0 / zoom) * 100);
 	wxString ss;
 	ss << "zoom: " << percentage << "%";
+	if(g_settings.getBoolean(Config::SHOW_CANVAS_PERFORMANCE) && average_frame_ms > 0.0) {
+		ss << wxString::Format(" | %.1f ms | slow %u", average_frame_ms, slow_frame_count);
+	}
 	g_gui.root->SetStatusText(ss, 3);
+	GetMapWindow()->UpdateViewControls();
 }
 
 void MapCanvas::OnMouseMove(wxMouseEvent& event)
@@ -1487,30 +1508,31 @@ void MapCanvas::OnMousePropertiesRelease(wxMouseEvent& event)
 void MapCanvas::OnWheel(wxMouseEvent& event)
 {
 	if(event.ControlDown()) {
-		static double diff = 0.0;
-		diff += event.GetWheelRotation();
-		if(diff <= 1.0 || diff >= 1.0) {
-			if(diff < 0.0) {
-				g_gui.ChangeFloor(floor - 1);
-			} else {
-				g_gui.ChangeFloor(floor + 1);
-			}
-			diff = 0.0;
+		static int accumulated_rotation = 0;
+		const int wheel_delta = std::max(1, event.GetWheelDelta());
+		accumulated_rotation += event.GetWheelRotation();
+		while(std::abs(accumulated_rotation) >= wheel_delta) {
+			const int direction = accumulated_rotation > 0 ? 1 : -1;
+			g_gui.ChangeFloor(floor + direction);
+			accumulated_rotation -= direction * wheel_delta;
 		}
 		UpdatePositionStatus();
 	} else if(event.AltDown()) {
-		static double diff = 0.0;
-		diff += event.GetWheelRotation();
-		if(diff <= 1.0 || diff >= 1.0) {
-			if(diff < 0.0) {
+		static int accumulated_rotation = 0;
+		const int wheel_delta = std::max(1, event.GetWheelDelta());
+		accumulated_rotation += event.GetWheelRotation();
+		while(std::abs(accumulated_rotation) >= wheel_delta) {
+			const int direction = accumulated_rotation > 0 ? 1 : -1;
+			if(direction < 0) {
 				g_gui.IncreaseBrushSize();
 			} else {
 				g_gui.DecreaseBrushSize();
 			}
-			diff = 0.0;
+			accumulated_rotation -= direction * wheel_delta;
 		}
 	} else {
-		double diff = -event.GetWheelRotation() * g_settings.getFloat(Config::ZOOM_SPEED) / 640.0;
+		const double wheel_steps = event.GetWheelRotation() / double(std::max(1, event.GetWheelDelta()));
+		double diff = -wheel_steps * g_settings.getFloat(Config::ZOOM_SPEED) * 0.1875;
 		double oldzoom = zoom;
 		zoom += diff;
 
@@ -2309,15 +2331,59 @@ void MapCanvas::OnProperties(wxCommandEvent& WXUNUSED(event))
 	w->Destroy();
 }
 
+bool MapCanvas::EditTileProperties(const Position& position)
+{
+	Tile* tile = editor.getMap().getTile(position);
+	if(!tile) {
+		return false;
+	}
+
+	Tile* new_tile = tile->deepCopy(editor.getMap());
+	wxDialog* dialog = nullptr;
+	if(new_tile->spawn && g_settings.getInteger(Config::SHOW_SPAWNS)) {
+		dialog = newd OldPropertiesWindow(g_gui.root, &editor.getMap(), new_tile, new_tile->spawn);
+	} else if(new_tile->creature && g_settings.getInteger(Config::SHOW_CREATURES)) {
+		dialog = newd OldPropertiesWindow(g_gui.root, &editor.getMap(), new_tile, new_tile->creature);
+	} else {
+		Item* item = new_tile->getTopItem();
+		if(item) {
+			if(editor.getMap().getVersion().otbm >= MAP_OTBM_4) {
+				dialog = newd PropertiesWindow(g_gui.root, &editor.getMap(), new_tile, item);
+			} else {
+				dialog = newd OldPropertiesWindow(g_gui.root, &editor.getMap(), new_tile, item);
+			}
+		}
+	}
+
+	if(!dialog) {
+		delete new_tile;
+		return false;
+	}
+
+	const int result = dialog->ShowModal();
+	if(result != 0) {
+		Action* action = editor.createAction(ACTION_CHANGE_PROPERTIES);
+		action->addChange(newd Change(new_tile));
+		editor.addAction(action);
+		editor.updateActions();
+		g_gui.RefreshView();
+	} else {
+		delete new_tile;
+	}
+	dialog->Destroy();
+	return result != 0;
+}
+
 void MapCanvas::ChangeFloor(int new_floor)
 {
-	ASSERT(new_floor >= 0 || new_floor <= rme::MapMaxLayer);
+	ASSERT(new_floor >= rme::MapMinLayer && new_floor <= rme::MapMaxLayer);
 	int old_floor = floor;
 	floor = new_floor;
 	if(old_floor != new_floor) {
 		UpdatePositionStatus();
 		g_gui.root->UpdateFloorMenu();
 		g_gui.UpdateMinimap(true);
+		GetMapWindow()->UpdateViewControls();
 	}
 	Refresh();
 }

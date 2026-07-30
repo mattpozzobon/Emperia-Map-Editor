@@ -396,9 +396,21 @@ void HousePalettePanel::OnClickEditHouse(wxCommandEvent& event)
 		wxDialog* d = newd EditHouseDialog(g_gui.root, map, house);
 		int ret = d->ShowModal();
 		if(ret == 1) {
-			// Something changed, change name of house
-			house_list->SetString(selection, wxstr(house->getDescription()));
-			house_list->Sort();
+			// A town change moves the house to another filtered list, so rebuild
+			// this palette and select the house under its new town.
+			OnUpdate();
+			for(size_t town_index = 0; town_index < town_choice->GetCount(); ++town_index) {
+				Town* town = reinterpret_cast<Town*>(town_choice->GetClientData(town_index));
+				if((town && town->getID() == house->townid) ||
+				   (!town && map->towns.getTown(house->townid) == nullptr)) {
+					SelectTown(town_index);
+					break;
+				}
+			}
+			const int house_index = house_list->FindString(wxstr(house->getDescription()));
+			if(house_index != wxNOT_FOUND) {
+				SelectHouse(house_index);
+			}
 			refresh_timer.Start(300, true);
 		}
 	}
@@ -488,6 +500,23 @@ EditHouseDialog::EditHouseDialog(wxWindow* parent, Map* map, House* house) :
 	tmpsizer->Add(id_field);
 	sizer->Add(tmpsizer, wxSizerFlags().Border(wxALL, 20));
 
+	tmpsizer = newd wxStaticBoxSizer(wxHORIZONTAL, this, "Town");
+	town_field = newd wxChoice(this, wxID_ANY);
+	int selected_town = wxNOT_FOUND;
+	for(TownMap::const_iterator town_iter = map->towns.begin(); town_iter != map->towns.end(); ++town_iter) {
+		Town* town = town_iter->second;
+		const int index = town_field->Append(
+			wxString::Format("%s (ID: %u)", wxstr(town->getName()), town->getID()),
+			town);
+		if(town->getID() == house->townid) {
+			selected_town = index;
+		}
+	}
+	const int no_town_index = town_field->Append("No Town", static_cast<void*>(nullptr));
+	town_field->SetSelection(selected_town == wxNOT_FOUND ? no_town_index : selected_town);
+	tmpsizer->Add(town_field, 1, wxEXPAND);
+	sizer->Add(tmpsizer, wxSizerFlags().Expand().Border(wxRIGHT | wxLEFT | wxBOTTOM, 20));
+
 	// House options
 	guildhall_field = newd wxCheckBox(this, wxID_ANY, "Guildhall", wxDefaultPosition);
 
@@ -539,10 +568,24 @@ void EditHouseDialog::OnClickOK(wxCommandEvent& WXUNUSED(event))
 			}
 		}
 
+		const int town_selection = town_field->GetSelection();
+		Town* selected_town = town_selection == wxNOT_FOUND ?
+			nullptr : reinterpret_cast<Town*>(town_field->GetClientData(town_selection));
+		const uint32_t new_town_id = selected_town ? selected_town->getID() : 0;
+		const bool changed =
+			what_house->name != nstr(house_name) ||
+			what_house->rent != new_house_rent ||
+			what_house->townid != new_town_id ||
+			what_house->guildhall != guildhall_field->GetValue();
+
 		// Transfer to house
 		what_house->name = nstr(house_name);
 		what_house->rent = new_house_rent;
+		what_house->townid = new_town_id;
 		what_house->guildhall = guildhall_field->GetValue();
+		if(changed) {
+			map->doChange();
+		}
 
 		EndModal(1);
 	}

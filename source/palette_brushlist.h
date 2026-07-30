@@ -21,6 +21,8 @@
 #include "main.h"
 #include "palette_common.h"
 
+class wxComboBox;
+
 enum BrushListType {
 	BRUSHLIST_LARGE_ICONS,
 	BRUSHLIST_SMALL_ICONS,
@@ -30,10 +32,12 @@ enum BrushListType {
 
 class BrushBoxInterface {
 public:
-	BrushBoxInterface(const TilesetCategory* _tileset) : tileset(_tileset), loaded(false) {ASSERT(tileset); }
+	BrushBoxInterface(const TilesetCategory* _tileset, const BrushVector& _brushes) :
+		tileset(_tileset), brushes(_brushes), loaded(false) { ASSERT(tileset); }
 	virtual ~BrushBoxInterface() {}
 
 	virtual wxWindow* GetSelfWindow() = 0;
+	virtual Brush* GetBrush(size_t index) const;
 
 	// Select the first brush
 	virtual void SelectFirstBrush() = 0;
@@ -43,12 +47,13 @@ public:
 	virtual bool SelectBrush(const Brush* brush) = 0;
 protected:
 	const TilesetCategory* const tileset;
+	BrushVector brushes;
 	bool loaded;
 };
 
 class BrushListBox : public wxVListBox, public BrushBoxInterface {
 public:
-	BrushListBox(wxWindow* parent, const TilesetCategory* _tileset);
+	BrushListBox(wxWindow* parent, const TilesetCategory* _tileset, const BrushVector& brushes);
 	~BrushListBox();
 
 	wxWindow* GetSelfWindow() { return this; }
@@ -71,7 +76,7 @@ public:
 
 class BrushIconBox : public wxScrolledWindow, public BrushBoxInterface {
 public:
-	BrushIconBox(wxWindow* parent, const TilesetCategory* _tileset, RenderSize rsz);
+	BrushIconBox(wxWindow* parent, const TilesetCategory* _tileset, const BrushVector& brushes, RenderSize rsz);
 	~BrushIconBox();
 
 	wxWindow* GetSelfWindow() { return this; }
@@ -179,9 +184,22 @@ public:
 	// Event handler for child window
 	void OnSwitchingPage(wxChoicebookEvent& event);
 	void OnPageChanged(wxChoicebookEvent& event);
+	void OnSearchChanged(wxCommandEvent& event);
+	void OnSearchSelected(wxCommandEvent& event);
+	void OnSearchFocus(wxFocusEvent& event);
+	void OnSearchBlur(wxFocusEvent& event);
+	void OnSearchKeyDown(wxKeyEvent& event);
 protected:
+	void UpdateSearchResults(const wxString& query);
+	void SelectSearchResult(Brush* brush);
+
 	PaletteType palette_type;
 	wxChoicebook* choicebook;
+	wxComboBox* search_control;
+	BrushVector search_candidates;
+	BrushVector search_results;
+	bool updating_search;
+	bool restore_hotkeys_on_blur;
 	BrushSizePanel* size_panel;
 	std::map<wxWindow*, Brush*> remembered_brushes;
 

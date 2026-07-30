@@ -230,6 +230,7 @@ int localeIndexFromRequestId(int id)
 
 BEGIN_EVENT_TABLE(OldPropertiesWindow, wxDialog)
 	EVT_SET_FOCUS(OldPropertiesWindow::OnFocusChange)
+	EVT_CHAR_HOOK(OldPropertiesWindow::OnPastePosition)
 	EVT_BUTTON(wxID_OK, OldPropertiesWindow::OnClickOK)
 	EVT_BUTTON(wxID_CANCEL, OldPropertiesWindow::OnClickCancel)
 	EVT_BUTTON(MAP_TEXT_TRANSLATE_BUTTON, OldPropertiesWindow::OnTranslateMapText)
@@ -241,6 +242,10 @@ OldPropertiesWindow::OldPropertiesWindow(wxWindow* win_parent, const Map* map, c
 	direction_field(nullptr),
 	action_id_field(nullptr),
 	unique_id_field(nullptr),
+	minimum_level_field(nullptr),
+	noble_only_field(nullptr),
+	required_quests_field(nullptr),
+	required_storage_field(nullptr),
 	door_id_field(nullptr),
 	depot_id_field(nullptr),
 	destination_field(nullptr),
@@ -550,6 +555,38 @@ OldPropertiesWindow::OldPropertiesWindow(wxWindow* win_parent, const Map* map, c
 		}
 	}
 
+	wxStaticBoxSizer* access_sizer = newd wxStaticBoxSizer(wxVERTICAL, this, "Access Requirements");
+	wxFlexGridSizer* access_grid = newd wxFlexGridSizer(2, 5, 10);
+	access_grid->AddGrowableCol(1);
+
+	access_grid->Add(newd wxStaticText(this, wxID_ANY, "Minimum level"));
+	minimum_level_field = newd wxSpinCtrl(
+		this, wxID_ANY, i2ws(edit_item->getMinimumLevel()), wxDefaultPosition,
+		wxDefaultSize, wxSP_ARROW_KEYS, 0, 0xFFFF, edit_item->getMinimumLevel());
+	access_grid->Add(minimum_level_field, wxSizerFlags(1).Expand());
+
+	access_grid->Add(newd wxStaticText(this, wxID_ANY, "Noble only"));
+	noble_only_field = newd wxCheckBox(this, wxID_ANY, "");
+	noble_only_field->SetValue(edit_item->isNobleOnly());
+	access_grid->Add(noble_only_field, wxSizerFlags(1).Expand());
+
+	access_grid->Add(newd wxStaticText(this, wxID_ANY, "Required quests"));
+	required_quests_field = newd wxTextCtrl(
+		this, wxID_ANY, wxstr(edit_item->getRequiredQuests()), wxDefaultPosition, wxDefaultSize);
+	required_quests_field->SetMaxLength(0xFFFF);
+	required_quests_field->SetToolTip("Quest IDs separated by commas or semicolons. All listed quests must be completed.");
+	access_grid->Add(required_quests_field, wxSizerFlags(1).Expand());
+
+	access_grid->Add(newd wxStaticText(this, wxID_ANY, "Required storage"));
+	required_storage_field = newd wxTextCtrl(
+		this, wxID_ANY, wxstr(edit_item->getRequiredStorage()), wxDefaultPosition, wxDefaultSize);
+	required_storage_field->SetMaxLength(0xFFFF);
+	required_storage_field->SetToolTip("Comma/semicolon-separated key=value checks. A bare key only needs to exist.");
+	access_grid->Add(required_storage_field, wxSizerFlags(1).Expand());
+
+	access_sizer->Add(access_grid, wxSizerFlags(1).Expand());
+	topsizer->Add(access_sizer, wxSizerFlags(0).Expand().Border(wxLEFT | wxRIGHT | wxBOTTOM, 20));
+
 	// Others attributes
 	const ItemType& type = g_items.getItemType(edit_item->getID());
 	wxStaticBoxSizer* others_sizer = newd wxStaticBoxSizer(wxVERTICAL, this, "Others");
@@ -587,6 +624,10 @@ OldPropertiesWindow::OldPropertiesWindow(wxWindow* win_parent, const Map* map, c
 	direction_field(nullptr),
 	action_id_field(nullptr),
 	unique_id_field(nullptr),
+	minimum_level_field(nullptr),
+	noble_only_field(nullptr),
+	required_quests_field(nullptr),
+	required_storage_field(nullptr),
 	door_id_field(nullptr),
 	depot_id_field(nullptr),
 	splash_type_field(nullptr),
@@ -639,6 +680,10 @@ OldPropertiesWindow::OldPropertiesWindow(wxWindow* win_parent, const Map* map, c
 	direction_field(nullptr),
 	action_id_field(nullptr),
 	unique_id_field(nullptr),
+	minimum_level_field(nullptr),
+	noble_only_field(nullptr),
+	required_quests_field(nullptr),
+	required_storage_field(nullptr),
 	door_id_field(nullptr),
 	depot_id_field(nullptr),
 	splash_type_field(nullptr),
@@ -694,6 +739,19 @@ OldPropertiesWindow::~OldPropertiesWindow()
 	}
 }
 
+void OldPropertiesWindow::OnPastePosition(wxKeyEvent& event)
+{
+	if(destination_field && event.ControlDown() && event.GetKeyCode() == 'V') {
+		Position destination;
+		if(posFromClipboard(destination.x, destination.y, destination.z)) {
+			destination_field->SetPosition(destination);
+			return;
+		}
+	}
+
+	event.Skip();
+}
+
 void OldPropertiesWindow::OnFocusChange(wxFocusEvent& event)
 {
 	wxWindow* win = event.GetWindow();
@@ -710,6 +768,13 @@ void OldPropertiesWindow::OnClickOK(wxCommandEvent& WXUNUSED(event))
 		int new_aid = (action_id_field ? action_id_field->GetValue() : 0);
 		bool uid_changed = false;
 		bool aid_changed = false;
+		const std::string required_quests = required_quests_field ? nstr(required_quests_field->GetValue()) : "";
+		const std::string required_storage = required_storage_field ? nstr(required_storage_field->GetValue()) : "";
+		std::string access_error;
+		if(!validateAccessRequirements(required_quests, required_storage, access_error)) {
+			g_gui.PopupDialog(this, "Invalid access requirements", wxstr(access_error), wxOK);
+			return;
+		}
 
 		if(!edit_item->getDepot()) {
 			uid_changed = new_uid != edit_item->getUniqueID();
@@ -862,6 +927,11 @@ void OldPropertiesWindow::OnClickOK(wxCommandEvent& WXUNUSED(event))
 		if(aid_changed) {
 			edit_item->setActionID(new_aid);
 		}
+
+		edit_item->setMinimumLevel(minimum_level_field ? minimum_level_field->GetValue() : 0);
+		edit_item->setNobleOnly(noble_only_field && noble_only_field->GetValue());
+		edit_item->setRequiredQuests(required_quests);
+		edit_item->setRequiredStorage(required_storage);
 		
 	} else if(edit_creature) {
 		int new_spawntime = count_field->GetValue();

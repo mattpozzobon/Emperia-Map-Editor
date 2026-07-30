@@ -88,7 +88,18 @@ enum ItemTypes_t {
 	ITEM_TYPE_READABLE,
 	ITEM_TYPE_TRAPDOOR,
 	ITEM_TYPE_TASKBOARD,
+	ITEM_TYPE_WINDOW_CLOSED,
+	ITEM_TYPE_WINDOW_OPEN,
 	ITEM_TYPE_LAST
+};
+
+enum HarvestType_t {
+	HARVEST_NONE = 0,
+	HARVEST_MINING = 1,
+	HARVEST_HERBALISM = 2,
+	HARVEST_SKINNING = 3,
+	HARVEST_FISHING = 4,
+	HARVEST_CHOPPING = 5
 };
 
 /////////OTB specific//////////////
@@ -268,6 +279,15 @@ public:
 	bool isTrashHolder() const noexcept { return type == ITEM_TYPE_TRASHHOLDER; }
 	bool isContainer() const noexcept { return type == ITEM_TYPE_CONTAINER || type == ITEM_TYPE_CHEST; }
 	bool isDoor() const noexcept { return type == ITEM_TYPE_DOOR || type == ITEM_TYPE_DOOR_CLOSED || type == ITEM_TYPE_DOOR_OPEN; }
+	bool isWindow() const noexcept { return type == ITEM_TYPE_WINDOW || type == ITEM_TYPE_WINDOW_CLOSED || type == ITEM_TYPE_WINDOW_OPEN; }
+	bool isMannequin() const noexcept {
+		for(int slot : mannequinOutfitSlots) {
+			if(slot >= 0) {
+				return true;
+			}
+		}
+		return false;
+	}
 	bool isMagicField() const noexcept { return type == ITEM_TYPE_MAGICFIELD; }
 	bool isTeleport() const noexcept { return type == ITEM_TYPE_TELEPORT; }
 	bool isBed() const noexcept { return type == ITEM_TYPE_BED; }
@@ -322,6 +342,8 @@ public:
 	ItemTypes_t type;
 
 	uint16_t volume;
+	uint16_t containerSize;
+	std::vector<int> mannequinOutfitSlots;
 	uint16_t maxTextLen;
 	//uint16_t writeOnceItemId;
 
@@ -335,6 +357,12 @@ public:
 	int defense;
 	int armor;
 	uint32_t charges;
+	HarvestType_t harvestType;
+	uint16_t harvestResultItemId;
+	uint8_t harvestTier;
+	uint8_t harvestRequiredToolType;
+	bool marketable;
+	bool autoLootable;
 	bool client_chargeable;
 	bool extra_chargeable;
 	bool ignoreLook;

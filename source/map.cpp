@@ -380,6 +380,10 @@ bool Map::convert(const ConversionMap& rm, bool showdialog)
 			if(cfstm != rm.stm.end()) {
 				uint16_t aid = tile->ground->getActionID();
 				uint16_t uid = tile->ground->getUniqueID();
+				uint16_t minimumLevel = tile->ground->getMinimumLevel();
+				bool nobleOnly = tile->ground->isNobleOnly();
+				std::string requiredQuests = tile->ground->getRequiredQuests();
+				std::string requiredStorage = tile->ground->getRequiredStorage();
 				delete tile->ground;
 				tile->ground = nullptr;
 
@@ -391,6 +395,10 @@ bool Map::convert(const ConversionMap& rm, bool showdialog)
 					if(item->isGroundTile()) {
 						item->setActionID(aid);
 						item->setUniqueID(uid);
+						item->setMinimumLevel(minimumLevel);
+						item->setNobleOnly(nobleOnly);
+						item->setRequiredQuests(requiredQuests);
+						item->setRequiredStorage(requiredStorage);
 						tile->addItem(item);
 					} else {
 						tile->items.insert(tile->items.begin(), item);

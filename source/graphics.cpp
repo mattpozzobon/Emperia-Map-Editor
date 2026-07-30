@@ -64,6 +64,11 @@ GraphicManager::GraphicManager() :
 	client_version(nullptr),
 	unloaded(true),
 	dat_format(DAT_FORMAT_UNKNOWN),
+	item_count(0),
+	creature_count(0),
+	outfit_count(0),
+	equipment_count(0),
+	hair_count(0),
 	otfi_found(false),
 	is_extended(false),
 	has_transparency(false),
@@ -129,8 +134,17 @@ void GraphicManager::clear()
 
 	item_count = 0;
 	creature_count = 0;
+	outfit_count = 0;
+	equipment_count = 0;
+	hair_count = 0;
 	item_appearances.clear();
 	item_identities.clear();
+	outfit_appearances.clear();
+	equipment_default_appearances.clear();
+	equipment_left_appearances.clear();
+	equipment_right_appearances.clear();
+	visual_equipment_appearances.clear();
+	hair_appearances.clear();
 	loaded_textures = 0;
 	lastclean = time(nullptr);
 	spritefile = "";
@@ -167,6 +181,210 @@ GameSprite* GraphicManager::getCreatureSprite(int id)
 		return static_cast<GameSprite*>(it->second);
 	}
 	return nullptr;
+}
+
+GameSprite* GraphicManager::getOutfitSprite(int publicOutfitId)
+{
+	const auto appearance = outfit_appearances.find(static_cast<uint16_t>(publicOutfitId));
+	return getCreatureSprite(appearance != outfit_appearances.end() ? appearance->second : publicOutfitId);
+}
+
+GameSprite* GraphicManager::getOutfitSlotSprite(int slot, int sourceId, bool directAppearance)
+{
+	if(sourceId <= 0) {
+		return nullptr;
+	}
+
+	uint16_t appearanceId = 0;
+	if(slot == OUTFIT_SLOT_HAIR) {
+		const auto appearance = hair_appearances.find(static_cast<uint16_t>(sourceId));
+		if(appearance != hair_appearances.end()) {
+			appearanceId = outfit_count + equipment_count + appearance->second;
+		}
+	} else if(directAppearance) {
+		const auto appearance = visual_equipment_appearances.find(static_cast<uint16_t>(sourceId));
+		if(appearance != visual_equipment_appearances.end()) {
+			appearanceId = outfit_count + appearance->second;
+		}
+	} else {
+		const std::map<uint16_t, uint16_t>* appearances = &equipment_default_appearances;
+		if(slot == OUTFIT_SLOT_LEFT_HAND) {
+			appearances = &equipment_left_appearances;
+		} else if(slot == OUTFIT_SLOT_RIGHT_HAND) {
+			appearances = &equipment_right_appearances;
+		}
+
+		auto appearance = appearances->find(static_cast<uint16_t>(sourceId));
+		if(appearance == appearances->end() && appearances != &equipment_default_appearances) {
+			appearance = equipment_default_appearances.find(static_cast<uint16_t>(sourceId));
+			if(appearance != equipment_default_appearances.end()) {
+				appearanceId = outfit_count + appearance->second;
+			}
+		} else if(appearance != appearances->end()) {
+			appearanceId = outfit_count + appearance->second;
+		}
+
+		// NPC definitions use the same semantic IDs as the server. When an ID
+		// is not backed by an item, the client treats it as visual equipment.
+		if(appearanceId == 0) {
+			const auto visualAppearance = visual_equipment_appearances.find(static_cast<uint16_t>(sourceId));
+			if(visualAppearance != visual_equipment_appearances.end()) {
+				appearanceId = outfit_count + visualAppearance->second;
+			}
+		}
+	}
+
+	// Legacy creature XML used raw creature sprite indices.
+	return getCreatureSprite(appearanceId > 0 ? appearanceId : sourceId);
+}
+
+void GraphicManager::drawOutfitTo(wxDC& dc, const wxRect& rect, const Outfit& outfit)
+{
+	struct PreviewLayer {
+		GameSprite* sprite;
+		Outfit colors;
+		int patternY;
+		bool applyDisplacement;
+	};
+
+	GameSprite* baseSprite = getOutfitSprite(outfit.lookType);
+	if(!baseSprite || outfit.lookType == 0 || rect.width <= 0 || rect.height <= 0) {
+		return;
+	}
+
+	const Outfit baseOutfit = outfit.getColorizedBaseOutfit();
+	std::vector<PreviewLayer> layers;
+	for(int patternY = 0; patternY < baseSprite->pattern_y; ++patternY) {
+		if(patternY == 0 || (outfit.lookAddon & (1 << (patternY - 1)))) {
+			layers.push_back({ baseSprite, baseOutfit, patternY, false });
+		}
+	}
+
+	// Client south-facing render order after the character layer.
+	static const int southOrder[] = {
+		OUTFIT_SLOT_LEGS,
+		OUTFIT_SLOT_FEET,
+		OUTFIT_SLOT_BODY,
+		OUTFIT_SLOT_BELT,
+		OUTFIT_SLOT_BACKPACK,
+		OUTFIT_SLOT_HEAD,
+		OUTFIT_SLOT_HAIR,
+		OUTFIT_SLOT_LEFT_HAND,
+		OUTFIT_SLOT_RIGHT_HAND,
+	};
+	for(int slot : southOrder) {
+		const OutfitSpriteSlot& spriteSlot = outfit.sprites[slot];
+		if(spriteSlot.id <= 0 ||
+				(slot == OUTFIT_SLOT_HEAD && !outfit.renderHelmet) ||
+				(slot == OUTFIT_SLOT_HAIR && outfit.renderHelmet && outfit.sprites[OUTFIT_SLOT_HEAD].id > 0)) {
+			continue;
+		}
+
+		GameSprite* layerSprite = getOutfitSlotSprite(slot, spriteSlot.id, spriteSlot.directAppearance);
+		if(!layerSprite) {
+			continue;
+		}
+		layers.push_back({
+			layerSprite,
+			slot == OUTFIT_SLOT_HAIR ? baseOutfit : outfit.getColorizedSlotOutfit(slot),
+			0,
+			true,
+		});
+	}
+
+	int minX = 0;
+	int minY = 0;
+	int maxX = rme::SpritePixels;
+	int maxY = rme::SpritePixels;
+	for(const PreviewLayer& layer : layers) {
+		const int offsetX = layer.applyDisplacement ? layer.sprite->getDrawOffset().x : 0;
+		const int offsetY = layer.applyDisplacement ? layer.sprite->getDrawOffset().y : 0;
+		minX = std::min(minX, -(static_cast<int>(layer.sprite->width) - 1) * rme::SpritePixels - offsetX);
+		minY = std::min(minY, -(static_cast<int>(layer.sprite->height) - 1) * rme::SpritePixels - offsetY);
+		maxX = std::max(maxX, rme::SpritePixels - offsetX);
+		maxY = std::max(maxY, rme::SpritePixels - offsetY);
+	}
+
+	const int imageWidth = std::max(1, maxX - minX);
+	const int imageHeight = std::max(1, maxY - minY);
+	wxImage image(imageWidth, imageHeight);
+	image.InitAlpha();
+	std::memset(image.GetData(), 0, static_cast<size_t>(imageWidth) * imageHeight * 3);
+	std::memset(image.GetAlpha(), 0, static_cast<size_t>(imageWidth) * imageHeight);
+
+	const int southPattern = static_cast<int>(SOUTH);
+	for(const PreviewLayer& layer : layers) {
+		GameSprite* sprite = layer.sprite;
+		const int direction = sprite->pattern_x > 0 ? southPattern % sprite->pattern_x : 0;
+		const int offsetX = layer.applyDisplacement ? sprite->getDrawOffset().x : 0;
+		const int offsetY = layer.applyDisplacement ? sprite->getDrawOffset().y : 0;
+
+		for(int cx = 0; cx < sprite->width; ++cx) {
+			for(int cy = 0; cy < sprite->height; ++cy) {
+				const int spriteIndex = sprite->getIndex(cx, cy, 0, direction, layer.patternY, 0, 0);
+				if(spriteIndex < 0 || static_cast<size_t>(spriteIndex) >= sprite->spriteList.size()) {
+					continue;
+				}
+
+				uint8_t* source = sprite->layers > 1
+					? sprite->getTemplateImage(spriteIndex, layer.colors)->getRGBAData()
+					: sprite->spriteList[spriteIndex]->getRGBAData();
+				if(!source) {
+					continue;
+				}
+
+				const int targetX = -cx * rme::SpritePixels - offsetX - minX;
+				const int targetY = -cy * rme::SpritePixels - offsetY - minY;
+				for(int sy = 0; sy < rme::SpritePixels; ++sy) {
+					for(int sx = 0; sx < rme::SpritePixels; ++sx) {
+						const size_t sourceIndex = static_cast<size_t>(sy * rme::SpritePixels + sx) * 4;
+						const uint32_t sourceAlpha = source[sourceIndex + 3];
+						if(sourceAlpha == 0) {
+							continue;
+						}
+
+						const int dx = targetX + sx;
+						const int dy = targetY + sy;
+						if(dx < 0 || dx >= imageWidth || dy < 0 || dy >= imageHeight) {
+							continue;
+						}
+
+						const size_t targetPixel = static_cast<size_t>(dy * imageWidth + dx);
+						uint8_t* targetRgb = image.GetData() + targetPixel * 3;
+						uint8_t& targetAlpha = image.GetAlpha()[targetPixel];
+						const uint32_t destinationAlpha = targetAlpha;
+						const uint32_t inverseAlpha = 255 - sourceAlpha;
+						const uint32_t outputAlpha = sourceAlpha + (destinationAlpha * inverseAlpha + 127) / 255;
+						for(int channel = 0; channel < 3; ++channel) {
+							const uint32_t premultiplied =
+								static_cast<uint32_t>(source[sourceIndex + channel]) * sourceAlpha +
+								(static_cast<uint32_t>(targetRgb[channel]) * destinationAlpha * inverseAlpha + 127) / 255;
+							targetRgb[channel] = outputAlpha > 0
+								? static_cast<uint8_t>((premultiplied + outputAlpha / 2) / outputAlpha)
+								: 0;
+						}
+						targetAlpha = static_cast<uint8_t>(outputAlpha);
+					}
+				}
+				delete[] source;
+			}
+		}
+	}
+
+	const double scale = std::min(
+		static_cast<double>(rect.width) / imageWidth,
+		static_cast<double>(rect.height) / imageHeight
+	);
+	const int scaledWidth = std::max(1, static_cast<int>(imageWidth * scale));
+	const int scaledHeight = std::max(1, static_cast<int>(imageHeight * scale));
+	if(scaledWidth != imageWidth || scaledHeight != imageHeight) {
+		image.Rescale(scaledWidth, scaledHeight, wxIMAGE_QUALITY_HIGH);
+	}
+
+	const int drawX = rect.x + (rect.width - scaledWidth) / 2;
+	const int drawY = rect.y + (rect.height - scaledHeight) / 2;
+	const wxBitmap bitmap(image);
+	dc.DrawBitmap(bitmap, drawX, drawY, true);
 }
 
 GameSprite* GraphicManager::getEditorSprite(int id)
@@ -424,9 +642,9 @@ bool GraphicManager::loadSpriteMetadata(const FileName& datafile, wxString& erro
 	}
 
 	uint16_t effect_count, distance_count;
-	uint16_t outfit_count = 0;
-	uint16_t equipment_count = 0;
-	uint16_t hair_count = 0;
+	outfit_count = 0;
+	equipment_count = 0;
+	hair_count = 0;
 
 	// Detect Emperia header: first 8 bytes = "EMPERIA\0"
 	uint32_t magic1, magic2;
@@ -508,7 +726,14 @@ bool GraphicManager::loadSpriteMetadata(const FileName& datafile, wxString& erro
 			error = "EOBJ outfit mapping table is truncated.";
 			return false;
 		}
-		file.skip(mappingBytes); // public outfit ID + local appearance ID
+		outfit_appearances.clear();
+		for(uint32_t index = 0; index < outfitMappingCount; ++index) {
+			uint16_t outfitId = 0;
+			uint16_t localAppearanceId = 0;
+			file.getU16(outfitId);
+			file.getU16(localAppearanceId);
+			outfit_appearances[outfitId] = localAppearanceId + 1;
+		}
 	}
 	if(emperiaFormatVersion >= 3) {
 		uint32_t slotTypeCount = 0;
@@ -534,7 +759,7 @@ bool GraphicManager::loadSpriteMetadata(const FileName& datafile, wxString& erro
 			uint8_t identity = 0;
 			file.getU16(itemId);
 			file.getU8(identity);
-			if(identity == 0 || identity > 22) {
+			if(identity == 0 || identity > 23) {
 				error = wxString::Format("EOBJ item %u has unknown identity code %u.", itemId, identity);
 				return false;
 			}
@@ -542,6 +767,11 @@ bool GraphicManager::loadSpriteMetadata(const FileName& datafile, wxString& erro
 		}
 	}
 	if(emperiaFormatVersion >= 4) {
+		equipment_default_appearances.clear();
+		equipment_left_appearances.clear();
+		equipment_right_appearances.clear();
+		visual_equipment_appearances.clear();
+		hair_appearances.clear();
 		uint32_t equipmentCount = 0;
 		file.getU32(equipmentCount);
 		for(uint32_t index = 0; index < equipmentCount; ++index) {
@@ -549,8 +779,9 @@ bool GraphicManager::loadSpriteMetadata(const FileName& datafile, wxString& erro
 				error = "EOBJ equipment catalog is truncated.";
 				return false;
 			}
+			uint16_t itemId = 0;
 			uint8_t mask = 0;
-			file.skip(2);
+			file.getU16(itemId);
 			file.getU8(mask);
 			const size_t appearanceBytes =
 				(static_cast<size_t>((mask & 0x01) != 0) +
@@ -560,7 +791,19 @@ bool GraphicManager::loadSpriteMetadata(const FileName& datafile, wxString& erro
 				error = "EOBJ equipment appearance entry is truncated.";
 				return false;
 			}
-			file.skip(appearanceBytes);
+			uint16_t localAppearanceId = 0;
+			if(mask & 0x01) {
+				file.getU16(localAppearanceId);
+				equipment_default_appearances[itemId] = localAppearanceId + 1;
+			}
+			if(mask & 0x02) {
+				file.getU16(localAppearanceId);
+				equipment_left_appearances[itemId] = localAppearanceId + 1;
+			}
+			if(mask & 0x04) {
+				file.getU16(localAppearanceId);
+				equipment_right_appearances[itemId] = localAppearanceId + 1;
+			}
 		}
 
 		if(emperiaFormatVersion >= 6) {
@@ -572,7 +815,11 @@ bool GraphicManager::loadSpriteMetadata(const FileName& datafile, wxString& erro
 					error = "EOBJ visual equipment catalog is truncated.";
 					return false;
 				}
-				file.skip(4);
+				uint16_t visualEquipmentId = 0;
+				uint16_t localAppearanceId = 0;
+				file.getU16(visualEquipmentId);
+				file.getU16(localAppearanceId);
+				visual_equipment_appearances[visualEquipmentId] = localAppearanceId + 1;
 				uint16_t nameLength = 0;
 				file.getU16(nameLength);
 				if(file.tell() + nameLength > file.size()) {
@@ -591,7 +838,12 @@ bool GraphicManager::loadSpriteMetadata(const FileName& datafile, wxString& erro
 				error = "EOBJ hair catalog is truncated.";
 				return false;
 			}
-			file.skip(9);
+			uint16_t hairId = 0;
+			uint16_t localAppearanceId = 0;
+			file.getU16(hairId);
+			file.getU16(localAppearanceId);
+			hair_appearances[hairId] = localAppearanceId + 1;
+			file.skip(5);
 			uint16_t nameLength = 0;
 			file.getU16(nameLength);
 			if(file.tell() + nameLength > file.size()) {
@@ -673,6 +925,16 @@ bool GraphicManager::loadSpriteMetadata(const FileName& datafile, wxString& erro
 			file.getU8(group_count);
 		}
 
+		uint8_t firstGroupWidth = 0;
+		uint8_t firstGroupHeight = 0;
+		uint8_t firstGroupLayers = 0;
+		uint8_t firstGroupPatternX = 0;
+		uint8_t firstGroupPatternY = 0;
+		uint8_t firstGroupPatternZ = 0;
+		uint8_t firstGroupFrames = 0;
+		uint32_t firstGroupSpriteCount = 0;
+		Animator* firstGroupAnimator = nullptr;
+
 		for(uint32_t k = 0; k < group_count; ++k) {
 			// Skipping the group type
 			if(has_frame_groups && id > item_count) {
@@ -744,6 +1006,33 @@ bool GraphicManager::loadSpriteMetadata(const FileName& datafile, wxString& erro
 				}
 				sType->spriteList.push_back(static_cast<GameSprite::NormalImage*>(image_space[sprite_id]));
 			}
+
+			if(k == 0) {
+				firstGroupWidth = sType->width;
+				firstGroupHeight = sType->height;
+				firstGroupLayers = sType->layers;
+				firstGroupPatternX = sType->pattern_x;
+				firstGroupPatternY = sType->pattern_y;
+				firstGroupPatternZ = sType->pattern_z;
+				firstGroupFrames = sType->frames;
+				firstGroupSpriteCount = sType->numsprites;
+				firstGroupAnimator = sType->animator;
+			} else if(sType->animator != firstGroupAnimator) {
+				delete sType->animator;
+				sType->animator = firstGroupAnimator;
+			}
+		}
+		if(group_count > 1) {
+			sType->width = firstGroupWidth;
+			sType->height = firstGroupHeight;
+			sType->layers = firstGroupLayers;
+			sType->pattern_x = firstGroupPatternX;
+			sType->pattern_y = firstGroupPatternY;
+			sType->pattern_z = firstGroupPatternZ;
+			sType->frames = firstGroupFrames;
+			sType->numsprites = firstGroupSpriteCount;
+			sType->animator = firstGroupAnimator;
+			sType->spriteList.resize(firstGroupSpriteCount);
 		}
 		++id;
 	}
@@ -1175,6 +1464,8 @@ void EditorSprite::unloadDC()
 
 GameSprite::GameSprite() :
 	id(0),
+	outfit_dc_color_hash(0),
+	outfit_dc_valid(false),
 	height(0),
 	width(0),
 	layers(0),
@@ -1190,6 +1481,7 @@ GameSprite::GameSprite() :
 {
 	dc[SPRITE_SIZE_16x16] = nullptr;
 	dc[SPRITE_SIZE_32x32] = nullptr;
+	outfit_dc_valid = false;
 }
 
 GameSprite::~GameSprite()
@@ -1259,7 +1551,11 @@ GameSprite::TemplateImage* GameSprite::getTemplateImage(int sprite_index, const 
 	for(std::list<TemplateImage*>::iterator iter = instanced_templates.begin(); iter != instanced_templates.end(); ++iter) {
 		TemplateImage* img = *iter;
 		if(img->sprite_index == sprite_index) {
-			uint32_t lookHash = img->lookHead << 24 | img->lookBody << 16 | img->lookLegs << 8 | img->lookFeet;
+			uint32_t lookHash =
+				static_cast<uint32_t>(img->lookHead) << 24 |
+				static_cast<uint32_t>(img->lookBody) << 16 |
+				static_cast<uint32_t>(img->lookLegs) << 8 |
+				static_cast<uint32_t>(img->lookFeet);
 			if(outfit.getColorHash() == lookHash) {
 				return img;
 			}
@@ -1290,6 +1586,12 @@ GLuint GameSprite::getHardwareID(int _x, int _y, int _dir, int _addon, int _patt
 wxMemoryDC* GameSprite::getDC(SpriteSize size)
 {
 	ASSERT(size == SPRITE_SIZE_16x16 || size == SPRITE_SIZE_32x32);
+
+	if(size == SPRITE_SIZE_32x32 && outfit_dc_valid) {
+		delete dc[SPRITE_SIZE_32x32];
+		dc[SPRITE_SIZE_32x32] = nullptr;
+		outfit_dc_valid = false;
+	}
 
 	if(!dc[size]) {
 		ASSERT(width >= 1 && height >= 1);
@@ -1333,9 +1635,12 @@ wxMemoryDC* GameSprite::getDC(const Outfit& outfit)
 {
 	ASSERT(width >= 1 && height >= 1);
 
-	if(dc[SPRITE_SIZE_32x32]) {
+	const uint32_t colorHash = outfit.getColorHash();
+	if(dc[SPRITE_SIZE_32x32] && outfit_dc_valid && outfit_dc_color_hash == colorHash) {
 		return dc[SPRITE_SIZE_32x32];
 	}
+	delete dc[SPRITE_SIZE_32x32];
+	dc[SPRITE_SIZE_32x32] = nullptr;
 
 	const int image_size = std::max<int>(width, height) * rme::SpritePixels;
 	wxImage image(image_size, image_size);
@@ -1369,6 +1674,8 @@ wxMemoryDC* GameSprite::getDC(const Outfit& outfit)
 
 	wxBitmap bitmap(image);
 	dc[SPRITE_SIZE_32x32] = new wxMemoryDC(bitmap);
+	outfit_dc_color_hash = colorHash;
+	outfit_dc_valid = true;
 	image.Destroy();
 
 	g_gui.gfx.addSpriteToCleanup(this);
@@ -1708,16 +2015,16 @@ uint8_t* GameSprite::TemplateImage::getRGBData()
 		return nullptr;
 	}
 
-	if(lookHead > (sizeof(TemplateOutfitLookupTable) / sizeof(TemplateOutfitLookupTable[0]))) {
+	if(lookHead >= (sizeof(TemplateOutfitLookupTable) / sizeof(TemplateOutfitLookupTable[0]))) {
 		lookHead = 0;
 	}
-	if(lookBody > (sizeof(TemplateOutfitLookupTable) / sizeof(TemplateOutfitLookupTable[0]))) {
+	if(lookBody >= (sizeof(TemplateOutfitLookupTable) / sizeof(TemplateOutfitLookupTable[0]))) {
 		lookBody = 0;
 	}
-	if(lookLegs > (sizeof(TemplateOutfitLookupTable) / sizeof(TemplateOutfitLookupTable[0]))) {
+	if(lookLegs >= (sizeof(TemplateOutfitLookupTable) / sizeof(TemplateOutfitLookupTable[0]))) {
 		lookLegs = 0;
 	}
-	if(lookFeet > (sizeof(TemplateOutfitLookupTable) / sizeof(TemplateOutfitLookupTable[0]))) {
+	if(lookFeet >= (sizeof(TemplateOutfitLookupTable) / sizeof(TemplateOutfitLookupTable[0]))) {
 		lookFeet = 0;
 	}
 
@@ -1760,16 +2067,16 @@ uint8_t* GameSprite::TemplateImage::getRGBAData()
 		return nullptr;
 	}
 
-	if(lookHead > (sizeof(TemplateOutfitLookupTable) / sizeof(TemplateOutfitLookupTable[0]))) {
+	if(lookHead >= (sizeof(TemplateOutfitLookupTable) / sizeof(TemplateOutfitLookupTable[0]))) {
 		lookHead = 0;
 	}
-	if(lookBody > (sizeof(TemplateOutfitLookupTable) / sizeof(TemplateOutfitLookupTable[0]))) {
+	if(lookBody >= (sizeof(TemplateOutfitLookupTable) / sizeof(TemplateOutfitLookupTable[0]))) {
 		lookBody = 0;
 	}
-	if(lookLegs > (sizeof(TemplateOutfitLookupTable) / sizeof(TemplateOutfitLookupTable[0]))) {
+	if(lookLegs >= (sizeof(TemplateOutfitLookupTable) / sizeof(TemplateOutfitLookupTable[0]))) {
 		lookLegs = 0;
 	}
-	if(lookFeet > (sizeof(TemplateOutfitLookupTable) / sizeof(TemplateOutfitLookupTable[0]))) {
+	if(lookFeet >= (sizeof(TemplateOutfitLookupTable) / sizeof(TemplateOutfitLookupTable[0]))) {
 		lookFeet = 0;
 	}
 

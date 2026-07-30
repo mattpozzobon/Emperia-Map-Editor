@@ -12,6 +12,7 @@ ${CMAKE_CURRENT_LIST_DIR}/carpet_brush.h
 ${CMAKE_CURRENT_LIST_DIR}/client_version.h
 ${CMAKE_CURRENT_LIST_DIR}/common.h
 ${CMAKE_CURRENT_LIST_DIR}/common_windows.h
+${CMAKE_CURRENT_LIST_DIR}/command_palette.h
 ${CMAKE_CURRENT_LIST_DIR}/complexitem.h
 ${CMAKE_CURRENT_LIST_DIR}/con_vector.h
 ${CMAKE_CURRENT_LIST_DIR}/const.h
@@ -97,6 +98,7 @@ ${CMAKE_CURRENT_LIST_DIR}/table_brush.h
 ${CMAKE_CURRENT_LIST_DIR}/templates.h
 ${CMAKE_CURRENT_LIST_DIR}/threads.h
 ${CMAKE_CURRENT_LIST_DIR}/tile.h
+${CMAKE_CURRENT_LIST_DIR}/tile_inspector_window.h
 ${CMAKE_CURRENT_LIST_DIR}/tileset.h
 ${CMAKE_CURRENT_LIST_DIR}/town.h
 ${CMAKE_CURRENT_LIST_DIR}/updater.h
@@ -121,6 +123,7 @@ ${CMAKE_CURRENT_LIST_DIR}/carpet_brush.cpp
 ${CMAKE_CURRENT_LIST_DIR}/client_version.cpp
 ${CMAKE_CURRENT_LIST_DIR}/common.cpp
 ${CMAKE_CURRENT_LIST_DIR}/common_windows.cpp
+${CMAKE_CURRENT_LIST_DIR}/command_palette.cpp
 ${CMAKE_CURRENT_LIST_DIR}/complexitem.cpp
 ${CMAKE_CURRENT_LIST_DIR}/container_properties_window.cpp
 ${CMAKE_CURRENT_LIST_DIR}/copybuffer.cpp
@@ -197,6 +200,7 @@ ${CMAKE_CURRENT_LIST_DIR}/templatemap81.cpp
 ${CMAKE_CURRENT_LIST_DIR}/templatemap854.cpp
 ${CMAKE_CURRENT_LIST_DIR}/templatemapclassic.cpp
 ${CMAKE_CURRENT_LIST_DIR}/tile.cpp
+${CMAKE_CURRENT_LIST_DIR}/tile_inspector_window.cpp
 ${CMAKE_CURRENT_LIST_DIR}/tileset.cpp
 ${CMAKE_CURRENT_LIST_DIR}/town.cpp
 ${CMAKE_CURRENT_LIST_DIR}/updater.cpp

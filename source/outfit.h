@@ -42,9 +42,10 @@ struct OutfitSlotColors {
 };
 
 struct OutfitSpriteSlot {
-	OutfitSpriteSlot() : id(0), rarity(0), level(0) {}
+	OutfitSpriteSlot() : id(0), directAppearance(false), rarity(0), level(0) {}
 
 	int id;
+	bool directAppearance;
 	OutfitSlotColors colors;
 	int rarity;
 	int level;
@@ -100,8 +101,31 @@ struct Outfit {
 		return colorized;
 	}
 
+	Outfit getColorizedBaseOutfit() const {
+		Outfit colorized = *this;
+		const OutfitSlotColors& hairColors = sprites[OUTFIT_SLOT_HAIR].colors;
+		const OutfitSlotColors& bodyColors = sprites[OUTFIT_SLOT_BODY].colors;
+		const OutfitSlotColors& legsColors = sprites[OUTFIT_SLOT_LEGS].colors;
+		const OutfitSlotColors& feetColors = sprites[OUTFIT_SLOT_FEET].colors;
+
+		colorized.lookHead = hairColors.hasColors ? hairColors.yellow : lookHead;
+		colorized.lookBody = bodyColors.hasColors
+			? bodyColors.red
+			: hairColors.hasColors ? hairColors.red : lookBody;
+		colorized.lookLegs = legsColors.hasColors
+			? legsColors.green
+			: hairColors.hasColors ? hairColors.green : lookLegs;
+		colorized.lookFeet = feetColors.hasColors
+			? feetColors.blue
+			: hairColors.hasColors ? hairColors.blue : lookFeet;
+		return colorized;
+	}
+
 	uint32_t getColorHash() const {
-		return lookHead << 24 | lookBody << 16 | lookLegs << 8 | lookFeet;
+		return static_cast<uint32_t>(lookHead) << 24 |
+			static_cast<uint32_t>(lookBody) << 16 |
+			static_cast<uint32_t>(lookLegs) << 8 |
+			static_cast<uint32_t>(lookFeet);
 	}
 };
 

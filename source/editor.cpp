@@ -264,6 +264,7 @@ void Editor::clearChanges()
 
 void Editor::saveMap(FileName filename, bool showdialog)
 {
+	wxStopWatch save_timer;
 	std::string savefile = filename.GetFullPath().mb_str(wxConvUTF8).data();
 	bool save_as = false;
 	bool save_otgz = false;
@@ -376,6 +377,11 @@ void Editor::saveMap(FileName filename, bool showdialog)
 			}
 
 			// Display the error
+			if(g_settings.getBoolean(Config::SHOW_CANVAS_PERFORMANCE)) {
+				const wxString timing = wxString::Format("Map save failed after %ld ms", save_timer.Time());
+				g_gui.SetStatusText(timing);
+				wxLogMessage(timing);
+			}
 			g_gui.PopupDialog("Error", "Could not save, unable to open target for writing.", wxOK);
 		}
 
@@ -433,6 +439,11 @@ void Editor::saveMap(FileName filename, bool showdialog)
 	}
 
 	clearChanges();
+	if(g_settings.getBoolean(Config::SHOW_CANVAS_PERFORMANCE)) {
+		const wxString timing = wxString::Format("Saved map in %ld ms", save_timer.Time());
+		g_gui.SetStatusText(timing);
+		wxLogMessage(timing);
+	}
 }
 
 bool Editor::importMiniMap(FileName filename, int import, int import_x_offset, int import_y_offset, int import_z_offset)
@@ -442,6 +453,7 @@ bool Editor::importMiniMap(FileName filename, int import, int import_x_offset, i
 
 bool Editor::importMap(FileName filename, int import_x_offset, int import_y_offset, int import_z_offset, ImportType house_import_type, ImportType spawn_import_type)
 {
+	wxStopWatch import_timer;
 	selection.clear();
 	actionQueue->clear();
 
@@ -449,6 +461,11 @@ bool Editor::importMap(FileName filename, int import_x_offset, int import_y_offs
 	bool loaded = imported_map.open(nstr(filename.GetFullPath()));
 
 	if(!loaded) {
+		if(g_settings.getBoolean(Config::SHOW_CANVAS_PERFORMANCE)) {
+			const wxString timing = wxString::Format("Map import failed after %ld ms", import_timer.Time());
+			g_gui.SetStatusText(timing);
+			wxLogMessage(timing);
+		}
 		g_gui.PopupDialog("Error", "Error loading map!\n" + imported_map.getError(), wxOK | wxICON_INFORMATION);
 		return false;
 	}
@@ -760,10 +777,17 @@ bool Editor::importMap(FileName filename, int import_x_offset, int import_y_offs
 
 	map.setWidth(newsize_x);
 	map.setHeight(newsize_y);
+	const long import_ms = import_timer.Time();
 	g_gui.PopupDialog("Success", "Map imported successfully, " + i2ws(discarded_tiles) + " tiles were discarded as invalid.", wxOK);
 
 	g_gui.RefreshPalettes();
 	g_gui.FitViewToMap();
+	if(g_settings.getBoolean(Config::SHOW_CANVAS_PERFORMANCE)) {
+		const wxString timing = wxString::Format(
+			"Imported map in %ld ms (%d discarded tiles)", import_ms, discarded_tiles);
+		g_gui.SetStatusText(timing);
+		wxLogMessage(timing);
+	}
 
 	return true;
 }
@@ -829,6 +853,7 @@ void Editor::randomizeSelection()
 			if(old_ground && new_ground) {
 				new_ground->setActionID(old_ground->getActionID());
 				new_ground->setUniqueID(old_ground->getUniqueID());
+				new_ground->copyAccessRequirementsFrom(*old_ground);
 			}
 
 			new_tile->select();
@@ -859,9 +884,17 @@ void Editor::randomizeMap(bool showdialog)
 			Item* oldGround = tile->ground;
 
 			uint16_t actionId, uniqueId;
+			uint16_t minimumLevel = 0;
+			bool nobleOnly = false;
+			std::string requiredQuests;
+			std::string requiredStorage;
 			if(oldGround) {
 				actionId = oldGround->getActionID();
 				uniqueId = oldGround->getUniqueID();
+				minimumLevel = oldGround->getMinimumLevel();
+				nobleOnly = oldGround->isNobleOnly();
+				requiredQuests = oldGround->getRequiredQuests();
+				requiredStorage = oldGround->getRequiredStorage();
 			} else {
 				actionId = 0;
 				uniqueId = 0;
@@ -872,6 +905,10 @@ void Editor::randomizeMap(bool showdialog)
 			if(newGround) {
 				newGround->setActionID(actionId);
 				newGround->setUniqueID(uniqueId);
+				newGround->setMinimumLevel(minimumLevel);
+				newGround->setNobleOnly(nobleOnly);
+				newGround->setRequiredQuests(requiredQuests);
+				newGround->setRequiredStorage(requiredStorage);
 			}
 			tile->update();
 		}

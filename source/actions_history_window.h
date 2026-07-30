@@ -48,6 +48,9 @@ private:
 	wxBitmap rotate_bitmap;
 	wxBitmap replace_bitmap;
 	wxBitmap change_bitmap;
+	int icon_dip_size;
+	int row_dip_height;
+	int item_dip_padding;
 };
 
 class ActionsHistoryWindow : public wxPanel

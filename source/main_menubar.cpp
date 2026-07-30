@@ -39,6 +39,7 @@
 #include "live_client.h"
 #include "live_server.h"
 #include "common_windows.h"
+#include "command_palette.h"
 
 BEGIN_EVENT_TABLE(MainMenuBar, wxEvtHandler)
 END_EVENT_TABLE()
@@ -70,6 +71,7 @@ MainMenuBar::MainMenuBar(MainFrame *frame) : frame(frame)
 
 	MAKE_ACTION(UNDO, wxITEM_NORMAL, OnUndo);
 	MAKE_ACTION(REDO, wxITEM_NORMAL, OnRedo);
+	MAKE_ACTION(COMMAND_PALETTE, wxITEM_NORMAL, OnCommandPalette);
 
 	MAKE_ACTION(FIND_ITEM, wxITEM_NORMAL, OnSearchForItem);
 	MAKE_ACTION(REPLACE_ITEMS, wxITEM_NORMAL, OnReplaceItems);
@@ -161,6 +163,7 @@ MainMenuBar::MainMenuBar(MainFrame *frame) : frame(frame)
 
 	MAKE_ACTION(WIN_MINIMAP, wxITEM_NORMAL, OnMinimapWindow);
 	MAKE_ACTION(WIN_ACTIONS_HISTORY, wxITEM_NORMAL, OnActionsHistoryWindow);
+	MAKE_ACTION(WIN_INSPECTOR, wxITEM_NORMAL, OnInspectorWindow);
 	MAKE_ACTION(NEW_PALETTE, wxITEM_NORMAL, OnNewPalette);
 	MAKE_ACTION(TAKE_SCREENSHOT, wxITEM_NORMAL, OnTakeScreenshot);
 
@@ -389,6 +392,7 @@ void MainMenuBar::Update()
 		CheckItem(SHOW_SPAWNS, g_settings.getBoolean(Config::SHOW_SPAWNS));
 
 	EnableItem(WIN_MINIMAP, loaded);
+	EnableItem(WIN_INSPECTOR, loaded);
 	EnableItem(NEW_PALETTE, loaded);
 	EnableItem(SELECT_TERRAIN, loaded);
 	EnableItem(SELECT_DOODAD, loaded);
@@ -558,7 +562,7 @@ bool MainMenuBar::Load(const FileName& path, wxArrayString& warnings, wxString& 
 	}
 
 #ifdef __LINUX__
-	const int count = 42;
+	const int count = 43;
 	wxAcceleratorEntry entries[count];
 	// Edit
 	entries[0].Set(wxACCEL_CTRL, (int)'Z', MAIN_FRAME_MENU + MenuBar::UNDO);
@@ -606,6 +610,7 @@ bool MainMenuBar::Load(const FileName& path, wxArrayString& warnings, wxString& 
 	entries[39].Set(wxACCEL_NORMAL, (int)'C', MAIN_FRAME_MENU + MenuBar::SELECT_CREATURE);
 	entries[40].Set(wxACCEL_NORMAL, (int)'W', MAIN_FRAME_MENU + MenuBar::SELECT_WAYPOINT);
 	entries[41].Set(wxACCEL_NORMAL, (int)'R', MAIN_FRAME_MENU + MenuBar::SELECT_RAW);
+	entries[42].Set(wxACCEL_CTRL, (int)'K', MAIN_FRAME_MENU + MenuBar::COMMAND_PALETTE);
 
 	wxAcceleratorTable accelerator(count, entries);
 	frame->SetAcceleratorTable(accelerator);
@@ -866,6 +871,45 @@ void MainMenuBar::OnUndo(wxCommandEvent& WXUNUSED(event))
 void MainMenuBar::OnRedo(wxCommandEvent& WXUNUSED(event))
 {
 	g_gui.DoRedo();
+}
+
+void MainMenuBar::OnCommandPalette(wxCommandEvent& WXUNUSED(event))
+{
+	CommandPaletteDialog dialog(frame, GetRecentFiles());
+	if(dialog.ShowModal() != wxID_OK) {
+		return;
+	}
+
+	if(dialog.GetSelectedBrush()) {
+		g_gui.SelectBrush(dialog.GetSelectedBrush(), TILESET_UNKNOWN);
+		return;
+	}
+
+	if(dialog.GetSelectedPosition()) {
+		g_gui.SetScreenCenterPosition(*dialog.GetSelectedPosition());
+		return;
+	}
+
+	if(!dialog.GetSelectedMapPath().IsEmpty()) {
+		g_gui.LoadMap(FileName(dialog.GetSelectedMapPath()));
+		return;
+	}
+
+	const MenuBar::ActionID action_id = dialog.GetSelectedAction();
+	for(auto it = actions.begin(); it != actions.end(); ++it) {
+		if(it->second->id != action_id) {
+			continue;
+		}
+
+		if(it->second->kind == wxITEM_CHECK) {
+			CheckItem(action_id, !IsItemChecked(action_id));
+		}
+
+		wxCommandEvent command(wxEVT_COMMAND_MENU_SELECTED, MAIN_FRAME_MENU + action_id);
+		command.SetEventObject(frame);
+		frame->GetEventHandler()->ProcessEvent(command);
+		break;
+	}
 }
 
 namespace OnSearchForItem
@@ -1562,8 +1606,14 @@ void MainMenuBar::OnMapEditTowns(wxCommandEvent& WXUNUSED(event))
 {
 	if(g_gui.GetCurrentEditor()) {
 		wxDialog* town_dialog = newd EditTownsDialog(frame, *g_gui.GetCurrentEditor());
-		town_dialog->ShowModal();
+		const int result = town_dialog->ShowModal();
 		town_dialog->Destroy();
+		if(result == 1) {
+			// Refresh only after the modal event loop has fully unwound. The
+			// dialog replaces Town objects on save, so refreshing from inside
+			// its OK handler can re-enter palettes with stale town pointers.
+			g_gui.RefreshPalettes();
+		}
 	}
 }
 
@@ -1959,6 +2009,11 @@ void MainMenuBar::OnMinimapWindow(wxCommandEvent& event)
 void MainMenuBar::OnActionsHistoryWindow(wxCommandEvent& WXUNUSED(event))
 {
 	g_gui.ShowActionsWindow();
+}
+
+void MainMenuBar::OnInspectorWindow(wxCommandEvent& WXUNUSED(event))
+{
+	g_gui.ShowInspectorWindow();
 }
 
 void MainMenuBar::OnNewPalette(wxCommandEvent& event)

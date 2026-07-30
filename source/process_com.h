@@ -40,7 +40,6 @@ public:
 };
 
 class RMEProcessClient : public wxClient {
-	wxConnectionBase* proc;
 public:
 	RMEProcessClient();
 	~RMEProcessClient();

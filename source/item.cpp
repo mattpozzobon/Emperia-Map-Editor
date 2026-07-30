@@ -30,6 +30,47 @@
 #include "table_brush.h"
 #include "wall_brush.h"
 
+namespace
+{
+	std::string trimAccessToken(const std::string& value)
+	{
+		const size_t first = value.find_first_not_of(" \t\r\n");
+		if(first == std::string::npos) return "";
+		const size_t last = value.find_last_not_of(" \t\r\n");
+		return value.substr(first, last - first + 1);
+	}
+}
+
+bool validateAccessRequirements(
+	const std::string& requiredQuests,
+	const std::string& requiredStorage,
+	std::string& error)
+{
+	if(requiredQuests.size() > 0xFFFF || requiredStorage.size() > 0xFFFF) {
+		error = "Access requirement text cannot exceed 65535 bytes.";
+		return false;
+	}
+
+	size_t start = 0;
+	while(start <= requiredStorage.size()) {
+		const size_t separator = requiredStorage.find_first_of(",;", start);
+		const std::string entry = trimAccessToken(requiredStorage.substr(
+			start,
+			separator == std::string::npos ? std::string::npos : separator - start));
+		if(!entry.empty()) {
+			const size_t equals = entry.find('=');
+			const std::string key = trimAccessToken(entry.substr(0, equals));
+			if(key.empty()) {
+				error = "Each storage requirement must have a key. Use key=value or a bare key.";
+				return false;
+			}
+		}
+		if(separator == std::string::npos) break;
+		start = separator + 1;
+	}
+	return true;
+}
+
 Item* Item::Create(uint16_t id, uint16_t subtype /*= 0xFFFF*/)
 {
 	if(id == 0) return nullptr;
@@ -277,6 +318,46 @@ void Item::setUniqueID(unsigned short n)
 void Item::setActionID(unsigned short n)
 {
 	setAttribute("aid", n);
+}
+
+void Item::setMinimumLevel(uint16_t level)
+{
+	if(level == 0)
+		eraseAttribute("minlevel");
+	else
+		setAttribute("minlevel", static_cast<int32_t>(level));
+}
+
+void Item::setNobleOnly(bool nobleOnly)
+{
+	if(nobleOnly)
+		setAttribute("nobleonly", true);
+	else
+		eraseAttribute("nobleonly");
+}
+
+void Item::setRequiredQuests(const std::string& quests)
+{
+	if(quests.empty())
+		eraseAttribute("quests");
+	else
+		setAttribute("quests", quests);
+}
+
+void Item::setRequiredStorage(const std::string& storage)
+{
+	if(storage.empty())
+		eraseAttribute("storage");
+	else
+		setAttribute("storage", storage);
+}
+
+void Item::copyAccessRequirementsFrom(const Item& item)
+{
+	setMinimumLevel(item.getMinimumLevel());
+	setNobleOnly(item.isNobleOnly());
+	setRequiredQuests(item.getRequiredQuests());
+	setRequiredStorage(item.getRequiredStorage());
 }
 
 void Item::setText(const std::string& str)

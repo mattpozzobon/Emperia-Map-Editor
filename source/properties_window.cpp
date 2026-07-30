@@ -19,7 +19,10 @@
 
 #include "properties_window.h"
 
+#include <wx/settings.h>
+
 #include "gui_ids.h"
+#include "gui.h"
 #include "complexitem.h"
 #include "container_properties_window.h"
 
@@ -39,6 +42,12 @@ END_EVENT_TABLE()
 
 PropertiesWindow::PropertiesWindow(wxWindow* parent, const Map* map, const Tile* tile_parent, Item* item, wxPoint pos) :
 	ObjectPropertiesWindowBase(parent, "Item Properties", map, tile_parent, item, pos),
+	action_id_field(nullptr),
+	unique_id_field(nullptr),
+	minimum_level_field(nullptr),
+	noble_only_field(nullptr),
+	required_quests_field(nullptr),
+	required_storage_field(nullptr),
 	currentPanel(nullptr)
 {
 	ASSERT(edit_item);
@@ -88,12 +97,33 @@ wxWindow* PropertiesWindow::createGeneralPanel(wxWindow* parent)
 	gridsizer->Add(newd wxStaticText(panel, wxID_ANY, "\"" + wxstr(edit_item->getName()) + "\""));
 
 	gridsizer->Add(newd wxStaticText(panel, wxID_ANY, "Action ID"));
-	wxSpinCtrl* action_id_field = newd wxSpinCtrl(panel, wxID_ANY, i2ws(edit_item->getActionID()), wxDefaultPosition, wxDefaultSize, wxSP_ARROW_KEYS, 0, 0xFFFF, edit_item->getActionID());
+	action_id_field = newd wxSpinCtrl(panel, wxID_ANY, i2ws(edit_item->getActionID()), wxDefaultPosition, wxDefaultSize, wxSP_ARROW_KEYS, 0, 0xFFFF, edit_item->getActionID());
 	gridsizer->Add(action_id_field, wxSizerFlags(1).Expand());
 
 	gridsizer->Add(newd wxStaticText(panel, wxID_ANY, "Unique ID"));
-	wxSpinCtrl* unique_id_field = newd wxSpinCtrl(panel, wxID_ANY, i2ws(edit_item->getUniqueID()), wxDefaultPosition, wxSize(-1, 20), wxSP_ARROW_KEYS, 0, 0xFFFF, edit_item->getUniqueID());
+	unique_id_field = newd wxSpinCtrl(panel, wxID_ANY, i2ws(edit_item->getUniqueID()), wxDefaultPosition, wxSize(-1, 20), wxSP_ARROW_KEYS, 0, 0xFFFF, edit_item->getUniqueID());
 	gridsizer->Add(unique_id_field, wxSizerFlags(1).Expand());
+
+	gridsizer->Add(newd wxStaticText(panel, wxID_ANY, "Minimum level"));
+	minimum_level_field = newd wxSpinCtrl(panel, wxID_ANY, i2ws(edit_item->getMinimumLevel()), wxDefaultPosition, wxDefaultSize, wxSP_ARROW_KEYS, 0, 0xFFFF, edit_item->getMinimumLevel());
+	gridsizer->Add(minimum_level_field, wxSizerFlags(1).Expand());
+
+	gridsizer->Add(newd wxStaticText(panel, wxID_ANY, "Noble only"));
+	noble_only_field = newd wxCheckBox(panel, wxID_ANY, "");
+	noble_only_field->SetValue(edit_item->isNobleOnly());
+	gridsizer->Add(noble_only_field, wxSizerFlags(1).Expand());
+
+	gridsizer->Add(newd wxStaticText(panel, wxID_ANY, "Required quests"));
+	required_quests_field = newd wxTextCtrl(panel, wxID_ANY, wxstr(edit_item->getRequiredQuests()));
+	required_quests_field->SetMaxLength(0xFFFF);
+	required_quests_field->SetToolTip("Quest IDs separated by commas or semicolons. All listed quests must be completed.");
+	gridsizer->Add(required_quests_field, wxSizerFlags(1).Expand());
+
+	gridsizer->Add(newd wxStaticText(panel, wxID_ANY, "Required storage"));
+	required_storage_field = newd wxTextCtrl(panel, wxID_ANY, wxstr(edit_item->getRequiredStorage()));
+	required_storage_field->SetMaxLength(0xFFFF);
+	required_storage_field->SetToolTip("Comma/semicolon-separated key=value checks. A bare key only needs to exist.");
+	gridsizer->Add(required_storage_field, wxSizerFlags(1).Expand());
 
 	panel->SetSizerAndFit(gridsizer);
 
@@ -212,8 +242,9 @@ void PropertiesWindow::SetGridValue(wxGrid* grid, int rowIndex, std::string labe
 		}
 		default: {
 			grid->SetCellValue(rowIndex, 1, "Unknown");
-			grid->SetCellBackgroundColour(rowIndex, 1, *wxLIGHT_GREY);
-			grid->SetCellBackgroundColour(rowIndex, 2, *wxLIGHT_GREY);
+			const wxColour disabled_colour = wxSystemSettings::GetColour(wxSYS_COLOUR_BTNFACE);
+			grid->SetCellBackgroundColour(rowIndex, 1, disabled_colour);
+			grid->SetCellBackgroundColour(rowIndex, 2, disabled_colour);
 			grid->SetReadOnly(rowIndex, 1, true);
 			grid->SetReadOnly(rowIndex, 2, true);
 			break;
@@ -259,7 +290,12 @@ void PropertiesWindow::OnNotebookPageChanged(wxNotebookEvent& evt)
 
 void PropertiesWindow::saveGeneralPanel()
 {
-	////
+	edit_item->setActionID(action_id_field ? action_id_field->GetValue() : 0);
+	edit_item->setUniqueID(unique_id_field ? unique_id_field->GetValue() : 0);
+	edit_item->setMinimumLevel(minimum_level_field ? minimum_level_field->GetValue() : 0);
+	edit_item->setNobleOnly(noble_only_field && noble_only_field->GetValue());
+	edit_item->setRequiredQuests(required_quests_field ? nstr(required_quests_field->GetValue()) : "");
+	edit_item->setRequiredStorage(required_storage_field ? nstr(required_storage_field->GetValue()) : "");
 }
 
 void PropertiesWindow::saveContainerPanel()
@@ -318,7 +354,15 @@ void PropertiesWindow::OnGridValueChanged(wxGridEvent& event)
 
 void PropertiesWindow::OnClickOK(wxCommandEvent&)
 {
+	const std::string required_quests = required_quests_field ? nstr(required_quests_field->GetValue()) : "";
+	const std::string required_storage = required_storage_field ? nstr(required_storage_field->GetValue()) : "";
+	std::string access_error;
+	if(!validateAccessRequirements(required_quests, required_storage, access_error)) {
+		g_gui.PopupDialog(this, "Invalid access requirements", wxstr(access_error), wxOK);
+		return;
+	}
 	saveAttributesPanel();
+	saveGeneralPanel();
 	EndModal(1);
 }
 

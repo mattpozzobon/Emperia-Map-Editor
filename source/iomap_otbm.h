@@ -48,6 +48,13 @@ enum OTBM_ItemAttribute
 	OTBM_ATTR_SLEEPSTART = 21,
 	OTBM_ATTR_CHARGES = 22,
 
+	// Emperia map-owned access requirements. These intentionally remain fixed
+	// OTBM attributes so they work with the current OTBM v3 map format.
+	OTBM_ATTR_EMPERIA_MIN_LEVEL = 23,
+	OTBM_ATTR_EMPERIA_NOBLE_ONLY = 24,
+	OTBM_ATTR_EMPERIA_QUESTS = 25,
+	OTBM_ATTR_EMPERIA_STORAGE = 26,
+
 	OTBM_ATTR_ATTRIBUTE_MAP = 128
 };
 

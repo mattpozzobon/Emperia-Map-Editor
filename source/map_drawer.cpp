@@ -588,6 +588,8 @@ void MapDrawer::DrawSecondaryMap(int map_z)
 
 			int draw_x, draw_y;
 			getDrawPosition(final_pos, draw_x, draw_y);
+			const int tile_screen_x = draw_x;
+			const int tile_screen_y = draw_y;
 
 			// Draw ground
 			uint8_t r = 160, g = 160, b = 160;
@@ -640,6 +642,7 @@ void MapDrawer::DrawSecondaryMap(int map_z)
 						BlitItem(draw_x, draw_y, tile, item, true, 160, 160, 160, 160);
 					}
 				}
+				BlitMannequinEquipment(tile_screen_x, tile_screen_y, tile, true, 160, 160, 160, 160);
 			}
 
 			// Draw creature
@@ -767,6 +770,8 @@ void MapDrawer::DrawDraggingShadow()
 			Position pos(pos_x, pos_y, pos_z);
 			int draw_x, draw_y;
 			getDrawPosition(pos, draw_x, draw_y);
+			const int tile_screen_x = draw_x;
+			const int tile_screen_y = draw_y;
 
 			ItemVector items = tile->getSelectedItems();
 			Tile* dest_tile = editor.getMap().getTile(pos);
@@ -776,6 +781,9 @@ void MapDrawer::DrawDraggingShadow()
 					BlitItem(draw_x, draw_y, dest_tile, item, true, 160,160,160,160);
 				else
 					BlitItem(draw_x, draw_y, pos, item, true, 160,160,160,160);
+			}
+			for(const Item* item : items) {
+				BlitMannequinEquipment(tile_screen_x, tile_screen_y, item, true, 160, 160, 160, 160);
 			}
 
 			if(options.show_creatures && tile->creature && tile->creature->isSelected())
@@ -803,6 +811,8 @@ void MapDrawer::DrawHigherFloors()
 
 			int draw_x, draw_y;
 			getDrawPosition(tile->getPosition(), draw_x, draw_y);
+			const int tile_screen_x = draw_x;
+			const int tile_screen_y = draw_y;
 
 			if(tile->ground) {
 				uint8_t r = 255, g = 255, b = 255;
@@ -836,6 +846,7 @@ void MapDrawer::DrawHigherFloors()
 			if(!hidden && !tile->items.empty()) {
 				for(const Item* item : tile->items)
 					BlitItem(draw_x, draw_y, tile, item, false, 255,255,255, 96);
+				BlitMannequinEquipment(tile_screen_x, tile_screen_y, tile, false, 255, 255, 255, 96);
 			}
 		}
 	}
@@ -1381,6 +1392,103 @@ void MapDrawer::BlitItem(int& draw_x, int& draw_y, const Tile* tile, const Item*
 		DrawHookIndicator(draw_x, draw_y, type);
 }
 
+void MapDrawer::BlitMannequinEquipment(int screenx, int screeny, const Tile* tile, bool ephemeral, int red, int green, int blue, int alpha)
+{
+	if(!tile) {
+		return;
+	}
+
+	// The client emits mannequin equipment after every ordinary item on the
+	// tile. It is anchored to the tile itself, not to accumulated elevation or
+	// the mannequin base sprite's displacement.
+	for(const Item* item : tile->items) {
+		BlitMannequinEquipment(screenx, screeny, item, ephemeral, red, green, blue, alpha);
+	}
+}
+
+void MapDrawer::BlitMannequinEquipment(int screenx, int screeny, const Item* item, bool ephemeral, int red, int green, int blue, int alpha)
+{
+	if(!item) {
+		return;
+	}
+
+	const ItemType& type = g_items.getItemType(item->getID());
+	if(!type.isMannequin() || !type.sprite || (!ephemeral && type.pickupable && !options.show_items)) {
+		return;
+	}
+
+	const Container* mannequin = dynamic_cast<const Container*>(item);
+	if(!mannequin) {
+		return;
+	}
+
+	int layerRed = red;
+	int layerGreen = green;
+	int layerBlue = blue;
+	int layerAlpha = alpha;
+	if(!options.ingame && !ephemeral && item->isSelected()) {
+		layerRed /= 2;
+		layerGreen /= 2;
+		layerBlue /= 2;
+	}
+	if(!ephemeral && options.transparent_items &&
+			(!type.isGroundTile() || type.sprite->width > 1 || type.sprite->height > 1) &&
+			!type.isSplash() &&
+			(!type.isBorder || type.sprite->width > 1 || type.sprite->height > 1)) {
+		layerAlpha /= 2;
+	}
+
+	// The first rotate variant faces south; the second faces east.
+	const int mannequinDirection = type.rotateTo > 0 && type.id >= type.rotateTo
+		? static_cast<int>(EAST)
+		: static_cast<int>(SOUTH);
+	const ItemVector& contents = mannequin->getVector();
+	for(size_t index = 0; index < type.mannequinOutfitSlots.size(); ++index) {
+		const size_t contentIndex = static_cast<size_t>(type.containerSize) + index;
+		if(contentIndex >= contents.size()) {
+			continue;
+		}
+
+		const int outfitSlot = type.mannequinOutfitSlots[index];
+		const Item* displayedItem = contents[contentIndex];
+		if(outfitSlot < 0 || !displayedItem) {
+			continue;
+		}
+
+		GameSprite* equipmentSprite = g_gui.gfx.getOutfitSlotSprite(outfitSlot, displayedItem->getID());
+		if(!equipmentSprite) {
+			continue;
+		}
+
+		const int directionPattern = equipmentSprite->pattern_x > 0
+			? mannequinDirection % equipmentSprite->pattern_x
+			: 0;
+		for(int cx = 0; cx != equipmentSprite->width; ++cx) {
+			for(int cy = 0; cy != equipmentSprite->height; ++cy) {
+				const int texnum = equipmentSprite->getHardwareID(
+					cx,
+					cy,
+					0,
+					-1,
+					directionPattern,
+					0,
+					0,
+					0
+				);
+				glBlitTexture(
+					screenx - cx * rme::TileSize,
+					screeny - cy * rme::TileSize,
+					texnum,
+					layerRed,
+					layerGreen,
+					layerBlue,
+					layerAlpha
+				);
+			}
+		}
+	}
+}
+
 void MapDrawer::BlitItem(int& draw_x, int& draw_y, const Position& pos, const Item* item, bool ephemeral, int red, int green, int blue, int alpha)
 {
 	const ItemType& type = g_items.getItemType(item->getID());
@@ -1532,7 +1640,7 @@ void MapDrawer::BlitCreature(int screenx, int screeny, const Outfit& outfit, Dir
 		const ItemType& type = g_items.getItemType(outfit.lookItem);
 		BlitSpriteType(screenx, screeny, type.sprite, red, green, blue, alpha);
 	} else {
-		GameSprite* sprite = g_gui.gfx.getCreatureSprite(outfit.lookType);
+		GameSprite* sprite = g_gui.gfx.getOutfitSprite(outfit.lookType);
 		if(!sprite || outfit.lookType == 0) {
 			return;
 		}
@@ -1552,8 +1660,9 @@ void MapDrawer::BlitCreature(int screenx, int screeny, const Outfit& outfit, Dir
 		}
 
 		int frame = 0;
+		const Outfit baseOutfit = outfit.getColorizedBaseOutfit();
 
-		auto blitCreatureSprite = [&](GameSprite* layerSprite, const Outfit& layerOutfit) {
+		auto blitCreatureSprite = [&](GameSprite* layerSprite, const Outfit& layerOutfit, bool applyDisplacement = false) {
 			if(!layerSprite) {
 				return;
 			}
@@ -1566,7 +1675,10 @@ void MapDrawer::BlitCreature(int screenx, int screeny, const Outfit& outfit, Dir
 			for(int cx = 0; cx != layerSprite->width; ++cx) {
 				for(int cy = 0; cy != layerSprite->height; ++cy) {
 					int texnum = layerSprite->getHardwareID(cx, cy, (int)dir, 0, layerPatternZ, layerOutfit, frame);
-					glBlitTexture(screenx - cx * rme::TileSize, screeny - cy * rme::TileSize, texnum, red, green, blue, alpha);
+					const wxPoint& displacement = layerSprite->getDrawOffset();
+					const int offsetX = applyDisplacement ? displacement.x : 0;
+					const int offsetY = applyDisplacement ? displacement.y : 0;
+					glBlitTexture(screenx - cx * rme::TileSize - offsetX, screeny - cy * rme::TileSize - offsetY, texnum, red, green, blue, alpha);
 				}
 			}
 		};
@@ -1580,7 +1692,7 @@ void MapDrawer::BlitCreature(int screenx, int screeny, const Outfit& outfit, Dir
 
 			for(int cx = 0; cx != sprite->width; ++cx) {
 				for(int cy = 0; cy != sprite->height; ++cy) {
-					int texnum = sprite->getHardwareID(cx, cy, (int)dir, pattern_y, pattern_z, outfit, frame);
+					int texnum = sprite->getHardwareID(cx, cy, (int)dir, pattern_y, pattern_z, baseOutfit, frame);
 					glBlitTexture(screenx - cx * rme::TileSize, screeny - cy * rme::TileSize, texnum, red, green, blue, alpha);
 				}
 			}
@@ -1643,13 +1755,15 @@ void MapDrawer::BlitCreature(int screenx, int screeny, const Outfit& outfit, Dir
 					continue;
 				}
 
-				GameSprite* layerSprite = g_gui.gfx.getCreatureSprite(spriteSlot.id);
+				GameSprite* layerSprite = g_gui.gfx.getOutfitSlotSprite(slot, spriteSlot.id, spriteSlot.directAppearance);
 				if(!layerSprite) {
 					continue;
 				}
 
-				Outfit slotOutfit = outfit.getColorizedSlotOutfit(slot);
-				blitCreatureSprite(layerSprite, slotOutfit);
+				Outfit slotOutfit = slot == OUTFIT_SLOT_HAIR
+					? baseOutfit
+					: outfit.getColorizedSlotOutfit(slot);
+				blitCreatureSprite(layerSprite, slotOutfit, true);
 			}
 		}
 	}
@@ -1662,7 +1776,8 @@ void MapDrawer::BlitCreature(int screenx, int screeny, const Creature* creature,
 		green /= 2;
 		blue /= 2;
 	}
-	BlitCreature(screenx, screeny, creature->getLookType(), creature->getDirection(), red, green, blue, alpha);
+	const Direction direction = creature->isNpc() ? SOUTH : creature->getDirection();
+	BlitCreature(screenx, screeny, creature->getLookType(), direction, red, green, blue, alpha);
 }
 
 void MapDrawer::WriteTooltip(const Item* item, std::ostringstream& stream)
@@ -1670,19 +1785,27 @@ void MapDrawer::WriteTooltip(const Item* item, std::ostringstream& stream)
 	if(!item) return;
 
 	const uint16_t id = item->getID();
-	if(id < 100)
-		return;
-
 	const uint16_t unique = item->getUniqueID();
 	const uint16_t action = item->getActionID();
 	const std::string& text = item->getText();
-	if(unique == 0 && action == 0 && text.empty())
+	const uint16_t minimumLevel = item->getMinimumLevel();
+	const bool nobleOnly = item->isNobleOnly();
+	const std::string& requiredQuests = item->getRequiredQuests();
+	const std::string& requiredStorage = item->getRequiredStorage();
+	const bool hasAccessRequirements =
+		minimumLevel > 0 ||
+		nobleOnly ||
+		!requiredQuests.empty() ||
+		!requiredStorage.empty();
+
+	if(id < 100 && !hasAccessRequirements)
+		return;
+
+	if(unique == 0 && action == 0 && text.empty() && !hasAccessRequirements)
 		return;
 
 	if(stream.tellp() > 0)
 		stream << "\n";
-
-	stream << "id: " << id << "\n";
 
 	if(action > 0)
 		stream << "aid: " << action << "\n";
@@ -1690,6 +1813,14 @@ void MapDrawer::WriteTooltip(const Item* item, std::ostringstream& stream)
 		stream << "uid: " << unique << "\n";
 	if(!text.empty())
 		stream << "text: " << text << "\n";
+	if(minimumLevel > 0)
+		stream << "level: " << minimumLevel << "\n";
+	if(nobleOnly)
+		stream << "noble only\n";
+	if(!requiredQuests.empty())
+		stream << "quests: " << requiredQuests << "\n";
+	if(!requiredStorage.empty())
+		stream << "storage: " << requiredStorage << "\n";
 }
 
 void MapDrawer::WriteTooltip(const Waypoint* waypoint, std::ostringstream& stream)
@@ -1745,6 +1876,8 @@ void MapDrawer::DrawTile(TileLocation* location)
 
 	int draw_x, draw_y;
 	getDrawPosition(position, draw_x, draw_y);
+	const int tile_screen_x = draw_x;
+	const int tile_screen_y = draw_y;
 
 	uint8_t r = 255,g = 255,b = 255;
 	if(only_colors || tile->hasGround()) {
@@ -1849,6 +1982,7 @@ void MapDrawer::DrawTile(TileLocation* location)
 				BlitItem(draw_x, draw_y, tile, item);
 			}
 		}
+		BlitMannequinEquipment(tile_screen_x, tile_screen_y, tile);
 	}
 
 	if(!hidden && options.show_creatures && tile->creature) {

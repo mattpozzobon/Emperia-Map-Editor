@@ -71,6 +71,11 @@ void loadOutfitSlot(pugi::xml_node node, Outfit& outfit, int slot)
 
 	outfit.sprites[slot].id = attribute.as_int();
 
+	std::string directAppearanceAttributeName = std::string(slotName) + "directappearance";
+	if((attribute = node.attribute(directAppearanceAttributeName.c_str()))) {
+		outfit.sprites[slot].directAppearance = attribute.as_bool(false);
+	}
+
 	std::string colorsAttributeName = std::string(slotName) + "colors";
 	loadOutfitSlotColors(node.attribute(colorsAttributeName.c_str()), outfit.sprites[slot].colors);
 
@@ -94,6 +99,11 @@ void saveOutfitSlot(pugi::xml_node node, const Outfit& outfit, int slot)
 
 	const char* slotName = outfitSlotAttributeNames[slot];
 	node.append_attribute(slotName) = spriteSlot.id;
+
+	if(spriteSlot.directAppearance) {
+		std::string directAppearanceAttributeName = std::string(slotName) + "directappearance";
+		node.append_attribute(directAppearanceAttributeName.c_str()) = true;
+	}
 
 	if(spriteSlot.colors.hasColors) {
 		char colors[64];
@@ -193,7 +203,7 @@ CreatureType* CreatureType::loadFromXML(pugi::xml_node node, wxArrayString& warn
 
 	if((attribute = node.attribute("looktype"))) {
 		ct->outfit.lookType = attribute.as_int();
-		if(g_gui.gfx.getCreatureSprite(ct->outfit.lookType) == nullptr) {
+		if(g_gui.gfx.getOutfitSprite(ct->outfit.lookType) == nullptr) {
 			warnings.push_back("Invalid creature \"" + wxstr(ct->name) + "\" look type #" + std::to_string(ct->outfit.lookType));
 		}
 	}
@@ -232,7 +242,11 @@ CreatureType* CreatureType::loadFromXML(pugi::xml_node node, wxArrayString& warn
 
 	for(int slot = 0; slot < OUTFIT_SLOT_COUNT; ++slot) {
 		loadOutfitSlot(node, ct->outfit, slot);
-		if(ct->outfit.sprites[slot].id > 0 && g_gui.gfx.getCreatureSprite(ct->outfit.sprites[slot].id) == nullptr) {
+		if(ct->outfit.sprites[slot].id > 0 && g_gui.gfx.getOutfitSlotSprite(
+			slot,
+			ct->outfit.sprites[slot].id,
+			ct->outfit.sprites[slot].directAppearance
+		) == nullptr) {
 			warnings.push_back(
 				"Invalid creature \"" + wxstr(ct->name) + "\" outfit slot \"" +
 				wxstr(std::string(outfitSlotAttributeNames[slot])) + "\" sprite #" + std::to_string(ct->outfit.sprites[slot].id)

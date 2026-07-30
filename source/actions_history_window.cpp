@@ -20,11 +20,25 @@
 #include "artprovider.h"
 #include "editor.h"
 #include "gui.h"
+#include "settings.h"
+
+#include <wx/settings.h>
 
 HistoryListBox::HistoryListBox(wxWindow* parent) :
-	wxVListBox(parent, wxID_ANY)
+	wxVListBox(parent, wxID_ANY),
+	icon_dip_size(18),
+	row_dip_height(28),
+	item_dip_padding(5)
 {
-	wxSize icon_size = FROM_DIP(parent, wxSize(16, 16));
+	const int density = std::clamp(g_settings.getInteger(Config::UI_DENSITY), 0, 2);
+	const int icon_sizes[] = {14, 18, 22};
+	const int row_heights[] = {22, 28, 34};
+	const int item_paddings[] = {4, 5, 6};
+	icon_dip_size = icon_sizes[density];
+	row_dip_height = row_heights[density];
+	item_dip_padding = item_paddings[density];
+
+	wxSize icon_size = FROM_DIP(parent, wxSize(icon_dip_size, icon_dip_size));
 	open_bitmap = wxArtProvider::GetBitmap(wxART_FILE_OPEN, wxART_TOOLBAR, icon_size);
 	move_bitmap = wxArtProvider::GetBitmap(ART_MOVE, wxART_LIST, icon_size);
 	remote_bitmap = wxArtProvider::GetBitmap(ART_REMOTE, wxART_LIST, icon_size);
@@ -55,26 +69,31 @@ void HistoryListBox::OnDrawItem(wxDC& dc, const wxRect& rect, size_t index) cons
 		return;
 	}
 
-	if(IsSelected(index)) {
-		dc.SetTextForeground(*wxBLUE);
-	} else {
-		dc.SetTextForeground(*wxBLACK);
-	}
+	const wxSystemColour text_colour = IsSelected(index) ?
+		wxSYS_COLOUR_HIGHLIGHTTEXT : wxSYS_COLOUR_WINDOWTEXT;
+	dc.SetTextForeground(wxSystemSettings::GetColour(text_colour));
 
 	const BatchAction* action = actions->getAction(index - 1);
+	const int padding = FROM_DIP(this, item_dip_padding);
+	const int text_x = rect.GetX() + FROM_DIP(this, icon_dip_size + item_dip_padding * 2);
+	const wxString label = action ? action->getLabel() : wxString("Open Map");
+	wxCoord text_height;
+	dc.GetTextExtent(label, nullptr, &text_height);
+	const int icon_y = rect.GetY() + std::max(0, (rect.GetHeight() - FROM_DIP(this, icon_dip_size)) / 2);
+	const int text_y = rect.GetY() + std::max(0, (rect.GetHeight() - text_height) / 2);
+
 	if(action) {
 		const wxBitmap& bitmap = getIconBitmap(action->getType());
-		dc.DrawBitmap(bitmap, rect.GetX() + 4, rect.GetY() + 4, true);
-		dc.DrawText(action->getLabel(), rect.GetX() + 28, rect.GetY() + 3);
+		dc.DrawBitmap(bitmap, rect.GetX() + padding, icon_y, true);
 	} else {
-		dc.DrawBitmap(open_bitmap, rect.GetX() + 4, rect.GetY() + 4, true);
-		dc.DrawText("Open Map", rect.GetX() + 28, rect.GetY() + 3);
+		dc.DrawBitmap(open_bitmap, rect.GetX() + padding, icon_y, true);
 	}
+	dc.DrawText(label, text_x, text_y);
 }
 
 wxCoord HistoryListBox::OnMeasureItem(size_t index) const
 {
-	return 24;
+	return FROM_DIP(this, row_dip_height);
 }
 
 const wxBitmap& HistoryListBox::getIconBitmap(ActionIdentifier identifier) const
@@ -117,9 +136,9 @@ const wxBitmap& HistoryListBox::getIconBitmap(ActionIdentifier identifier) const
 }
 
 ActionsHistoryWindow::ActionsHistoryWindow(wxWindow* parent) :
-	wxPanel(parent, wxID_ANY, wxDefaultPosition, wxSize(230, 250))
+	wxPanel(parent, wxID_ANY)
 {
-	SetSizeHints(wxDefaultSize, wxDefaultSize);
+	SetMinSize(FROM_DIP(this, wxSize(210, 220)));
 
 	wxBoxSizer* sizer = new wxBoxSizer(wxVERTICAL);
 	list = new HistoryListBox(this);

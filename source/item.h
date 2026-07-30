@@ -77,6 +77,11 @@ class Door;
 
 struct SpriteLight;
 
+bool validateAccessRequirements(
+	const std::string& requiredQuests,
+	const std::string& requiredStorage,
+	std::string& error);
+
 class Item : public ItemAttributes
 {
 public:
@@ -247,6 +252,16 @@ public:
 	void setActionID(uint16_t n);
 	uint16_t getActionID() const;
 
+	void setMinimumLevel(uint16_t level);
+	uint16_t getMinimumLevel() const;
+	void setNobleOnly(bool nobleOnly);
+	bool isNobleOnly() const;
+	void setRequiredQuests(const std::string& quests);
+	std::string getRequiredQuests() const;
+	void setRequiredStorage(const std::string& storage);
+	std::string getRequiredStorage() const;
+	void copyAccessRequirementsFrom(const Item& item);
+
 	void setText(const std::string& str);
 	std::string getText() const;
 
@@ -299,6 +314,28 @@ inline uint16_t Item::getActionID() const {
 	if(a)
 		return *a;
 	return 0;
+}
+
+inline uint16_t Item::getMinimumLevel() const {
+	const int32_t* value = getIntegerAttribute("minlevel");
+	if(value)
+		return static_cast<uint16_t>(std::max(0, std::min(0xFFFF, *value)));
+	return 0;
+}
+
+inline bool Item::isNobleOnly() const {
+	const bool* value = getBooleanAttribute("nobleonly");
+	return value && *value;
+}
+
+inline std::string Item::getRequiredQuests() const {
+	const std::string* value = getStringAttribute("quests");
+	return value ? *value : "";
+}
+
+inline std::string Item::getRequiredStorage() const {
+	const std::string* value = getStringAttribute("storage");
+	return value ? *value : "";
 }
 
 inline std::string Item::getText() const {

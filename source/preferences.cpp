@@ -36,7 +36,8 @@ BEGIN_EVENT_TABLE(PreferencesWindow, wxDialog)
 END_EVENT_TABLE()
 
 PreferencesWindow::PreferencesWindow(wxWindow *parent, bool clientVersionSelected = false)
-        : wxDialog(parent, wxID_ANY, "Preferences", wxDefaultPosition, wxSize(400, 400), wxCAPTION | wxCLOSE_BOX) {
+        : wxDialog(parent, wxID_ANY, "Preferences", wxDefaultPosition, FROM_DIP(parent, wxSize(520, 600)),
+			wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER) {
     wxSizer* sizer = newd wxBoxSizer(wxVERTICAL);
 
     book = newd wxNotebook(this, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxBK_TOP);
@@ -57,6 +58,7 @@ PreferencesWindow::PreferencesWindow(wxWindow *parent, bool clientVersionSelecte
     sizer->Add(subsizer, 0, wxCENTER | wxLEFT | wxBOTTOM | wxRIGHT, 10);
 
     SetSizerAndFit(sizer);
+	SetMinSize(FROM_DIP(this, wxSize(460, 480)));
     Centre(wxBOTH);
     // FindWindowById(PANE_ADVANCED_GRAPHICS, this)->GetParent()->Fit();
 }
@@ -78,9 +80,39 @@ wxNotebookPage* PreferencesWindow::CreateGeneralPage()
 	show_welcome_dialog_chkbox->SetToolTip("Show welcome dialog when starting the editor.");
 	sizer->Add(show_welcome_dialog_chkbox, 0, wxLEFT | wxTOP, 5);
 
+	restore_workspace_chkbox = newd wxCheckBox(general_page, wxID_ANY, "Restore previously open maps on startup");
+	restore_workspace_chkbox->SetValue(g_settings.getInteger(Config::RESTORE_PREVIOUS_WORKSPACE) == 1);
+	restore_workspace_chkbox->SetToolTip("Reopens valid local map files from the previous clean shutdown.");
+	sizer->Add(restore_workspace_chkbox, 0, wxLEFT | wxTOP, 5);
+
 	always_make_backup_chkbox = newd wxCheckBox(general_page, wxID_ANY, "Always make map backup");
 	always_make_backup_chkbox->SetValue(g_settings.getInteger(Config::ALWAYS_MAKE_BACKUP) == 1);
 	sizer->Add(always_make_backup_chkbox, 0, wxLEFT | wxTOP, 5);
+
+	wxBoxSizer* autosave_sizer = newd wxBoxSizer(wxHORIZONTAL);
+	wxStaticText* autosave_label = newd wxStaticText(general_page, wxID_ANY, "Autosave interval:");
+	autosave_interval_spin = newd wxSpinCtrl(general_page, wxID_ANY,
+		i2ws(g_settings.getInteger(Config::AUTOSAVE_INTERVAL_MINUTES)),
+		wxDefaultPosition, FROM_DIP(this, wxSize(72, -1)), wxSP_ARROW_KEYS, 0, 120);
+	autosave_interval_spin->SetName("Autosave interval in minutes");
+	autosave_interval_spin->SetToolTip("0 disables autosave. Only named, modified, local maps are saved.");
+	autosave_sizer->Add(autosave_label, 0, wxALIGN_CENTER_VERTICAL | wxRIGHT, FROM_DIP(this, 6));
+	autosave_sizer->Add(autosave_interval_spin, 0, wxALIGN_CENTER_VERTICAL);
+	autosave_sizer->Add(newd wxStaticText(general_page, wxID_ANY, "minutes (0 = off)"),
+		0, wxALIGN_CENTER_VERTICAL | wxLEFT, FROM_DIP(this, 6));
+	sizer->Add(autosave_sizer, 0, wxLEFT | wxTOP, FROM_DIP(this, 5));
+
+	wxBoxSizer* retention_sizer = newd wxBoxSizer(wxHORIZONTAL);
+	wxStaticText* retention_label = newd wxStaticText(general_page, wxID_ANY, "Autosave snapshots:");
+	autosave_retention_spin = newd wxSpinCtrl(general_page, wxID_ANY,
+		i2ws(g_settings.getInteger(Config::AUTOSAVE_RETAIN_COUNT)),
+		wxDefaultPosition, FROM_DIP(this, wxSize(72, -1)), wxSP_ARROW_KEYS, 0, 20);
+	autosave_retention_spin->SetName("Number of autosave snapshots to retain");
+	autosave_retention_spin->SetToolTip("Keeps this many timestamped map snapshots beside the original map. 0 disables snapshots.");
+	retention_sizer->Add(retention_label, 0, wxALIGN_CENTER_VERTICAL | wxRIGHT, FROM_DIP(this, 6));
+	retention_sizer->Add(autosave_retention_spin, 0, wxALIGN_CENTER_VERTICAL | wxRIGHT, FROM_DIP(this, 6));
+	retention_sizer->Add(newd wxStaticText(general_page, wxID_ANY, "files"), 0, wxALIGN_CENTER_VERTICAL);
+	sizer->Add(retention_sizer, 0, wxLEFT | wxTOP, FROM_DIP(this, 5));
 
 	update_check_on_startup_chkbox = newd wxCheckBox(general_page, wxID_ANY, "Check for updates on startup");
 	update_check_on_startup_chkbox->SetValue(g_settings.getInteger(Config::USE_UPDATER) == 1);
@@ -209,6 +241,12 @@ wxNotebookPage* PreferencesWindow::CreateGraphicsPage()
 	hide_items_when_zoomed_chkbox->SetValue(g_settings.getBoolean(Config::HIDE_ITEMS_WHEN_ZOOMED));
 	sizer->Add(hide_items_when_zoomed_chkbox, 0, wxLEFT | wxTOP, 5);
 	SetWindowToolTip(hide_items_when_zoomed_chkbox, "When this option is checked, \"loose\" items will be hidden when you zoom very far out.");
+
+	show_canvas_performance_chkbox = newd wxCheckBox(graphics_page, wxID_ANY, "Show performance metrics");
+	show_canvas_performance_chkbox->SetValue(g_settings.getBoolean(Config::SHOW_CANVAS_PERFORMANCE));
+	show_canvas_performance_chkbox->SetToolTip(
+		"Shows smoothed canvas render time and reports map open, save, and import durations.");
+	sizer->Add(show_canvas_performance_chkbox, 0, wxLEFT | wxTOP, 5);
 
 	icon_selection_shadow_chkbox = newd wxCheckBox(graphics_page, wxID_ANY, "Use icon selection shadow");
 	icon_selection_shadow_chkbox->SetValue(g_settings.getBoolean(Config::USE_GUI_SELECTION_SHADOW));
@@ -393,6 +431,18 @@ wxNotebookPage* PreferencesWindow::CreateUIPage()
 
     auto * subsizer = newd wxFlexGridSizer(2, 10, 10);
 	subsizer->AddGrowableCol(1);
+
+	wxStaticText* density_label = newd wxStaticText(ui_page, wxID_ANY, "UI density:");
+	ui_density_choice = newd wxChoice(ui_page, wxID_ANY);
+	ui_density_choice->Append("Compact");
+	ui_density_choice->Append("Comfortable");
+	ui_density_choice->Append("Spacious");
+	ui_density_choice->SetSelection(std::clamp(g_settings.getInteger(Config::UI_DENSITY), 0, 2));
+	SetWindowToolTip(density_label, ui_density_choice,
+		"Controls toolbar targets and custom list row spacing. Restart required.");
+	subsizer->Add(density_label, 0, wxALIGN_CENTER_VERTICAL);
+	subsizer->Add(ui_density_choice, 1, wxEXPAND);
+
 	terrain_palette_style_choice = AddPaletteStyleChoice(
 		ui_page, subsizer,
 		"Terrain Palette Style:",
@@ -585,7 +635,13 @@ void PreferencesWindow::Apply()
 	bool must_restart = false;
 	// General
 	g_settings.setInteger(Config::WELCOME_DIALOG, show_welcome_dialog_chkbox->GetValue());
+	g_settings.setInteger(Config::RESTORE_PREVIOUS_WORKSPACE, restore_workspace_chkbox->GetValue());
 	g_settings.setInteger(Config::ALWAYS_MAKE_BACKUP, always_make_backup_chkbox->GetValue());
+	if(g_settings.getInteger(Config::AUTOSAVE_INTERVAL_MINUTES) != autosave_interval_spin->GetValue()) {
+		must_restart = true;
+	}
+	g_settings.setInteger(Config::AUTOSAVE_INTERVAL_MINUTES, autosave_interval_spin->GetValue());
+	g_settings.setInteger(Config::AUTOSAVE_RETAIN_COUNT, autosave_retention_spin->GetValue());
 	g_settings.setInteger(Config::USE_UPDATER, update_check_on_startup_chkbox->GetValue());
 	g_settings.setInteger(Config::ONLY_ONE_INSTANCE, only_one_instance_chkbox->GetValue());
 	g_settings.setInteger(Config::UNDO_SIZE, undo_size_spin->GetValue());
@@ -656,6 +712,7 @@ void PreferencesWindow::Apply()
 		//g_settings.setInteger(Config::CURSOR_ALT_ALPHA, clr.Alpha());
 
 	g_settings.setInteger(Config::HIDE_ITEMS_WHEN_ZOOMED, hide_items_when_zoomed_chkbox->GetValue());
+	g_settings.setInteger(Config::SHOW_CANVAS_PERFORMANCE, show_canvas_performance_chkbox->GetValue());
 	/*
 	g_settings.setInteger(Config::TEXTURE_MANAGEMENT, texture_managment_chkbox->GetValue());
 	g_settings.setInteger(Config::TEXTURE_CLEAN_PULSE, clean_interval_spin->GetValue());
@@ -666,6 +723,10 @@ void PreferencesWindow::Apply()
 	*/
 
 	// Interface
+	if(g_settings.getInteger(Config::UI_DENSITY) != ui_density_choice->GetSelection()) {
+		must_restart = true;
+	}
+	g_settings.setInteger(Config::UI_DENSITY, ui_density_choice->GetSelection());
 	SetPaletteStyleChoice(terrain_palette_style_choice, Config::PALETTE_TERRAIN_STYLE);
 	SetPaletteStyleChoice(doodad_palette_style_choice, Config::PALETTE_DOODAD_STYLE);
 	SetPaletteStyleChoice(item_palette_style_choice, Config::PALETTE_ITEM_STYLE);

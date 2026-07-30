@@ -25,6 +25,8 @@
 #include "gui.h"
 #include "browse_tile_window.h"
 
+#include <wx/settings.h>
+
 // ============================================================================
 //
 
@@ -48,8 +50,10 @@ protected:
 };
 
 BrowseTileListBox::BrowseTileListBox(wxWindow* parent, wxWindowID id, Tile* tile) :
-wxVListBox(parent, id, wxDefaultPosition, wxSize(200, 180), wxLB_MULTIPLE), edit_tile(tile)
+wxVListBox(parent, id, wxDefaultPosition, wxDefaultSize, wxLB_MULTIPLE), edit_tile(tile)
 {
+	SetName("Tile contents and selection");
+	SetMinSize(FROM_DIP(this, wxSize(200, 180)));
 	UpdateItems();
 }
 
@@ -69,23 +73,20 @@ void BrowseTileListBox::OnDrawItem(wxDC& dc, const wxRect& rect, size_t n) const
 
 	if(IsSelected(n)) {
 		item->select();
-		if(HasFocus())
-			dc.SetTextForeground(wxColor(0xFF, 0xFF, 0xFF));
-		else
-			dc.SetTextForeground(wxColor(0x00, 0x00, 0xFF));
+		dc.SetTextForeground(wxSystemSettings::GetColour(wxSYS_COLOUR_HIGHLIGHTTEXT));
 	} else {
 		item->deselect();
-		dc.SetTextForeground(wxColor(0x00, 0x00, 0x00));
+		dc.SetTextForeground(wxSystemSettings::GetColour(wxSYS_COLOUR_WINDOWTEXT));
 	}
 
 	wxString label;
 	label << item->getID() << " - " << item->getName();
-	dc.DrawText(label, rect.GetX() + 40, rect.GetY() + 6);
+	dc.DrawText(label, rect.GetX() + FROM_DIP(this, 40), rect.GetY() + FROM_DIP(this, 6));
 }
 
 wxCoord BrowseTileListBox::OnMeasureItem(size_t n) const
 {
-	return 32;
+	return FROM_DIP(this, 36);
 }
 
 Item* BrowseTileListBox::GetSelectedItem()

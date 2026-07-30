@@ -55,33 +55,33 @@
     <!-- ═══════════════════════════════════════════════════ -->
     <!-- NPCs                                                -->
     <!-- ═══════════════════════════════════════════════════ -->
-    <creature name="Al Dee" type="npc" title="Equipment Merchant" looktype="128" renderhelmet="false" hair="850" haircolors="76,0,0,0" body="941" legs="942" feet="943" backpack="933"/>
-    <creature name="Aldric" type="npc" title="Master Forgewright" looktype="131" renderhelmet="false" hair="850" haircolors="76,0,0,0" body="941" legs="942" feet="943"/>
-    <creature name="Alice" type="npc" title="Merchant" looktype="130" renderhelmet="false" hair="852" haircolors="77,0,0,0" body="982" bodycolors="0,7,0,0" legs="985" legscolors="2,0,76,0" feet="975" feetcolors="0,0,0,85" backpack="933" belt="931"/>
-    <creature name="Apprentice Enchanter" type="npc" title="Novice Enchanter" looktype="131" renderhelmet="false" hair="850" haircolors="76,0,0,0" body="941" legs="942" feet="943"/>
-    <creature name="Brynn" type="npc" title="Escaped Prisoner" looktype="136" renderhelmet="false" body="960"/>
-    <creature name="Dallheim" type="npc" title="Guard" looktype="134" renderhelmet="false" hair="849" haircolors="96,0,0,0" body="941" legs="942" feet="943" lefthand="946" righthand="956"/>
-    <creature name="Dixi" type="npc" title="Merchant" looktype="136" renderhelmet="false" hair="902" haircolors="79,0,0,0" body="941" legs="942" feet="943"/>
-    <creature name="Drust" type="npc" title="Escaped Prisoner" looktype="136" renderhelmet="false" hair="843" haircolors="127,0,0,0" body="960"/>
-    <creature name="Elara" type="npc" title="Jeweler" looktype="131" renderhelmet="false" hair="850" haircolors="114,0,0,0" body="941" legs="942" feet="943"/>
-    <creature name="Enchanter" type="npc" title="Arcane Enchanter" looktype="131" renderhelmet="false" hair="850" haircolors="76,0,0,0" body="941" legs="942" feet="943"/>
-    <creature name="Eryn" type="npc" title="Merchant" looktype="136" renderhelmet="false" hair="902" haircolors="114,0,0,0" body="941" legs="942" feet="943"/>
-    <creature name="Gabriel" type="npc" title="Monk" looktype="135" renderhelmet="false" hair="973" haircolors="116,0,0,0" body="980" bodyrarity="4" bodylevel="15"/>
-    <creature name="General Aldric" type="npc" title="General" looktype="134" renderhelmet="false" hair="841" haircolors="79,0,0,0" body="945" bodyrarity="5" bodylevel="15" legs="942" feet="943" lefthand="921" righthand="920" backpack="906"/>
-    <creature name="Garrick" type="npc" title="Armour Smith" looktype="131" renderhelmet="false" hair="850" haircolors="76,0,0,0" body="941" legs="942" feet="943"/>
-    <creature name="Harken" type="npc" title="Escaped Prisoner" looktype="136" renderhelmet="false" hair="844" haircolors="117,0,0,0" body="959"/>
-    <creature name="Lily" type="npc" title="Alchemist" looktype="136" renderhelmet="false" hair="902" haircolors="40,0,0,0" body="941" legs="942" feet="943"/>
-    <creature name="Lord Caelan Leonhart" type="npc" title="Island Governor" looktype="134" renderhelmet="false" hair="841" haircolors="78,0,0,0" body="945" bodyrarity="4" bodylevel="10" legs="942" feet="943" backpack="906"/>
-    <creature name="Marcus" type="npc" title="Banker" looktype="132" renderhelmet="false" hair="902" haircolors="79,0,0,0" body="941" legs="942" feet="943"/>
-    <creature name="Master Enchanter" type="npc" title="Grand Master of Enchantment" looktype="131" renderhelmet="false" hair="850" haircolors="76,0,0,0" body="941" legs="942" feet="943"/>
-    <creature name="Norman" type="npc" title="Barkeeper" looktype="128" renderhelmet="false" hair="850" haircolors="114,0,0,0" body="950" legs="942" feet="943" belt="931"/>
-    <creature name="Obi" type="npc" title="Weaponsmith" looktype="134" renderhelmet="false" hair="850" haircolors="115,0,0,0" body="941" bodycolors="10,0,0,0" legs="942" legscolors="90,0,0,0" feet="943" feetcolors="115,0,0,0"/>
-    <creature name="Riona" type="npc" title="Merchant" looktype="136" renderhelmet="false" hair="902" haircolors="114,0,0,0" body="941" legs="942" feet="943"/>
-    <creature name="Roland" type="npc" title="Soldier" looktype="134" renderhelmet="false" hair="904" haircolors="78,0,0,0" body="941" legs="942" feet="943" lefthand="946" righthand="956"/>
-    <creature name="Seymour" type="npc" title="Librarian" looktype="128" renderhelmet="false" hair="850" haircolors="79,0,0,0" body="950" legs="942" feet="943" backpack="949"/>
-    <creature name="Torben" type="npc" title="Apprentice Smith" looktype="131" renderhelmet="false" hair="850" haircolors="76,0,0,0" body="941" legs="942" feet="943"/>
-    <creature name="Tom" type="npc" title="Tanner" looktype="128" renderhelmet="false" hair="850" haircolors="114,0,0,0" body="941" legs="942" feet="943"/>
-    <creature name="Tyoric" type="npc" title="Adventurer" looktype="136" renderhelmet="false" hair="850" haircolors="95,0,0,0" body="941" legs="942" feet="943"/>
-    <creature name="Varn" type="npc" title="Weaponsmith" looktype="131" renderhelmet="false" hair="850" haircolors="95,0,0,0" body="941" legs="942" feet="943"/>
-    <creature name="Zerbrus" type="npc" title="Guard" looktype="134" renderhelmet="false" hair="904" haircolors="76,0,0,0" body="941" legs="942" feet="943" lefthand="946" righthand="956"/>
+    <creature name="Al Dee" type="npc" title="Equipment Merchant" looktype="128" renderhelmet="false" hair="850" haircolors="76,0,0,0" body="2487" legs="2488" feet="7457" backpack="1998"/>
+    <creature name="Aldric" type="npc" title="Master Forgewright" looktype="131" renderhelmet="false" hair="850" haircolors="76,0,0,0" body="2487" legs="2488" feet="7457"/>
+    <creature name="Alice" type="npc" title="Merchant" looktype="130" renderhelmet="false" hair="852" haircolors="77,0,0,0" body="2652" bodycolors="0,7,0,0" legs="3983" legscolors="2,0,76,0" feet="2642" feetcolors="0,0,0,85" backpack="1998" belt="2002"/>
+    <creature name="Apprentice Enchanter" type="npc" title="Novice Enchanter" looktype="131" renderhelmet="false" hair="850" haircolors="76,0,0,0" body="2487" legs="2488" feet="7457"/>
+    <creature name="Brynn" type="npc" title="Escaped Prisoner" looktype="136" renderhelmet="false" body="960" bodydirectappearance="true"/>
+    <creature name="Dallheim" type="npc" title="Guard" looktype="134" renderhelmet="false" hair="849" haircolors="96,0,0,0" body="2487" legs="2488" feet="7457" lefthand="2384" righthand="2511"/>
+    <creature name="Dixi" type="npc" title="Merchant" looktype="136" renderhelmet="false" hair="902" haircolors="79,0,0,0" body="2487" legs="2488" feet="7457"/>
+    <creature name="Drust" type="npc" title="Escaped Prisoner" looktype="136" renderhelmet="false" hair="843" haircolors="127,0,0,0" body="960" bodydirectappearance="true"/>
+    <creature name="Elara" type="npc" title="Jeweler" looktype="131" renderhelmet="false" hair="850" haircolors="114,0,0,0" body="2487" legs="2488" feet="7457"/>
+    <creature name="Enchanter" type="npc" title="Arcane Enchanter" looktype="131" renderhelmet="false" hair="850" haircolors="76,0,0,0" body="2487" legs="2488" feet="7457"/>
+    <creature name="Eryn" type="npc" title="Merchant" looktype="136" renderhelmet="false" hair="902" haircolors="114,0,0,0" body="2487" legs="2488" feet="7457"/>
+    <creature name="Gabriel" type="npc" title="Monk" looktype="135" renderhelmet="false" hair="1" haircolors="116,0,0,0" body="8819" bodyrarity="4" bodylevel="15"/>
+    <creature name="General Aldric" type="npc" title="General" looktype="134" renderhelmet="false" hair="841" haircolors="79,0,0,0" body="2486" bodyrarity="5" bodylevel="15" legs="2488" feet="7457" lefthand="2191" righthand="2191" backpack="3940"/>
+    <creature name="Garrick" type="npc" title="Armour Smith" looktype="131" renderhelmet="false" hair="850" haircolors="76,0,0,0" body="2487" legs="2488" feet="7457"/>
+    <creature name="Harken" type="npc" title="Escaped Prisoner" looktype="136" renderhelmet="false" hair="844" haircolors="117,0,0,0" body="2654"/>
+    <creature name="Lily" type="npc" title="Alchemist" looktype="136" renderhelmet="false" hair="902" haircolors="40,0,0,0" body="2487" legs="2488" feet="7457"/>
+    <creature name="Lord Caelan Leonhart" type="npc" title="Island Governor" looktype="134" renderhelmet="false" hair="841" haircolors="78,0,0,0" body="2486" bodyrarity="4" bodylevel="10" legs="2488" feet="7457" backpack="3940"/>
+    <creature name="Marcus" type="npc" title="Banker" looktype="132" renderhelmet="false" hair="902" haircolors="79,0,0,0" body="2487" legs="2488" feet="7457"/>
+    <creature name="Master Enchanter" type="npc" title="Grand Master of Enchantment" looktype="131" renderhelmet="false" hair="850" haircolors="76,0,0,0" body="2487" legs="2488" feet="7457"/>
+    <creature name="Norman" type="npc" title="Barkeeper" looktype="128" renderhelmet="false" hair="850" haircolors="114,0,0,0" body="950" legs="2488" feet="7457" belt="2002"/>
+    <creature name="Obi" type="npc" title="Weaponsmith" looktype="134" renderhelmet="false" hair="850" haircolors="115,0,0,0" body="2487" bodycolors="10,0,0,0" legs="2488" legscolors="90,0,0,0" feet="7457" feetcolors="115,0,0,0"/>
+    <creature name="Riona" type="npc" title="Merchant" looktype="136" renderhelmet="false" hair="902" haircolors="114,0,0,0" body="2487" legs="2488" feet="7457"/>
+    <creature name="Roland" type="npc" title="Soldier" looktype="134" renderhelmet="false" hair="904" haircolors="78,0,0,0" body="2487" legs="2488" feet="7457" lefthand="2384" righthand="2511"/>
+    <creature name="Seymour" type="npc" title="Librarian" looktype="136" renderhelmet="false" hair="850" haircolors="95,0,0,0" body="2487" legs="2488" feet="7457"/>
+    <creature name="Torben" type="npc" title="Apprentice Smith" looktype="131" renderhelmet="false" hair="850" haircolors="76,0,0,0" body="2487" legs="2488" feet="7457"/>
+    <creature name="Tom" type="npc" title="Tanner" looktype="128" renderhelmet="false" hair="850" haircolors="114,0,0,0" body="2487" legs="2488" feet="7457"/>
+    <creature name="Tyoric" type="npc" title="Adventurer" looktype="136" renderhelmet="false" hair="850" haircolors="95,0,0,0" body="2487" legs="2488" feet="7457"/>
+    <creature name="Varn" type="npc" title="Weaponsmith" looktype="131" renderhelmet="false" hair="850" haircolors="95,0,0,0" body="2487" legs="2488" feet="7457"/>
+    <creature name="Zerbrus" type="npc" title="Guard" looktype="134" renderhelmet="false" hair="904" haircolors="76,0,0,0" body="2487" legs="2488" feet="7457" lefthand="2384" righthand="2511"/>
 </creatures>

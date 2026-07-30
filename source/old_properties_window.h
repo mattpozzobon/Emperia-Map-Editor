@@ -35,6 +35,7 @@ public:
 	virtual ~OldPropertiesWindow();
 
 	void OnFocusChange(wxFocusEvent&);
+	void OnPastePosition(wxKeyEvent&);
 
 	void OnClickOK(wxCommandEvent&);
 	void OnClickCancel(wxCommandEvent&);
@@ -48,6 +49,10 @@ protected:
 	wxChoice* direction_field;
 	wxSpinCtrl* action_id_field;
 	wxSpinCtrl* unique_id_field;
+	wxSpinCtrl* minimum_level_field;
+	wxCheckBox* noble_only_field;
+	wxTextCtrl* required_quests_field;
+	wxTextCtrl* required_storage_field;
 	wxSpinCtrl* door_id_field;
 	wxChoice* depot_id_field;
 	PositionCtrl* destination_field;

@@ -23,6 +23,8 @@
 
 class MapCanvas;
 class DCButton;
+class wxComboBox;
+class wxSpinCtrl;
 
 // Map window, a window displaying a map, complete with scrollbars
 // and everything. This is the window that's inside each tab in the
@@ -42,6 +44,8 @@ public:
 	void OnScrollPageDown(wxScrollEvent& event);
 	void OnScrollPageUp(wxScrollEvent& event);
 	void OnGem(wxCommandEvent& event);
+	void OnFloorChanged(wxSpinEvent& event);
+	void OnZoomChanged(wxCommandEvent& event);
 
 	// Custom interface for MapWindow
 
@@ -72,6 +76,7 @@ public:
 
 	// Return the containing canvas
 	MapCanvas* GetCanvas() const noexcept { return canvas; }
+	void UpdateViewControls();
 
 	void ShowReplaceItemsDialog(bool selectionOnly);
 	void CloseReplaceItemsDialog();
@@ -89,6 +94,9 @@ protected:
 	MapCanvas* canvas;
 	wxScrollBar* hScroll;
 	wxScrollBar* vScroll;
+	wxSpinCtrl* floor_control;
+	wxComboBox* zoom_control;
+	bool updating_view_controls;
 
 private:
 	ReplaceItemsDialog* replaceItemsDialog;
@@ -106,7 +114,7 @@ private:
 class MapScrollBar : public wxScrollBar
 {
 public:
-	MapScrollBar(MapWindow* parent, wxWindowID id, long style, wxWindow* canvas) :
+	MapScrollBar(wxWindow* parent, wxWindowID id, long style, wxWindow* canvas) :
 	  wxScrollBar(parent, id, wxDefaultPosition, wxDefaultSize, style), canvas(canvas) {}
 	virtual ~MapScrollBar() {}
 

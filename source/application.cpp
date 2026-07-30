@@ -27,6 +27,7 @@
 #include "minimap_window.h"
 #include "about_window.h"
 #include "main_menubar.h"
+#include "map_tab.h"
 #include "updater.h"
 #include "artprovider.h"
 
@@ -35,13 +36,58 @@
 #include "complexitem.h"
 #include "creature.h"
 
+#include <wx/dir.h>
 #include <wx/snglinst.h>
+#include <wx/tokenzr.h>
 
 #if defined(__LINUX__) || defined(__WINDOWS__)
 #include <GL/glut.h>
 #endif
 
 #include "../brushes/icon/rme_icon.xpm"
+
+namespace
+{
+	bool SnapshotFile(const wxFileName& source, const wxString& timestamp, int retention)
+	{
+		if(retention <= 0 || !source.FileExists()) {
+			return true;
+		}
+
+		const wxString extension = source.GetExt();
+		const wxString snapshot_name = source.GetName() + ".autosave-" + timestamp +
+			(extension.IsEmpty() ? wxString() : "." + extension);
+		wxFileName snapshot(source.GetPath(), snapshot_name);
+		if(!wxCopyFile(source.GetFullPath(), snapshot.GetFullPath(), true)) {
+			return false;
+		}
+
+		wxArrayString snapshots;
+		const wxString pattern = source.GetName() + ".autosave-*" +
+			(extension.IsEmpty() ? wxString() : "." + extension);
+		wxDir directory(source.GetPath());
+		wxString snapshot_file;
+		bool has_snapshot = directory.GetFirst(&snapshot_file, pattern, wxDIR_FILES);
+		while(has_snapshot) {
+			snapshots.Add(wxFileName(source.GetPath(), snapshot_file).GetFullPath());
+			has_snapshot = directory.GetNext(&snapshot_file);
+		}
+		snapshots.Sort(true);
+		for(size_t index = static_cast<size_t>(retention); index < snapshots.size(); ++index) {
+			wxRemoveFile(snapshots[index]);
+		}
+		return true;
+	}
+
+	wxFileName ResolveCompanionFile(const wxFileName& map_file, const std::string& companion_name)
+	{
+		wxFileName companion(wxstr(companion_name));
+		if(companion.IsRelative()) {
+			companion.MakeAbsolute(map_file.GetPath());
+		}
+		return companion;
+	}
+}
 
 BEGIN_EVENT_TABLE(MainFrame, wxFrame)
 	EVT_CLOSE(MainFrame::OnExit)
@@ -179,7 +225,11 @@ bool Application::OnInit()
     wxIcon icon(rme_icon);
     g_gui.root->SetIcon(icon);
 
-    if(g_settings.getInteger(Config::WELCOME_DIALOG) == 1 && m_file_to_open == wxEmptyString) {
+	const bool has_workspace_to_restore =
+		g_settings.getInteger(Config::RESTORE_PREVIOUS_WORKSPACE) == 1 &&
+		!g_settings.getString(Config::OPEN_MAP_FILES).empty();
+    if(g_settings.getInteger(Config::WELCOME_DIALOG) == 1 &&
+	   m_file_to_open == wxEmptyString && !has_workspace_to_restore) {
         g_gui.ShowWelcomeDialog(icon);
     } else {
         g_gui.root->Show();
@@ -280,6 +330,18 @@ void Application::OnEventLoopEnter(wxEventLoopBase* loop) {
     //Open a map.
     if(m_file_to_open != wxEmptyString) {
         g_gui.LoadMap(FileName(m_file_to_open));
+    } else if(g_settings.getInteger(Config::RESTORE_PREVIOUS_WORKSPACE) == 1) {
+		bool restored_map = false;
+		wxStringTokenizer paths(wxstr(g_settings.getString(Config::OPEN_MAP_FILES)), "\n", wxTOKEN_STRTOK);
+		while(paths.HasMoreTokens()) {
+			const wxString path = paths.GetNextToken();
+			if(wxFileExists(path) && g_gui.LoadMap(FileName(path))) {
+				restored_map = true;
+			}
+		}
+		if(!restored_map && !g_gui.IsWelcomeDialogShown() && g_gui.NewMap()) {
+			g_gui.GetCurrentEditor()->clearChanges();
+		}
     } else if(!g_gui.IsWelcomeDialogShown() && g_gui.NewMap()) { //Open a new empty map
         // You generally don't want to save this map...
         g_gui.GetCurrentEditor()->clearChanges();
@@ -354,7 +416,8 @@ bool Application::ParseCommandLineMap(wxString& fileName)
 }
 
 MainFrame::MainFrame(const wxString& title, const wxPoint& pos, const wxSize& size) :
-	wxFrame((wxFrame *)nullptr, -1, title, pos, size, wxDEFAULT_FRAME_STYLE)
+	wxFrame((wxFrame *)nullptr, -1, title, pos, size, wxDEFAULT_FRAME_STYLE),
+	autosave_timer(this)
 {
 	// Receive idle events
 	SetExtraStyle(wxWS_EX_PROCESS_IDLE);
@@ -380,6 +443,8 @@ MainFrame::MainFrame(const wxString& title, const wxPoint& pos, const wxSize& si
 
 	wxStatusBar* statusbar = CreateStatusBar();
 	statusbar->SetFieldsCount(4);
+	const int status_widths[] = {-3, -4, FROM_DIP(this, 190), FROM_DIP(this, 210)};
+	statusbar->SetStatusWidths(4, status_widths);
 	SetStatusText(wxString("Welcome to ") << __W_RME_APPLICATION_NAME__ << " " << __W_RME_VERSION__);
 
 	// Le sizer
@@ -392,13 +457,61 @@ MainFrame::MainFrame(const wxString& title, const wxPoint& pos, const wxSize& si
 	g_gui.aui_manager->Update();
 
 	UpdateMenubar();
+
+	const int autosave_minutes = g_settings.getInteger(Config::AUTOSAVE_INTERVAL_MINUTES);
+	if(autosave_minutes > 0) {
+		Bind(wxEVT_TIMER, &MainFrame::OnAutosave, this, autosave_timer.GetId());
+		autosave_timer.Start(autosave_minutes * 60 * 1000);
+	}
 }
 
-MainFrame::~MainFrame() = default;
+MainFrame::~MainFrame()
+{
+	if(autosave_timer.IsRunning()) {
+		autosave_timer.Stop();
+		Unbind(wxEVT_TIMER, &MainFrame::OnAutosave, this, autosave_timer.GetId());
+	}
+}
 
 void MainFrame::OnIdle(wxIdleEvent& event)
 {
 	////
+}
+
+void MainFrame::OnAutosave(wxTimerEvent& event)
+{
+	Editor* editor = g_gui.GetCurrentEditor();
+	if(!editor || editor->IsLive() || !editor->hasChanges() || !editor->getMap().hasFile()) {
+		return;
+	}
+
+	SetStatusText("Autosaving map...", 0);
+	editor->saveMap(FileName(), false);
+	if(editor->hasChanges()) {
+		SetStatusText("Autosave failed", 0);
+		UpdateMenubar();
+		return;
+	}
+
+	bool snapshots_ok = true;
+	const int retention = g_settings.getInteger(Config::AUTOSAVE_RETAIN_COUNT);
+	if(retention > 0) {
+		const Map& map = editor->getMap();
+		const wxFileName map_file(wxstr(map.getFilename()));
+		const wxString timestamp = wxDateTime::Now().Format("%Y%m%d-%H%M%S");
+		snapshots_ok = SnapshotFile(map_file, timestamp, retention);
+		if(!map.getHouseFilename().empty()) {
+			snapshots_ok = SnapshotFile(
+				ResolveCompanionFile(map_file, map.getHouseFilename()), timestamp, retention) && snapshots_ok;
+		}
+		if(!map.getSpawnFilename().empty()) {
+			snapshots_ok = SnapshotFile(
+				ResolveCompanionFile(map_file, map.getSpawnFilename()), timestamp, retention) && snapshots_ok;
+		}
+	}
+
+	SetStatusText(snapshots_ok ? "Autosave complete" : "Autosave complete; snapshot failed", 0);
+	UpdateMenubar();
 }
 
 #ifdef _USE_UPDATER_
@@ -540,6 +653,26 @@ bool MainFrame::DoQuerySave(bool doclose)
 	}
 
 	if(doclose) {
+		if(g_settings.getInteger(Config::RESTORE_PREVIOUS_WORKSPACE) == 1 &&
+		   !editor.IsLive() && editor.getMap().hasFile()) {
+			const wxString filename = wxstr(editor.getMap().getFilename());
+			wxString stored_paths = wxstr(g_settings.getString(Config::OPEN_MAP_FILES));
+			bool already_stored = false;
+			wxStringTokenizer tokenizer(stored_paths, "\n", wxTOKEN_STRTOK);
+			while(tokenizer.HasMoreTokens()) {
+				if(wxFileName(tokenizer.GetNextToken()) == wxFileName(filename)) {
+					already_stored = true;
+					break;
+				}
+			}
+			if(!already_stored) {
+				if(!stored_paths.IsEmpty()) {
+					stored_paths += "\n";
+				}
+				stored_paths += filename;
+				g_settings.setString(Config::OPEN_MAP_FILES, nstr(stored_paths));
+			}
+		}
 		UnnamedRenderingLock();
 		g_gui.CloseCurrentEditor();
 	}
@@ -593,6 +726,7 @@ bool MainFrame::LoadMap(FileName name)
 
 void MainFrame::OnExit(wxCloseEvent& event)
 {
+	SaveOpenMaps();
 	while(g_gui.IsEditorOpen()) {
 		if(!DoQuerySave()) {
 			if(event.CanVeto()) {
@@ -625,6 +759,33 @@ void MainFrame::LoadRecentFiles()
 void MainFrame::SaveRecentFiles()
 {
 	menu_bar->SaveRecentFiles();
+}
+
+void MainFrame::SaveOpenMaps()
+{
+	if(g_settings.getInteger(Config::RESTORE_PREVIOUS_WORKSPACE) != 1 || !g_gui.tabbook) {
+		g_settings.setString(Config::OPEN_MAP_FILES, "");
+		return;
+	}
+
+	std::set<std::string> unique_paths;
+	wxString paths;
+	for(int index = 0; index < g_gui.tabbook->GetTabCount(); ++index) {
+		MapTab* map_tab = dynamic_cast<MapTab*>(g_gui.tabbook->GetTab(index));
+		if(!map_tab || !map_tab->GetEditor() || map_tab->GetEditor()->IsLive()) {
+			continue;
+		}
+
+		const Map& map = map_tab->GetEditor()->getMap();
+		if(!map.hasFile() || !unique_paths.insert(map.getFilename()).second) {
+			continue;
+		}
+		if(!paths.IsEmpty()) {
+			paths += "\n";
+		}
+		paths += wxstr(map.getFilename());
+	}
+	g_settings.setString(Config::OPEN_MAP_FILES, nstr(paths));
 }
 
 std::vector<wxString> MainFrame::GetRecentFiles()

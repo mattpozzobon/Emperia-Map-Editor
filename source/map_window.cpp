@@ -23,9 +23,15 @@
 #include "sprites.h"
 #include "editor.h"
 
+#include <wx/combobox.h>
+#include <wx/spinctrl.h>
+
 MapWindow::MapWindow(wxWindow* parent, Editor& editor) :
 	wxPanel(parent, PANE_MAIN),
 	editor(editor),
+	floor_control(nullptr),
+	zoom_control(nullptr),
+	updating_view_controls(false),
 	replaceItemsDialog(nullptr)
 {
 	int GL_settings[3];
@@ -35,9 +41,39 @@ MapWindow::MapWindow(wxWindow* parent, Editor& editor) :
 	canvas = newd MapCanvas(this, editor, GL_settings);
 
 	vScroll = newd MapScrollBar(this, MAP_WINDOW_VSCROLL, wxVERTICAL, canvas);
-	hScroll = newd MapScrollBar(this, MAP_WINDOW_HSCROLL, wxHORIZONTAL, canvas);
+	wxPanel* view_controls = newd wxPanel(this, wxID_ANY);
+	hScroll = newd MapScrollBar(view_controls, MAP_WINDOW_HSCROLL, wxHORIZONTAL, canvas);
 
 	gem = newd DCButton(this, MAP_WINDOW_GEM, wxDefaultPosition, DC_BTN_NORMAL, RENDER_SIZE_16x16, EDITOR_SPRITE_SELECTION_GEM);
+
+	wxBoxSizer* control_sizer = newd wxBoxSizer(wxHORIZONTAL);
+	control_sizer->Add(hScroll, 1, wxEXPAND | wxRIGHT, FROM_DIP(this, 8));
+
+	wxStaticText* floor_label = newd wxStaticText(view_controls, wxID_ANY, "Floor");
+	floor_control = newd wxSpinCtrl(view_controls, wxID_ANY, wxEmptyString, wxDefaultPosition,
+		FROM_DIP(this, wxSize(58, -1)), wxSP_ARROW_KEYS, rme::MapMinLayer, rme::MapMaxLayer);
+	floor_control->SetName("Current map floor");
+	floor_control->SetToolTip("Current floor (0-15). Ctrl+mouse wheel also changes floors.");
+
+	wxStaticText* zoom_label = newd wxStaticText(view_controls, wxID_ANY, "Zoom");
+	wxArrayString zoom_levels;
+	zoom_levels.Add("25%");
+	zoom_levels.Add("50%");
+	zoom_levels.Add("75%");
+	zoom_levels.Add("100%");
+	zoom_levels.Add("150%");
+	zoom_levels.Add("200%");
+	zoom_levels.Add("400%");
+	zoom_control = newd wxComboBox(view_controls, wxID_ANY, wxEmptyString, wxDefaultPosition,
+		FROM_DIP(this, wxSize(76, -1)), zoom_levels, wxCB_DROPDOWN | wxTE_PROCESS_ENTER);
+	zoom_control->SetName("Map zoom percentage");
+	zoom_control->SetToolTip("Choose or type a zoom percentage from 4% to 800%.");
+
+	control_sizer->Add(floor_label, 0, wxALIGN_CENTER_VERTICAL | wxRIGHT, FROM_DIP(this, 4));
+	control_sizer->Add(floor_control, 0, wxALIGN_CENTER_VERTICAL | wxRIGHT, FROM_DIP(this, 8));
+	control_sizer->Add(zoom_label, 0, wxALIGN_CENTER_VERTICAL | wxRIGHT, FROM_DIP(this, 4));
+	control_sizer->Add(zoom_control, 0, wxALIGN_CENTER_VERTICAL);
+	view_controls->SetSizer(control_sizer);
 
 	wxFlexGridSizer* topsizer = newd wxFlexGridSizer(2, 0, 0);
 
@@ -46,15 +82,62 @@ MapWindow::MapWindow(wxWindow* parent, Editor& editor) :
 
 	topsizer->Add(canvas, wxSizerFlags(1).Expand());
 	topsizer->Add(vScroll, wxSizerFlags(1).Expand());
-	topsizer->Add(hScroll, wxSizerFlags(1).Expand());
+	topsizer->Add(view_controls, wxSizerFlags(1).Expand());
 	topsizer->Add(gem, wxSizerFlags(1));
 
 	SetSizerAndFit(topsizer);
+
+	floor_control->Bind(wxEVT_SPINCTRL, &MapWindow::OnFloorChanged, this);
+	zoom_control->Bind(wxEVT_COMBOBOX, &MapWindow::OnZoomChanged, this);
+	zoom_control->Bind(wxEVT_TEXT_ENTER, &MapWindow::OnZoomChanged, this);
+	UpdateViewControls();
 }
 
 MapWindow::~MapWindow()
 {
-	////
+	floor_control->Unbind(wxEVT_SPINCTRL, &MapWindow::OnFloorChanged, this);
+	zoom_control->Unbind(wxEVT_COMBOBOX, &MapWindow::OnZoomChanged, this);
+	zoom_control->Unbind(wxEVT_TEXT_ENTER, &MapWindow::OnZoomChanged, this);
+}
+
+void MapWindow::UpdateViewControls()
+{
+	if(!floor_control || !zoom_control || updating_view_controls) {
+		return;
+	}
+
+	updating_view_controls = true;
+	floor_control->SetValue(canvas->GetFloor());
+	const int zoom_percent = std::clamp(static_cast<int>(std::lround(100.0 / canvas->GetZoom())), 4, 800);
+	zoom_control->ChangeValue(wxString::Format("%d%%", zoom_percent));
+	updating_view_controls = false;
+}
+
+void MapWindow::OnFloorChanged(wxSpinEvent& event)
+{
+	if(!updating_view_controls) {
+		g_gui.ChangeFloor(event.GetValue());
+		canvas->SetFocus();
+	}
+}
+
+void MapWindow::OnZoomChanged(wxCommandEvent& event)
+{
+	if(updating_view_controls) {
+		return;
+	}
+
+	wxString value = zoom_control->GetValue();
+	value.Replace("%", "");
+	value.Trim(true).Trim(false);
+	long percentage = 0;
+	if(!value.ToLong(&percentage) || percentage < 4 || percentage > 800) {
+		UpdateViewControls();
+		return;
+	}
+
+	canvas->SetZoom(100.0 / static_cast<double>(percentage));
+	canvas->SetFocus();
 }
 
 void MapWindow::ShowReplaceItemsDialog(bool selectionOnly)

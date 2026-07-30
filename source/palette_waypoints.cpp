@@ -28,6 +28,7 @@
 BEGIN_EVENT_TABLE(WaypointPalettePanel, PalettePanel)
 	EVT_BUTTON(PALETTE_WAYPOINT_ADD_WAYPOINT, WaypointPalettePanel::OnClickAddWaypoint)
 	EVT_BUTTON(PALETTE_WAYPOINT_EDIT_WAYPOINT, WaypointPalettePanel::OnClickEditWaypoint)
+	EVT_BUTTON(PALETTE_WAYPOINT_MOVE_WAYPOINT, WaypointPalettePanel::OnClickMoveWaypoint)
 	EVT_BUTTON(PALETTE_WAYPOINT_REMOVE_WAYPOINT, WaypointPalettePanel::OnClickRemoveWaypoint)
 
 	EVT_LIST_BEGIN_LABEL_EDIT(PALETTE_WAYPOINT_LISTBOX, WaypointPalettePanel::OnBeginEditWaypointLabel)
@@ -48,9 +49,15 @@ WaypointPalettePanel::WaypointPalettePanel(wxWindow* parent, wxWindowID id) :
 	sidesizer->Add(waypoint_list, 1, wxEXPAND);
 
 	wxSizer* tmpsizer = newd wxBoxSizer(wxHORIZONTAL);
-	tmpsizer->Add(add_waypoint_button = newd wxButton(this, PALETTE_WAYPOINT_ADD_WAYPOINT, "Add", wxDefaultPosition, wxSize(50, -1)), 1, wxEXPAND);
-	tmpsizer->Add(edit_waypoint_button = newd wxButton(this, PALETTE_WAYPOINT_EDIT_WAYPOINT, "Edit", wxDefaultPosition, wxSize(50, -1)), 1, wxEXPAND);
-	tmpsizer->Add(remove_waypoint_button = newd wxButton(this, PALETTE_WAYPOINT_REMOVE_WAYPOINT, "Remove", wxDefaultPosition, wxSize(70, -1)), 1, wxEXPAND);
+	tmpsizer->Add(add_waypoint_button = newd wxButton(
+		this, PALETTE_WAYPOINT_ADD_WAYPOINT, "Add", wxDefaultPosition, FROM_DIP(this, wxSize(44, -1))), 1, wxEXPAND);
+	tmpsizer->Add(edit_waypoint_button = newd wxButton(
+		this, PALETTE_WAYPOINT_EDIT_WAYPOINT, "Edit", wxDefaultPosition, FROM_DIP(this, wxSize(44, -1))), 1, wxEXPAND);
+	tmpsizer->Add(move_waypoint_button = newd wxButton(
+		this, PALETTE_WAYPOINT_MOVE_WAYPOINT, "Move", wxDefaultPosition, FROM_DIP(this, wxSize(50, -1))), 1, wxEXPAND);
+	tmpsizer->Add(remove_waypoint_button = newd wxButton(
+		this, PALETTE_WAYPOINT_REMOVE_WAYPOINT, "Remove", wxDefaultPosition, FROM_DIP(this, wxSize(64, -1))), 1, wxEXPAND);
+	move_waypoint_button->SetToolTip("Select a waypoint, then click Move and choose its new tile on the map.");
 	sidesizer->Add(tmpsizer, 0, wxEXPAND);
 
 	SetSizerAndFit(sidesizer);
@@ -135,11 +142,13 @@ void WaypointPalettePanel::OnUpdate()
 		waypoint_list->Enable(false);
 		add_waypoint_button->Enable(false);
 		edit_waypoint_button->Enable(false);
+		move_waypoint_button->Enable(false);
 		remove_waypoint_button->Enable(false);
 	} else {
 		waypoint_list->Enable(true);
 		add_waypoint_button->Enable(true);
 		edit_waypoint_button->Enable(true);
+		move_waypoint_button->Enable(false);
 		remove_waypoint_button->Enable(true);
 
 		Waypoints& waypoints = map->waypoints;
@@ -160,6 +169,7 @@ void WaypointPalettePanel::OnClickWaypoint(wxListEvent& event)
 	if(wp) {
 		g_gui.SetScreenCenterPosition(wp->pos);
 		g_gui.waypoint_brush->setWaypoint(wp);
+		move_waypoint_button->Enable(true);
 	}
 }
 
@@ -248,6 +258,30 @@ void WaypointPalettePanel::OnClickEditWaypoint(wxCommandEvent& event)
 		waypoint_list->EditLabel(item);
 }
 
+void WaypointPalettePanel::OnClickMoveWaypoint(wxCommandEvent& event)
+{
+	if(!map) {
+		return;
+	}
+
+	const long item = waypoint_list->GetNextItem(-1, wxLIST_NEXT_ALL, wxLIST_STATE_SELECTED);
+	if(item == -1) {
+		g_gui.SetStatusText("Select a waypoint to move.");
+		return;
+	}
+
+	Waypoint* waypoint = map->waypoints.getWaypoint(nstr(waypoint_list->GetItemText(item)));
+	if(!waypoint) {
+		return;
+	}
+
+	g_gui.ActivatePalette(GetParentPalette());
+	g_gui.waypoint_brush->setWaypoint(waypoint);
+	g_gui.SelectBrush();
+	g_gui.SetStatusText(wxString::Format(
+		"Click a map tile to move waypoint \"%s\".", wxstr(waypoint->name)));
+}
+
 void WaypointPalettePanel::OnClickRemoveWaypoint(wxCommandEvent& event)
 {
 	if(!map)
@@ -262,6 +296,7 @@ void WaypointPalettePanel::OnClickRemoveWaypoint(wxCommandEvent& event)
 			map->waypoints.removeWaypoint(wp->name);
 		}
 		waypoint_list->DeleteItem(item);
+		move_waypoint_button->Enable(false);
 		refresh_timer.Start(300, true);
 	}
 }

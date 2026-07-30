@@ -122,6 +122,38 @@ bool Item::readItemAttribute_OTBM(const IOMap& maphandle, OTBM_ItemAttribute att
 			setSubtype(charges);
 			break;
 		}
+		case OTBM_ATTR_EMPERIA_MIN_LEVEL: {
+			uint16_t level;
+			if(!stream->getU16(level)) {
+				return false;
+			}
+			setMinimumLevel(level);
+			break;
+		}
+		case OTBM_ATTR_EMPERIA_NOBLE_ONLY: {
+			uint8_t nobleOnly;
+			if(!stream->getU8(nobleOnly)) {
+				return false;
+			}
+			setNobleOnly(nobleOnly != 0);
+			break;
+		}
+		case OTBM_ATTR_EMPERIA_QUESTS: {
+			std::string quests;
+			if(!stream->getString(quests)) {
+				return false;
+			}
+			setRequiredQuests(quests);
+			break;
+		}
+		case OTBM_ATTR_EMPERIA_STORAGE: {
+			std::string storage;
+			if(!stream->getString(storage)) {
+				return false;
+			}
+			setRequiredStorage(storage);
+			break;
+		}
 		case OTBM_ATTR_TEXT: {
 			std::string text;
 			if(!stream->getString(text)) {
@@ -221,6 +253,29 @@ void Item::serializeItemAttributes_OTBM(const IOMap& maphandle, NodeFileWriteHan
 		if(!description.empty()) {
 			stream.addU8(OTBM_ATTR_DESC);
 			stream.addString(description);
+		}
+
+		const uint16_t minimumLevel = getMinimumLevel();
+		if(minimumLevel > 0) {
+			stream.addU8(OTBM_ATTR_EMPERIA_MIN_LEVEL);
+			stream.addU16(minimumLevel);
+		}
+
+		if(isNobleOnly()) {
+			stream.addU8(OTBM_ATTR_EMPERIA_NOBLE_ONLY);
+			stream.addU8(1);
+		}
+
+		const std::string& requiredQuests = getRequiredQuests();
+		if(!requiredQuests.empty()) {
+			stream.addU8(OTBM_ATTR_EMPERIA_QUESTS);
+			stream.addString(requiredQuests);
+		}
+
+		const std::string& requiredStorage = getRequiredStorage();
+		if(!requiredStorage.empty()) {
+			stream.addU8(OTBM_ATTR_EMPERIA_STORAGE);
+			stream.addString(requiredStorage);
 		}
 	}
 }

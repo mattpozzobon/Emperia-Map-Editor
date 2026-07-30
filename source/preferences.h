@@ -46,6 +46,9 @@ protected:
 
 	// General
 	wxCheckBox* always_make_backup_chkbox;
+	wxCheckBox* restore_workspace_chkbox;
+	wxSpinCtrl* autosave_interval_spin;
+	wxSpinCtrl* autosave_retention_spin;
 	wxCheckBox* create_on_startup_chkbox;
 	wxCheckBox* update_check_on_startup_chkbox;
 	wxCheckBox* only_one_instance_chkbox;
@@ -75,6 +78,7 @@ protected:
 	wxDirPickerCtrl* screenshot_directory_picker;
 	wxChoice* screenshot_format_choice;
 	wxCheckBox* hide_items_when_zoomed_chkbox;
+	wxCheckBox* show_canvas_performance_chkbox;
 	wxColourPickerCtrl* cursor_color_pick;
 	wxColourPickerCtrl* cursor_alt_color_pick;
 	/*
@@ -87,6 +91,7 @@ protected:
 	*/
 
 	// Interface
+	wxChoice* ui_density_choice;
 	wxChoice* terrain_palette_style_choice;
 	wxChoice* doodad_palette_style_choice;
 	wxChoice* item_palette_style_choice;

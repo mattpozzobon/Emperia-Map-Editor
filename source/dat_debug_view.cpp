@@ -19,6 +19,8 @@
 
 #include "dat_debug_view.h"
 
+#include <wx/settings.h>
+
 #include "graphics.h"
 #include "gui.h"
 
@@ -42,6 +44,7 @@ protected:
 DatDebugViewListBox::DatDebugViewListBox(wxWindow* parent, wxWindowID id) :
 	wxVListBox(parent, id, wxDefaultPosition, wxDefaultSize, wxLB_SINGLE)
 {
+	SetName("Item appearance debug list");
 	int n = 0;
 	for(int id = 0; id < g_gui.gfx.getItemSpriteMaxID(); ++id) {
 		Sprite* spr = g_gui.gfx.getSprite(id);
@@ -65,20 +68,17 @@ void DatDebugViewListBox::OnDrawItem(wxDC& dc, const wxRect& rect, size_t n) con
 		spr_iter->second->DrawTo(&dc, SPRITE_SIZE_32x32, rect.GetX(), rect.GetY(), rect.GetWidth(), rect.GetHeight());
 
 	if(IsSelected(n)) {
-		if(HasFocus())
-			dc.SetTextForeground(wxColor(0xFF, 0xFF, 0xFF));
-		else
-			dc.SetTextForeground(wxColor(0x00, 0x00, 0xFF));
+		dc.SetTextForeground(wxSystemSettings::GetColour(wxSYS_COLOUR_HIGHLIGHTTEXT));
 	} else {
-		dc.SetTextForeground(wxColor(0x00, 0x00, 0x00));
+		dc.SetTextForeground(wxSystemSettings::GetColour(wxSYS_COLOUR_WINDOWTEXT));
 	}
 
-	dc.DrawText(wxString() << n, rect.GetX() + 40, rect.GetY() + 6);
+	dc.DrawText(wxString() << n, rect.GetX() + FROM_DIP(this, 40), rect.GetY() + FROM_DIP(this, 6));
 }
 
 wxCoord DatDebugViewListBox::OnMeasureItem(size_t n) const
 {
-	return 32;
+	return FROM_DIP(this, 36);
 }
 
 // ============================================================================

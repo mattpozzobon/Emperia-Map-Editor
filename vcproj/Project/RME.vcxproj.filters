@@ -330,6 +330,18 @@
     <ClInclude Include="..\..\source\main_toolbar.h">
       <Filter>gui</Filter>
     </ClInclude>
+    <ClInclude Include="..\..\source\command_palette.h">
+      <Filter>gui\dialogs</Filter>
+    </ClInclude>
+    <ClCompile Include="..\..\source\command_palette.cpp">
+      <Filter>gui\dialogs</Filter>
+    </ClCompile>
+    <ClInclude Include="..\..\source\tile_inspector_window.h">
+      <Filter>gui</Filter>
+    </ClInclude>
+    <ClCompile Include="..\..\source\tile_inspector_window.cpp">
+      <Filter>gui</Filter>
+    </ClCompile>
     <ClInclude Include="..\..\source\artprovider.h">
       <Filter>gui</Filter>
     </ClInclude>

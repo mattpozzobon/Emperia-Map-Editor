@@ -42,6 +42,7 @@ namespace MenuBar
 		EXIT,
 		UNDO,
 		REDO,
+		COMMAND_PALETTE,
 		FIND_ITEM,
 		REPLACE_ITEMS,
 		SEARCH_ON_MAP_EVERYTHING,
@@ -124,6 +125,7 @@ namespace MenuBar
 		SHOW_MOVEABLES,
 		WIN_MINIMAP,
 		WIN_ACTIONS_HISTORY,
+		WIN_INSPECTOR,
 		NEW_PALETTE,
 		TAKE_SCREENSHOT,
 		LIVE_START,
@@ -208,6 +210,7 @@ public:
 	// Edit Menu
 	void OnUndo(wxCommandEvent& event);
 	void OnRedo(wxCommandEvent& event);
+	void OnCommandPalette(wxCommandEvent& event);
 	void OnBorderizeSelection(wxCommandEvent& event);
 	void OnBorderizeMap(wxCommandEvent& event);
 	void OnRandomizeSelection(wxCommandEvent& event);
@@ -274,6 +277,7 @@ public:
 	// Window Menu
 	void OnMinimapWindow(wxCommandEvent& event);
 	void OnActionsHistoryWindow(wxCommandEvent& event);
+	void OnInspectorWindow(wxCommandEvent& event);
 	void OnNewPalette(wxCommandEvent& event);
 	void OnTakeScreenshot(wxCommandEvent& event);
 	void OnSelectTerrainPalette(wxCommandEvent& event);

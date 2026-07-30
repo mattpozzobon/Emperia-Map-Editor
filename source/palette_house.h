@@ -106,6 +106,7 @@ protected:
 	wxTextCtrl* name_field;
 	wxTextCtrl* id_field;
 	wxTextCtrl* rent_field;
+	wxChoice* town_field;
 	wxCheckBox* guildhall_field;
 
 	DECLARE_EVENT_TABLE();
