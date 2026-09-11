@@ -1981,7 +1981,7 @@ bool IOMapOTBM::saveWorldMapData(Map& map, const FileName& dir)
 	manifest["tileSize"] = 1024;
 	manifest["minimap"] = "minimap.otmm";
 
-	// The world map intentionally publishes only the surface floor.
+	// The public world map intentionally publishes only the surface floor.
 	json floorsArr = json::array();
 	floorsArr.push_back(WorldMapFloor);
 	manifest["floors"] = floorsArr;
@@ -2118,11 +2118,20 @@ bool IOMapOTBM::saveWorldMapData(Map& map, const FileName& dir)
 		ofs << manifest.dump(2);
 	}
 
-	// Keep the floor-7 minimap image in the same bundle as its manifest so
-	// client bounds, labels, and terrain can never be published separately.
-	IOMinimap minimapExporter(&map, MinimapExportFormat::Otmm, MinimapExportMode::SpecificFloor, false);
-	if(!minimapExporter.saveMinimap(wmDir, "minimap", WorldMapFloor)) {
-		warning("Unable to export world-map/minimap.otmm: %s", minimapExporter.getError().c_str());
+	// The public client bundle remains surface-only. Its manifest references
+	// only this file, so underground terrain is never synchronized to clients.
+	IOMinimap clientMinimapExporter(&map, MinimapExportFormat::Otmm, MinimapExportMode::SpecificFloor, false);
+	if(!clientMinimapExporter.saveMinimap(wmDir, "minimap", WorldMapFloor)) {
+		warning("Unable to export world-map/minimap.otmm: %s", clientMinimapExporter.getError().c_str());
+		return false;
+	}
+
+	// Authoring tools need every layer to preview NPC and spawn positions. This
+	// file is deliberately not referenced by world-map.json or copied by the
+	// client world-map synchronization script.
+	IOMinimap editorMinimapExporter(&map, MinimapExportFormat::Otmm, MinimapExportMode::AllFloors, false);
+	if(!editorMinimapExporter.saveMinimap(wmDir, "minimap-data-editor")) {
+		warning("Unable to export world-map/minimap-data-editor.otmm: %s", editorMinimapExporter.getError().c_str());
 		return false;
 	}
 
