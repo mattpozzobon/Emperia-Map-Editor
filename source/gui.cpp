@@ -414,6 +414,7 @@ bool GUI::LoadDataFiles(wxString& error, wxArrayString& warnings)
 	}
 
 	g_gui.SetLoadDone(70, "Finishing...");
+	g_materials.populateEquipmentTilesetFromSlotTypes();
 	g_brushes.init();
 	g_materials.createOtherTileset();
 

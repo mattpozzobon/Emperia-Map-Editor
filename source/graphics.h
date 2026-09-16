@@ -301,6 +301,7 @@ public:
 	uint16_t getItemSpriteMaxID() const noexcept { return item_count; }
 	uint16_t getCreatureSpriteMaxID() const noexcept { return creature_count; }
 	const std::map<uint16_t, uint16_t>& getItemAppearances() const noexcept { return item_appearances; }
+	const std::map<uint16_t, uint8_t>& getItemSlotTypes() const noexcept { return item_slot_types; }
 	const std::map<uint16_t, uint8_t>& getItemIdentities() const noexcept { return item_identities; }
 
 	// Get an unused texture id (this is acquired by simply increasing a value starting from 0x10000000)
@@ -346,6 +347,7 @@ private:
 	uint16_t equipment_count;
 	uint16_t hair_count;
 	std::map<uint16_t, uint16_t> item_appearances;
+	std::map<uint16_t, uint8_t> item_slot_types;
 	std::map<uint16_t, uint8_t> item_identities;
 	std::map<uint16_t, uint16_t> outfit_appearances;
 	std::map<uint16_t, uint16_t> equipment_default_appearances;

@@ -71,6 +71,51 @@ MaterialsExtensionList Materials::getExtensionsByVersion(uint16_t version_id)
 	return ret_list;
 }
 
+void Materials::populateEquipmentTilesetFromSlotTypes()
+{
+	const auto& itemSlotTypes = g_gui.gfx.getItemSlotTypes();
+	if(itemSlotTypes.empty()) {
+		return;
+	}
+
+	Tileset*& equipment = tilesets["Equipment"];
+	if(!equipment) {
+		equipment = newd Tileset(g_brushes, "Equipment");
+	}
+	TilesetCategory* itemCategory = equipment->getCategory(TILESET_ITEM);
+	TilesetCategory* rawCategory = equipment->getCategory(TILESET_RAW);
+
+	for(const auto& entry : itemSlotTypes) {
+		const uint8_t slotType = entry.second;
+		// The shared contract reserves 1-14 for ordinary equipment slots and
+		// 25-26 for the torch and pet equipment slots. Codes 15-24 describe
+		// tools and consumable categories rather than wearable equipment.
+		if(!((slotType >= 1 && slotType <= 14) || slotType == 25 || slotType == 26)) {
+			continue;
+		}
+
+		ItemType* type = g_items.getRawItemType(entry.first);
+		if(!type || type->isMetaItem()) {
+			continue;
+		}
+
+		if(!type->raw_brush) {
+			type->raw_brush = newd RAWBrush(type->id);
+			type->has_raw = true;
+			g_brushes.addBrush(type->raw_brush);
+		}
+
+		Brush* brush = type->raw_brush;
+		brush->flagAsVisible();
+		if(!itemCategory->containsBrush(brush)) {
+			itemCategory->brushlist.push_back(brush);
+		}
+		if(!rawCategory->containsBrush(brush)) {
+			rawCategory->brushlist.push_back(brush);
+		}
+	}
+}
+
 bool Materials::loadMaterials(const FileName& identifier, wxString& error, wxArrayString& warnings)
 {
 	pugi::xml_document doc;

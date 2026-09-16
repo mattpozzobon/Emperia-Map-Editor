@@ -138,6 +138,7 @@ void GraphicManager::clear()
 	equipment_count = 0;
 	hair_count = 0;
 	item_appearances.clear();
+	item_slot_types.clear();
 	item_identities.clear();
 	outfit_appearances.clear();
 	equipment_default_appearances.clear();
@@ -735,6 +736,7 @@ bool GraphicManager::loadSpriteMetadata(const FileName& datafile, wxString& erro
 			outfit_appearances[outfitId] = localAppearanceId + 1;
 		}
 	}
+	item_slot_types.clear();
 	if(emperiaFormatVersion >= 3) {
 		uint32_t slotTypeCount = 0;
 		file.getU32(slotTypeCount);
@@ -743,7 +745,18 @@ bool GraphicManager::loadSpriteMetadata(const FileName& datafile, wxString& erro
 			error = "EOBJ item slot type table is truncated.";
 			return false;
 		}
-		file.skip(slotTypeBytes); // public item ID + compact slot type
+		for(uint32_t index = 0; index < slotTypeCount; ++index) {
+			uint16_t itemId = 0;
+			uint8_t slotType = 0;
+			file.getU16(itemId);
+			file.getU8(slotType);
+			// Codes are one-based indexes into the shared ItemSlotType contract.
+			if(slotType == 0 || slotType > 26) {
+				error = wxString::Format("EOBJ item %u has unknown slot type code %u.", itemId, slotType);
+				return false;
+			}
+			item_slot_types[itemId] = slotType;
+		}
 	}
 	item_identities.clear();
 	if(emperiaFormatVersion >= 11) {
