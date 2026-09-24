@@ -349,6 +349,9 @@ bool hasMatchingWallBrushAtTile(BaseMap* map, WallBrush* wall_brush, uint32_t x,
 		Item* item = *it;
 		if(item->isWall()) {
 			WallBrush* wb = item->getWallBrush();
+			if(!wb) {
+				continue;
+			}
 			if(wb == wall_brush) {
 				return !g_items.getItemType(item->getID()).wall_hate_me;
 			} else if(wall_brush->friendOf(wb) || wb->friendOf(wall_brush)) {
