@@ -1,60 +1,93 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <creatures>
-    <!-- ═══════════════════════════════════════════════════ -->
-    <!-- Monsters                                            -->
-    <!-- ═══════════════════════════════════════════════════ -->
-
-    <!-- Arachnids -->
-    <creature name="Spider" type="monster" looktype="30"/>
-
-    <!-- Demons -->
-    <creature name="Demon" type="monster" looktype="201"/>
-    <creature name="Demon Warrior" type="monster" looktype="139"/>
-
-    <!-- Humanoids -->
-    <creature name="Goblin" type="monster" looktype="61"/>
-    <creature name="Orc" type="monster" looktype="152"/>
-    <creature name="Troll" type="monster" looktype="15"/>
-
-    <!-- Magical -->
-    <creature name="Dark Mage" type="monster" looktype="130"/>
-    <creature name="Iron Golem" type="monster" looktype="325"/>
-    <creature name="Slime" type="monster" looktype="150"/>
-
-    <!-- Special -->
-    <creature name="Trainer" type="monster" looktype="135"/>
-
-    <!-- Undead -->
-    <creature name="Skeleton" type="monster" looktype="33"/>
+    <!-- Generated from Emperia-Server/data/monsters by Emperia-Data-Editor. -->
+    <!-- Monsters -->
 
     <!-- Vermin -->
     <creature name="Bug" type="monster" looktype="45"/>
-    <creature name="Carrion Worm" type="monster" looktype="192"/>
+    <creature name="Carrion Worm" type="monster" looktype="26"/>
     <creature name="Cave Rat" type="monster" looktype="56"/>
-    <creature name="Larva" type="monster" looktype="37"/>
+    <creature name="Larva" type="monster" looktype="82"/>
     <creature name="Plague Rat" type="monster" looktype="56"/>
     <creature name="Rat" type="monster" looktype="21"/>
     <creature name="Rotworm" type="monster" looktype="26"/>
     <creature name="Wasp" type="monster" looktype="44"/>
 
+    <!-- Arachnids -->
+    <creature name="Poison Spider" type="monster" looktype="36"/>
+    <creature name="Spider" type="monster" looktype="30"/>
+    <creature name="Tarantula" type="monster" looktype="219"/>
+
+    <!-- Undead -->
+    <creature name="Skeleton" type="monster" looktype="149"/>
+
     <!-- Wildlife -->
     <creature name="Bear" type="monster" looktype="16"/>
-    <creature name="Black Sheep" type="monster" looktype="13"/>
-    <creature name="Boar" type="monster" looktype="59"/>
-    <creature name="Chicken" type="monster" looktype="111"/>
+    <creature name="Bear Copy" type="monster" looktype="16"/>
+    <creature name="Boar" type="monster" looktype="380"/>
     <creature name="Crocodile" type="monster" looktype="119"/>
-    <creature name="Deer" type="monster" looktype="31"/>
+    <creature name="Hawk" type="monster" looktype="133"/>
     <creature name="Lion" type="monster" looktype="41"/>
-    <creature name="Pig" type="monster" looktype="60"/>
-    <creature name="Rabbit" type="monster" looktype="74"/>
-    <creature name="Sheep" type="monster" looktype="14"/>
-    <creature name="Skunk" type="monster" looktype="29"/>
+    <creature name="Skunk" type="monster" looktype="106"/>
     <creature name="Snake" type="monster" looktype="28"/>
     <creature name="Wolf" type="monster" looktype="27"/>
 
-    <!-- ═══════════════════════════════════════════════════ -->
-    <!-- NPCs                                                -->
-    <!-- ═══════════════════════════════════════════════════ -->
+    <!-- Humanoids -->
+    <creature name="Dark Mage" type="monster" looktype="130"/>
+    <creature name="Goblin" type="monster" looktype="61"/>
+    <creature name="Human" type="monster" looktype="134"/>
+    <creature name="Human Mage" type="monster" looktype="130"/>
+    <creature name="Orc" type="monster" looktype="152"/>
+    <creature name="Troll" type="monster" looktype="15"/>
+
+    <!-- Demons -->
+    <creature name="Demon" type="monster" looktype="201"/>
+    <creature name="Demon Warrior" type="monster" looktype="139"/>
+
+    <!-- Magical -->
+    <creature name="Dragon" type="monster" looktype="34"/>
+    <creature name="Fire Elemental" type="monster" looktype="49"/>
+    <creature name="Iron Golem" type="monster" looktype="325"/>
+    <creature name="Slime" type="monster" looktype="150"/>
+    <creature name="Squidgy Slime" type="monster" looktype="19"/>
+
+    <!-- Special -->
+    <creature name="Level 1" type="monster" looktype="15"/>
+    <creature name="Level 10" type="monster" looktype="15"/>
+    <creature name="Level 15" type="monster" looktype="15"/>
+    <creature name="Level 20" type="monster" looktype="15"/>
+    <creature name="Level 30" type="monster" looktype="15"/>
+    <creature name="Level 40" type="monster" looktype="15"/>
+    <creature name="Level 50" type="monster" looktype="15"/>
+    <creature name="Level 60" type="monster" looktype="15"/>
+    <creature name="Level 70" type="monster" looktype="15"/>
+    <creature name="Level 80" type="monster" looktype="15"/>
+    <creature name="Trainer" type="monster" looktype="134" renderhelmet="false" hair="1" haircolors="85,0,0,0" body="8819" bodyrarity="4" bodylevel="15"/>
+
+    <!-- Pets -->
+    <creature name="Drops" type="monster" looktype="175"/>
+    <creature name="Frog" type="monster" looktype="180"/>
+    <creature name="Hamster" type="monster" looktype="179"/>
+    <creature name="Marin" type="monster" looktype="176"/>
+    <creature name="Poporing" type="monster" looktype="177"/>
+    <creature name="Poring" type="monster" looktype="178"/>
+
+    <!-- Domestic -->
+    <creature name="Black Sheep" type="monster" looktype="13"/>
+    <creature name="Brown Horse" type="monster" looktype="436"/>
+    <creature name="Cat" type="monster" looktype="276"/>
+    <creature name="Chicken" type="monster" looktype="111"/>
+    <creature name="Deer" type="monster" looktype="31"/>
+    <creature name="Dog" type="monster" looktype="32"/>
+    <creature name="Gray Horse" type="monster" looktype="434"/>
+    <creature name="Parrot" type="monster" looktype="217"/>
+    <creature name="Pig" type="monster" looktype="60"/>
+    <creature name="Pigeon" type="monster" looktype="531"/>
+    <creature name="Rabbit" type="monster" looktype="74"/>
+    <creature name="Sheep" type="monster" looktype="14"/>
+    <creature name="Taupe Horse" type="monster" looktype="435"/>
+
+    <!-- NPCs (preserved by the monster catalog sync) -->
     <creature name="Al Dee" type="npc" title="Equipment Merchant" looktype="128" renderhelmet="false" hair="850" haircolors="76,0,0,0" body="2487" legs="2488" feet="7457" backpack="1998"/>
     <creature name="Aldric" type="npc" title="Master Forgewright" looktype="131" renderhelmet="false" hair="850" haircolors="76,0,0,0" body="2487" legs="2488" feet="7457"/>
     <creature name="Alice" type="npc" title="Merchant" looktype="130" renderhelmet="false" hair="852" haircolors="77,0,0,0" body="2652" bodycolors="0,7,0,0" legs="3983" legscolors="2,0,76,0" feet="2642" feetcolors="0,0,0,85" backpack="1998" belt="2002"/>
