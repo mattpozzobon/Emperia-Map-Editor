@@ -52,6 +52,7 @@
     <creature name="Squidgy Slime" type="monster" looktype="19"/>
 
     <!-- Special -->
+    <creature name="Guardian Shield" type="monster" looktype="0"/>
     <creature name="Level 1" type="monster" looktype="15"/>
     <creature name="Level 10" type="monster" looktype="15"/>
     <creature name="Level 15" type="monster" looktype="15"/>
