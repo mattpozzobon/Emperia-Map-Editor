@@ -190,6 +190,93 @@ void Editor::addAction(Action* action, int stacking_delay )
 	actionQueue->addAction(action, stacking_delay);
 }
 
+void Editor::selectWorldZone(const std::string& zoneName)
+{
+	selected_world_zone = zoneName;
+}
+
+void Editor::clearSelectedWorldZone()
+{
+	selected_world_zone.clear();
+}
+
+ZoneConfig* Editor::getSelectedWorldZone()
+{
+	if(selected_world_zone.empty()) {
+		return nullptr;
+	}
+	const std::string selectedName = as_lower_str(selected_world_zone);
+	for(ZoneConfig& config : map.zoneConfigs) {
+		if(as_lower_str(config.name) == selectedName) {
+			return &config;
+		}
+	}
+	return nullptr;
+}
+
+const ZoneConfig* Editor::getSelectedWorldZone() const
+{
+	if(selected_world_zone.empty()) {
+		return nullptr;
+	}
+	const std::string selectedName = as_lower_str(selected_world_zone);
+	for(const ZoneConfig& config : map.zoneConfigs) {
+		if(as_lower_str(config.name) == selectedName) {
+			return &config;
+		}
+	}
+	return nullptr;
+}
+
+void Editor::updateSelectedWorldZone(const PositionVector& positions, bool drawing,
+	const std::set<Position>& previousTiles)
+{
+	ZoneConfig* config = getSelectedWorldZone();
+	Brush* brush = g_gui.GetCurrentBrush();
+	if(!config || !brush || !brush->isFlag() ||
+		brush->asFlag()->getFlag() != getZoneCategoryFlag(config->category)) {
+		return;
+	}
+
+	const uint32_t categoryFlag = getZoneCategoryFlag(config->category);
+	if(drawing) {
+		for(const Position& position : positions) {
+			const Tile* tile = map.getTile(position);
+			if(!tile || !(tile->getMapFlags() & categoryFlag) ||
+				zoneContainsPosition(map, *config, position)) {
+				continue;
+			}
+
+			config->additionalAreas.push_back(position);
+		}
+	} else {
+		// Drop erased secondary anchors. The primary waypoint remains protected by
+		// drawInternal, so a zone can never be left with an invalid main marker.
+		auto& anchors = config->additionalAreas;
+		const auto newEnd = std::remove_if(anchors.begin(), anchors.end(),
+			[this, categoryFlag](const Position& anchor) {
+				const Tile* tile = map.getTile(anchor);
+				return !tile || !(tile->getMapFlags() & categoryFlag);
+			});
+		if(newEnd != anchors.end()) {
+			anchors.erase(newEnd, anchors.end());
+		}
+
+		// Erasing can split one painted area into several components. Give every
+		// surviving component an anchor so each piece keeps the selected identity.
+		std::set<Position> covered = collectZoneTiles(map, *config);
+		for(const Position& position : previousTiles) {
+			const Tile* tile = map.getTile(position);
+			if(!tile || !(tile->getMapFlags() & categoryFlag) || covered.count(position)) {
+				continue;
+			}
+			config->additionalAreas.push_back(position);
+			covered = collectZoneTiles(map, *config);
+		}
+	}
+
+}
+
 bool Editor::canUndo() const
 {
 	return actionQueue->canUndo();
@@ -1422,6 +1509,24 @@ void Editor::drawInternal(Position offset, bool alt, bool dodraw)
 		Action* action = actionQueue->createAction(batch);
 		action->addChange(Change::Create(waypoint, offset));
 		batch->addAndCommitAction(action);
+		if(map.ensureZoneForWaypoint(*waypoint)) {
+			auto config = std::find_if(map.zoneConfigs.begin(), map.zoneConfigs.end(),
+				[waypoint](const ZoneConfig& candidate) {
+					return as_lower_str(candidate.name) == as_lower_str(waypoint->name);
+				});
+			if(config != map.zoneConfigs.end()) {
+				const ZoneConfig createdConfig = *config;
+				map.zoneConfigs.erase(config);
+				Action* zoneAction = actionQueue->createAction(batch);
+				zoneAction->addChange(Change::CreateZoneConfig(createdConfig));
+				batch->addAndCommitAction(zoneAction);
+			}
+			g_gui.SetStatusText(
+				"Created " + wxstr(getZoneCategoryDisplayName(
+					getZoneCategoryFromFlags(map.getTile(offset)->getMapFlags()))) +
+				" world zone " + wxstr(waypoint->name) + "."
+			);
+		}
 		addBatch(batch, 2);
 	} else if(brush->isWall()) {
 		BatchAction* batch = actionQueue->createBatch(dodraw ? ACTION_DRAW : ACTION_ERASE);
@@ -1481,6 +1586,16 @@ void Editor::drawInternal(const PositionVector& tilestodraw, bool alt, bool dodr
 		return;
 	}
 
+	std::set<Position> previousZoneTiles;
+	ZoneConfig* selectedZone = getSelectedWorldZone();
+	const bool editingSelectedZone = selectedZone && brush->isFlag() &&
+		brush->asFlag()->getFlag() == getZoneCategoryFlag(selectedZone->category);
+	const std::vector<Position> previousZoneAnchors = editingSelectedZone ?
+		selectedZone->additionalAreas : std::vector<Position>();
+	if(editingSelectedZone && !dodraw) {
+		previousZoneTiles = collectZoneTiles(map, *selectedZone);
+	}
+
 #ifdef __DEBUG__
 	if(brush->isGround() || brush->isWall()) {
 		// Wrong function, end call
@@ -1519,8 +1634,18 @@ void Editor::drawInternal(const PositionVector& tilestodraw, bool alt, bool dodr
 			}
 		}
 	} else {
+		const std::vector<Position> selectedZoneAnchors = editingSelectedZone ?
+			getZoneAreaAnchors(map, *selectedZone) : std::vector<Position>();
 
 		for(PositionVector::const_iterator it = tilestodraw.begin(); it != tilestodraw.end(); ++it) {
+			if(editingSelectedZone && !dodraw) {
+				// A named selection erases only that logical zone, not every nearby
+				// area that happens to use the same category brush.
+				if(!previousZoneTiles.count(*it) ||
+					(!selectedZoneAnchors.empty() && *it == selectedZoneAnchors.front())) {
+					continue;
+				}
+			}
 			TileLocation* location = map.createTileL(*it);
 			Tile* tile = location->get();
 			if(tile) {
@@ -1538,7 +1663,21 @@ void Editor::drawInternal(const PositionVector& tilestodraw, bool alt, bool dodr
 			}
 		}
 	}
-	addAction(action, 2);
+	if(editingSelectedZone) {
+		BatchAction* batch = actionQueue->createBatch(dodraw ? ACTION_DRAW : ACTION_ERASE);
+		batch->addAndCommitAction(action);
+		updateSelectedWorldZone(tilestodraw, dodraw, previousZoneTiles);
+		if(selectedZone->additionalAreas != previousZoneAnchors) {
+			const std::vector<Position> updatedAnchors = selectedZone->additionalAreas;
+			selectedZone->additionalAreas = previousZoneAnchors;
+			Action* zoneAction = actionQueue->createAction(batch);
+			zoneAction->addChange(Change::CreateZoneAreas(selectedZone->name, updatedAnchors));
+			batch->addAndCommitAction(zoneAction);
+		}
+		addBatch(batch, 2);
+	} else {
+		addAction(action, 2);
+	}
 }
 
 void Editor::drawInternal(const PositionVector& tilestodraw, PositionVector& tilestoborder, bool alt, bool dodraw)

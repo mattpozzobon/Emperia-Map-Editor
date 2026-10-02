@@ -45,9 +45,10 @@
     <creature name="Demon Warrior" type="monster" looktype="139"/>
 
     <!-- Magical -->
+    <creature name="Arcane Colossus" type="monster" looktype="326"/>
     <creature name="Dragon" type="monster" looktype="34"/>
     <creature name="Fire Elemental" type="monster" looktype="49"/>
-    <creature name="Iron Golem" type="monster" looktype="325"/>
+    <creature name="Iron Golem" type="monster" looktype="326"/>
     <creature name="Slime" type="monster" looktype="150"/>
     <creature name="Squidgy Slime" type="monster" looktype="19"/>
 

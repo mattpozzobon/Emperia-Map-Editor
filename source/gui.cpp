@@ -40,6 +40,7 @@
 #include "welcome_dialog.h"
 #include "actions_history_window.h"
 #include "tile_inspector_window.h"
+#include "view_overlay_panel.h"
 
 #include "live_client.h"
 #include "live_tab.h"
@@ -65,6 +66,7 @@ GUI::GUI() :
 	duplicated_items_window(nullptr),
 	actions_history_window(nullptr),
 	inspector_window(nullptr),
+	view_overlay_panel(nullptr),
 	secondary_map(nullptr),
 	doodad_buffer_map(nullptr),
 
@@ -643,6 +645,11 @@ bool GUI::LoadMap(const FileName& fileName)
 	return true;
 }
 
+void GUI::RefreshViewOverlayPanel()
+{
+	if(view_overlay_panel) view_overlay_panel->RefreshState();
+}
+
 Editor* GUI::GetCurrentEditor()
 {
 	MapTab* mapTab = GetCurrentMapTab();
@@ -1118,8 +1125,12 @@ void GUI::RefreshPalettes(Map* m, bool usedefault)
 		}
 	}
 
-	for(auto palette : palettes) {
-		if(palette) {
+	// Updating controls can synchronously fire a palette activation event, which
+	// reorders `palettes`. Iterate a snapshot so that event-driven reordering does
+	// not invalidate this loop's iterator.
+	const PaletteList palettesToRefresh = palettes;
+	for(PaletteWindow* palette : palettesToRefresh) {
+		if(palette && std::find(palettes.begin(), palettes.end(), palette) != palettes.end()) {
 			palette->OnUpdate(map);
 		}
 	}
@@ -1138,9 +1149,12 @@ void GUI::RefreshPalettes(Map* m, bool usedefault)
 
 void GUI::RefreshOtherPalettes(PaletteWindow* p)
 {
-	for(auto &palette : palettes) {
-		if(palette != p)
+	const PaletteList palettesToRefresh = palettes;
+	for(PaletteWindow* palette : palettesToRefresh) {
+		if(palette && palette != p &&
+			std::find(palettes.begin(), palettes.end(), palette) != palettes.end()) {
 			palette->OnUpdate(IsEditorOpen()? &GetCurrentMap() : nullptr);
+		}
 	}
 	SelectBrush();
 }
@@ -1917,6 +1931,8 @@ void GUI::SelectBrush()
 {
 	if(palettes.empty())
 		return;
+	if(IsEditorOpen())
+		GetCurrentEditor()->clearSelectedWorldZone();
 
 	SelectBrushInternal(palettes.front()->GetSelectedBrush());
 
@@ -1925,6 +1941,8 @@ void GUI::SelectBrush()
 
 bool GUI::SelectBrush(const Brush* whatbrush, PaletteType primary)
 {
+	if(IsEditorOpen())
+		GetCurrentEditor()->clearSelectedWorldZone();
 	if(palettes.empty())
 		if(!CreatePalette())
 			return false;

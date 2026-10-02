@@ -23,6 +23,7 @@
 #include "minimap_colors.h"
 
 #include <sstream>
+#include <unordered_set>
 
 uint32_t getZoneCategoryFlag(const std::string& category)
 {
@@ -189,6 +190,7 @@ bool zoneContainsPosition(const Map& map, const ZoneConfig& config, const Positi
 Map::Map() : BaseMap(),
 	width(512),
 	height(512),
+	rewardIdSequence(0),
 	houses(*this),
 	has_changed(false),
 	unnamed(false),
@@ -860,4 +862,140 @@ bool Map::hasUniqueId(uint16_t uid) const
 
 	auto it = std::find(uniqueIds.begin(), uniqueIds.end(), uid);
 	return it != uniqueIds.end();
+}
+
+bool Map::ensureZoneForWaypoint(const Waypoint& waypoint)
+{
+	if(waypoint.name.empty() || !waypoint.pos.isValid()) {
+		return false;
+	}
+
+	const Tile* tile = getTile(waypoint.pos);
+	const std::string category = tile ? getZoneCategoryFromFlags(tile->getMapFlags()) : "";
+	if(category.empty()) {
+		return false;
+	}
+
+	const std::string waypointName = as_lower_str(waypoint.name);
+	for(ZoneConfig& config : zoneConfigs) {
+		if(as_lower_str(config.name) == waypointName) {
+			if(config.category.empty()) {
+				config.category = category;
+				return true;
+			}
+			return false;
+		}
+	}
+
+	// A connected painted component has one logical owner. Do not create a
+	// duplicate merely because another waypoint was dropped inside it.
+	for(const ZoneConfig& config : zoneConfigs) {
+		if(config.category == category && zoneContainsPosition(*this, config, waypoint.pos)) {
+			return false;
+		}
+	}
+
+	ZoneConfig config;
+	config.name = waypoint.name;
+	config.category = category;
+	zoneConfigs.push_back(config);
+	return true;
+}
+
+bool Map::hasRewardId(uint32_t rewardId, const Item* except)
+{
+	if(rewardId == 0)
+		return false;
+	auto itemTreeHasId = [&](auto&& self, const Item* item) -> bool {
+		if(!item || item == except)
+			return false;
+		if(item->getRewardId() == rewardId)
+			return true;
+		const Container* container = dynamic_cast<const Container*>(item);
+		if(!container)
+			return false;
+		for(const Item* child : container->getVector()) {
+			if(self(self, child))
+				return true;
+		}
+		return false;
+	};
+	for(MapIterator iterator = begin(); iterator != end(); ++iterator) {
+		Tile* tile = (*iterator)->get();
+		if(!tile)
+			continue;
+		if(itemTreeHasId(itemTreeHasId, tile->ground))
+			return true;
+		for(const Item* item : tile->items) {
+			if(itemTreeHasId(itemTreeHasId, item))
+				return true;
+		}
+	}
+	return false;
+}
+
+uint32_t Map::allocateRewardId()
+{
+	uint32_t maximum = 0;
+	auto visit = [&](auto&& self, const Item* item) -> void {
+		if(!item) return;
+		maximum = std::max(maximum, item->getRewardId());
+		const Container* container = dynamic_cast<const Container*>(item);
+		if(container) for(const Item* child : container->getVector()) self(self, child);
+	};
+	for(MapIterator iterator = begin(); iterator != end(); ++iterator) {
+		Tile* tile = (*iterator)->get();
+		if(!tile) continue;
+		visit(visit, tile->ground);
+		for(const Item* item : tile->items) visit(visit, item);
+	}
+	rewardIdSequence = std::max(rewardIdSequence, maximum);
+	return rewardIdSequence < 0x7FFFFFFF ? ++rewardIdSequence : 0;
+}
+
+bool Map::validateRewardIds(std::string& validationError)
+{
+	std::unordered_set<uint32_t> ids;
+	for(MapIterator iterator = begin(); iterator != end(); ++iterator) {
+		Tile* tile = (*iterator)->get();
+		if(!tile)
+			continue;
+		const Position& position = tile->getPosition();
+		auto validateItem = [&](auto&& self, const Item* item, bool topLevel) -> bool {
+			if(!item)
+				return true;
+			const uint32_t rewardId = item->getRewardId();
+			if(rewardId != 0 && !item->getItemType().isContainer()) {
+				validationError = "Reward ID is attached to a non-container item.";
+				return false;
+			}
+			if(rewardId != 0 && !topLevel) {
+				validationError = "Reward container must be placed directly on a map tile.";
+				return false;
+			}
+			if(rewardId != 0 && !ids.insert(rewardId).second) {
+				std::ostringstream message;
+				message << "Duplicate reward ID " << rewardId << " at "
+					<< position.x << ":" << position.y << ":" << position.z << ".";
+				validationError = message.str();
+				return false;
+			}
+			const Container* container = dynamic_cast<const Container*>(item);
+			if(container) {
+				for(const Item* child : container->getVector()) {
+					if(!self(self, child, false))
+						return false;
+				}
+			}
+			return true;
+		};
+		if(!validateItem(validateItem, tile->ground, true))
+			return false;
+		for(const Item* item : tile->items) {
+			if(!validateItem(validateItem, item, true))
+				return false;
+		}
+	}
+	validationError.clear();
+	return true;
 }

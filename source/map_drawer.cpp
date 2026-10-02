@@ -182,6 +182,7 @@ void MapDrawer::SetupVars()
 	end_y = start_y + screensize_y / tile_size + 2;
 
 	zone_color_cache.clear();
+	zone_label_cache.clear();
 	if(options.show_zones) {
 		BuildZoneColorCache();
 	}
@@ -207,11 +208,25 @@ static uint32_t pickZoneCategory(uint32_t flags)
 	return 0;
 }
 
-// Generate a visually distinct color from a group index using golden-angle hue spacing
-static void zoneGroupColor(int groupIndex, uint8_t& r, uint8_t& g, uint8_t& b)
+static uint64_t makeZoneIdentity(const std::string& name, uint32_t category)
 {
-	// Golden angle (~137.5 degrees) gives maximally spaced hues
-	float hue = fmod(groupIndex * 137.508f, 360.0f);
+	uint64_t hash = 1469598103934665603ULL;
+	for(unsigned char c : name) {
+		hash ^= static_cast<unsigned char>(std::tolower(c));
+		hash *= 1099511628211ULL;
+	}
+	for(int shift = 0; shift < 32; shift += 8) {
+		hash ^= static_cast<uint8_t>(category >> shift);
+		hash *= 1099511628211ULL;
+	}
+	return hash == 0 ? 1 : hash;
+}
+
+// Derive the color from the zone identity instead of the order in which the
+// visible groups were discovered. Zooming and panning therefore keep it stable.
+static void zoneIdentityColor(uint64_t identity, uint8_t& r, uint8_t& g, uint8_t& b)
+{
+	float hue = static_cast<float>(identity % 360ULL);
 	float s = 0.65f;
 	float v = 0.85f;
 
@@ -294,11 +309,12 @@ void MapDrawer::BuildZoneColorCache()
 	}
 
 	std::unordered_set<uint64_t> claimed;
-	int groupIndex = 0;
+	std::vector<Anchor> labeledGroups;
 
 	// Flood-fill helper: flood from a start tile, claiming connected same-category tiles
-	auto floodFill = [&](uint64_t startKey, uint32_t category, int gIdx) {
+	auto floodFill = [&](uint64_t startKey, uint32_t category, uint64_t proposedIdentity) {
 		std::vector<uint64_t> queue;
+		std::vector<uint64_t> component;
 		queue.push_back(startKey);
 		while(!queue.empty()) {
 			uint64_t k = queue.back();
@@ -308,10 +324,7 @@ void MapDrawer::BuildZoneColorCache()
 			if(it == zoneTiles.end()) continue;
 			if(it->second.category != category) continue;
 			claimed.insert(k);
-
-			uint8_t cr, cg, cb;
-			zoneGroupColor(gIdx, cr, cg, cb);
-			zone_color_cache[k] = { cr, cg, cb };
+			component.push_back(k);
 
 			int tx = it->second.x;
 			int ty = it->second.y;
@@ -327,19 +340,101 @@ void MapDrawer::BuildZoneColorCache()
 					queue.push_back(neighbors[i]);
 			}
 		}
+
+		uint64_t identity = 0;
+		for(uint64_t key : component) {
+			const auto cached = zone_identity_cache.find(key);
+			if(cached != zone_identity_cache.end() && cached->second.category == category &&
+				(identity == 0 || cached->second.value < identity)) {
+				identity = cached->second.value;
+			}
+		}
+		if(identity == 0) {
+			identity = proposedIdentity;
+		}
+
+		uint8_t cr, cg, cb;
+		zoneIdentityColor(identity, cr, cg, cb);
+		for(uint64_t key : component) {
+			zone_identity_cache[key] = { category, identity };
+			zone_color_cache[key] = { cr, cg, cb, identity };
+		}
 	};
 
 	// Flood from each waypoint anchor
 	for(const auto& anchor : anchors) {
 		uint64_t key = packPos(anchor.x, anchor.y, anchor.z);
 		if(claimed.count(key)) continue;
-		floodFill(key, anchor.category, groupIndex++);
+		labeledGroups.push_back(anchor);
+		floodFill(key, anchor.category, makeZoneIdentity(anchor.name, anchor.category));
 	}
 
 	// Flood remaining unclaimed zone tiles
 	for(const auto& pair : zoneTiles) {
 		if(claimed.count(pair.first)) continue;
-		floodFill(pair.first, pair.second.category, groupIndex++);
+		floodFill(
+			pair.first,
+			pair.second.category,
+			makeZoneIdentity("category", pair.second.category)
+		);
+	}
+
+	// The first waypoint in each connected painted area is also the name used
+	// by the world-map export, so it is the natural label for ordinary zones.
+	for(const Anchor& anchor : labeledGroups) {
+		if(anchor.z != floor || anchor.name.empty()) {
+			continue;
+		}
+
+		const uint64_t key = packPos(anchor.x, anchor.y, anchor.z);
+		const auto colorIt = zone_color_cache.find(key);
+		if(colorIt == zone_color_cache.end()) {
+			continue;
+		}
+
+		std::string label = anchor.name;
+		for(const ZoneConfig& config : map.zoneConfigs) {
+			if(as_lower_str(config.name) == as_lower_str(anchor.name) && !config.displayName.empty()) {
+				label = config.displayName;
+				break;
+			}
+		}
+		zone_label_cache[key] = {
+			label,
+			colorIt->second.r,
+			colorIt->second.g,
+			colorIt->second.b,
+		};
+	}
+
+	// Label each configured area at its anchor. This reuses the visible-zone
+	// cache above, so showing names does not require another tile traversal.
+	for(const ZoneConfig& config : map.zoneConfigs) {
+		const std::string label = config.displayName.empty() ? config.name : config.displayName;
+		if(label.empty()) {
+			continue;
+		}
+
+		for(const Position& anchor : getZoneAreaAnchors(map, config)) {
+			if(anchor.z != floor) {
+				continue;
+			}
+
+			const uint64_t key = packPos(anchor.x, anchor.y, anchor.z);
+			const auto tileIt = zoneTiles.find(key);
+			const auto colorIt = zone_color_cache.find(key);
+			if(tileIt == zoneTiles.end() || colorIt == zone_color_cache.end() ||
+				tileIt->second.category != getZoneCategoryFlag(config.category)) {
+				continue;
+			}
+
+			zone_label_cache[key] = {
+				label,
+				colorIt->second.r,
+				colorIt->second.g,
+				colorIt->second.b,
+			};
+		}
 	}
 }
 
@@ -387,6 +482,8 @@ void MapDrawer::Draw()
 	DrawMap();
 	DrawDraggingShadow();
 	DrawHigherFloors();
+	if(options.show_zones)
+		DrawZoneBorders();
 	if(options.dragging)
 		DrawSelectionBox();
 	DrawLiveCursors();
@@ -395,8 +492,80 @@ void MapDrawer::Draw()
 		DrawGrid();
 	if(options.show_ingame_box)
 		DrawIngameBox();
-	if(options.isTooltips())
+	if(options.isTooltips() || options.show_zones)
 		DrawTooltips();
+}
+
+void MapDrawer::DrawZoneBorders()
+{
+	if(zone_color_cache.empty()) {
+		return;
+	}
+
+	Map& map = editor.getMap();
+	constexpr uint64_t CoordinateMask = 0xFFFFFFULL;
+
+	auto drawPass = [&](bool shadow) {
+		glLineWidth(shadow ? 5.0f : 3.0f);
+		if(shadow) {
+			glColor4ub(0, 0, 0, 220);
+		}
+		glBegin(GL_LINES);
+
+		for(const auto& entry : zone_color_cache) {
+			const uint64_t key = entry.first;
+			const int mapX = static_cast<int>(key & CoordinateMask);
+			const int mapY = static_cast<int>((key >> 24) & CoordinateMask);
+			const int mapZ = static_cast<int>((key >> 48) & 0xFFULL);
+			if(mapZ != floor) {
+				continue;
+			}
+
+			const Position position(mapX, mapY, mapZ);
+			const Tile* tile = map.getTile(position);
+			const uint32_t category = tile ? pickZoneCategory(tile->getMapFlags()) : 0;
+			if(category == 0) {
+				continue;
+			}
+
+			int drawX, drawY;
+			getDrawPosition(position, drawX, drawY);
+			if(!shadow) {
+				glColor4ub(entry.second.r, entry.second.g, entry.second.b, 255);
+			}
+
+			auto drawEdge = [&](int dx, int dy, int x1, int y1, int x2, int y2) {
+				const Tile* neighbour = map.getTile(Position(mapX + dx, mapY + dy, mapZ));
+				const uint32_t neighbourCategory = neighbour ?
+					pickZoneCategory(neighbour->getMapFlags()) : 0;
+				if(neighbourCategory == category) {
+					return;
+				}
+				// Draw a shared boundary once so adjacent zone categories cannot
+				// overwrite each other in an order that changes between frames.
+				if(neighbourCategory != 0 && category > neighbourCategory) {
+					return;
+				}
+				glVertex2i(x1, y1);
+				glVertex2i(x2, y2);
+			};
+
+			const int right = drawX + rme::TileSize;
+			const int bottom = drawY + rme::TileSize;
+			drawEdge(0, -1, drawX, drawY, right, drawY);
+			drawEdge(1, 0, right, drawY, right, bottom);
+			drawEdge(0, 1, right, bottom, drawX, bottom);
+			drawEdge(-1, 0, drawX, bottom, drawX, drawY);
+		}
+
+		glEnd();
+	};
+
+	glDisable(GL_TEXTURE_2D);
+	drawPass(true);
+	drawPass(false);
+	glLineWidth(1.0f);
+	glEnable(GL_TEXTURE_2D);
 }
 
 void MapDrawer::DrawBackground()
@@ -623,11 +792,6 @@ void MapDrawer::DrawSecondaryMap(int map_z)
 					r /= 3;
 					g = g / 3 * 2;
 				}
-				// World zone category overlays (per-instance color from cache)
-				if(options.show_zones && (tile->getMapFlags() & TILESTATE_ZONE_MASK)) {
-					auto zit = zone_color_cache.find(packPos(final_pos.x, final_pos.y, final_pos.z));
-					if(zit != zone_color_cache.end()) { r = zit->second.r; g = zit->second.g; b = zit->second.b; }
-				}
 				BlitItem(draw_x, draw_y, tile, tile->ground, true, r, g, b, 160);
 			}
 
@@ -833,11 +997,6 @@ void MapDrawer::DrawHigherFloors()
 				if(tile->getMapFlags() & TILESTATE_REFRESH) {
 					r /= 3;
 					g = g / 3 * 2;
-				}
-				// World zone category overlays (per-instance color from cache)
-				if(options.show_zones && (tile->getMapFlags() & TILESTATE_ZONE_MASK)) {
-					auto zit = zone_color_cache.find(packPos(map_x, map_y, map_z));
-					if(zit != zone_color_cache.end()) { r = zit->second.r; g = zit->second.g; b = zit->second.b; }
 				}
 				BlitItem(draw_x, draw_y, tile, tile->ground, false, r, g, b, 96);
 			}
@@ -1376,6 +1535,7 @@ void MapDrawer::BlitItem(int& draw_x, int& draw_y, const Tile* tile, const Item*
 	for(int cx = 0; cx != sprite->width; cx++) {
 		for(int cy = 0; cy != sprite->height; cy++) {
 			for(int cf = 0; cf != sprite->layers; cf++) {
+				if(sprite->material_mask_layer > 0 && cf == sprite->material_mask_layer) continue;
 				int texnum = sprite->getHardwareID(cx,cy,cf,
 					subtype,
 					pattern_x,
@@ -1576,6 +1736,7 @@ void MapDrawer::BlitItem(int& draw_x, int& draw_y, const Position& pos, const It
 	for(int cx = 0; cx != sprite->width; ++cx) {
 		for(int cy = 0; cy != sprite->height; ++cy) {
 			for(int cf = 0; cf != sprite->layers; ++cf) {
+				if(sprite->material_mask_layer > 0 && cf == sprite->material_mask_layer) continue;
 				int texnum = sprite->getHardwareID(cx,cy,cf,
 					subtype,
 					pattern_x,
@@ -1609,6 +1770,7 @@ void MapDrawer::BlitSpriteType(int screenx, int screeny, uint32_t spriteid, int 
 	for(int cx = 0; cx != sprite->width; ++cx) {
 		for(int cy = 0; cy != sprite->height; ++cy) {
 			for(int cf = 0; cf != sprite->layers; ++cf) {
+				if(sprite->material_mask_layer > 0 && cf == sprite->material_mask_layer) continue;
 				int texnum = sprite->getHardwareID(cx,cy,cf,-1,0,0,0, frame);
 				glBlitTexture(screenx - cx * rme::TileSize, screeny - cy * rme::TileSize, texnum, red, green, blue, alpha);
 			}
@@ -1627,6 +1789,7 @@ void MapDrawer::BlitSpriteType(int screenx, int screeny, GameSprite* sprite, int
 	for(int cx = 0; cx != sprite->width; ++cx) {
 		for(int cy = 0; cy != sprite->height; ++cy) {
 			for(int cf = 0; cf != sprite->layers; ++cf) {
+				if(sprite->material_mask_layer > 0 && cf == sprite->material_mask_layer) continue;
 				int texnum = sprite->getHardwareID(cx,cy,cf,-1,0,0,0, frame);
 				glBlitTexture(screenx - cx * rme::TileSize, screeny - cy * rme::TileSize, texnum, red, green, blue, alpha);
 			}
@@ -1938,11 +2101,6 @@ void MapDrawer::DrawTile(TileLocation* location)
 				g = g / 3 * 2;
 			}
 
-			// World zone category overlays (per-instance color from cache)
-			if(options.show_zones && (tile->getMapFlags() & TILESTATE_ZONE_MASK)) {
-				auto zit = zone_color_cache.find(packPos(position.x, position.y, position.z));
-				if(zit != zone_color_cache.end()) { r = zit->second.r; g = zit->second.g; b = zit->second.b; }
-			}
 		}
 
 		if(only_colors) {
@@ -1992,12 +2150,40 @@ void MapDrawer::DrawTile(TileLocation* location)
 		BlitCreature(draw_x, draw_y, tile->creature);
 	}
 
-	if(show_tooltips) {
-		if(location->getWaypointCount() > 0)
-			MakeTooltip(draw_x, draw_y, tooltip.str(), 0, 255, 0);
-		else
-			MakeTooltip(draw_x, draw_y, tooltip.str());
+	const auto zoneLabelIt = options.show_zones && position.z == floor ?
+		zone_label_cache.find(packPos(position.x, position.y, position.z)) :
+		zone_label_cache.end();
+	const bool hasZoneLabel = zoneLabelIt != zone_label_cache.end();
+	if(show_tooltips || hasZoneLabel) {
+		std::string text = tooltip.str();
+		if(hasZoneLabel) {
+			// The zone label replaces the generic "wp:" line at the same anchor,
+			// while keeping any item or creature details below it.
+			if(location->getWaypointCount() > 0 && text.compare(0, 4, "wp: ") == 0) {
+				const size_t firstLineEnd = text.find('\n');
+				text = firstLineEnd == std::string::npos ? "" : text.substr(firstLineEnd + 1);
+			}
+			if(!text.empty()) {
+				text = zoneLabelIt->second.text + "\n" + text;
+			} else {
+				text = zoneLabelIt->second.text;
+			}
+			MakeTooltip(
+				draw_x,
+				draw_y,
+				text,
+				zoneLabelIt->second.r,
+				zoneLabelIt->second.g,
+				zoneLabelIt->second.b,
+				true
+			);
+		} else if(location->getWaypointCount() > 0) {
+			MakeTooltip(draw_x, draw_y, text, 0, 255, 0);
+		} else {
+			MakeTooltip(draw_x, draw_y, text);
+		}
 		tooltip.str("");
+		tooltip.clear();
 	}
 }
 
@@ -2162,7 +2348,7 @@ void MapDrawer::DrawPositionIndicator(int z)
 
 void MapDrawer::DrawTooltips()
 {
-	if(!options.show_tooltips || tooltips.empty())
+	if((!options.show_tooltips && !options.show_zones) || tooltips.empty())
 		return;
 
 	glDisable(GL_TEXTURE_2D);
@@ -2240,7 +2426,7 @@ void MapDrawer::DrawTooltips()
 		glEnd();
 
 		// text
-		if(zoom <= 1.0) {
+		if(zoom <= 1.0 || (tooltip->zoneLabel && zoom <= 4.0)) {
 			startx += (3.0f * scale);
 			starty += (14.0f * scale);
 			glColor4ub(0, 0, 0, 255);
@@ -2270,12 +2456,12 @@ void MapDrawer::DrawTooltips()
 	glEnable(GL_TEXTURE_2D);
 }
 
-void MapDrawer::MakeTooltip(int screenx, int screeny, const std::string& text, uint8_t r, uint8_t g, uint8_t b)
+void MapDrawer::MakeTooltip(int screenx, int screeny, const std::string& text, uint8_t r, uint8_t g, uint8_t b, bool zoneLabel)
 {
 	if(text.empty())
 		return;
 
-	MapTooltip *tooltip = new MapTooltip(screenx, screeny, text, r, g, b);
+	MapTooltip *tooltip = new MapTooltip(screenx, screeny, text, r, g, b, zoneLabel);
 	tooltip->checkLineEnding();
 	tooltips.push_back(tooltip);
 }

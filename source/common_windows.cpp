@@ -33,9 +33,12 @@
 #include "common_windows.h"
 
 #include <wx/settings.h>
+
+#include <cmath>
 #include "positionctrl.h"
 
 #include "iominimap.h"
+#include "iomap_otbm.h"
 
 #include <wx/statline.h>
 #include <wx/tokenzr.h>
@@ -1522,11 +1525,6 @@ namespace {
 		return as_lower_str(def.groupId);
 	}
 
-	std::string GetResourceVariant(const ZoneResourceDef& def)
-	{
-		return as_lower_str(def.variant);
-	}
-
 	bool IsResourceCompatibleWithZone(const ZoneResourceDef& def, const std::string& category)
 	{
 		if(category.empty()) {
@@ -1545,198 +1543,281 @@ namespace {
 
 	wxString GetResourceTypeDisplayName(const std::string& type)
 	{
-		if(type == "ore") return "Ore";
-		if(type == "crystal") return "Crystal";
-		if(type == "plant") return "Plant";
-		if(type == "fungus") return "Fungus";
-		return "Other";
+		if(type == "skinning") return "Skinning";
+		if(type == "mining") return "Mining";
+		if(type == "herbalism") return "Plant harvesting";
+		if(type == "fishing") return "Fishing";
+		if(type == "chopping") return "Chopping";
+		if(type == "enchanting") return "Enchanting";
+		if(type == "forging") return "Forging";
+		if(type == "food") return "Cooking";
+		if(type == "alchemy") return "Alchemy";
+		std::string display = type.empty() ? "other" : type;
+		bool capitalize = true;
+		for(char& character : display) {
+			if(character == '_' || character == '-') {
+				character = ' ';
+				capitalize = true;
+			} else if(capitalize) {
+				character = static_cast<char>(std::toupper(static_cast<unsigned char>(character)));
+				capitalize = false;
+			}
+		}
+		return wxstr(display);
 	}
 
-	wxString GetResourceVariantDisplayName(const std::string& variant)
-	{
-		if(variant == "small") return "Small";
-		if(variant == "medium") return "Medium";
-		if(variant == "large") return "Large";
-		if(variant == "default") return "Default";
-		return wxstr(variant);
-	}
 }
 
 ZoneConfigDialog::ZoneConfigDialog(wxWindow* parent, Editor& editor) :
-	wxDialog(parent, wxID_ANY, "Zone Configuration", wxDefaultPosition, wxSize(860, 760),
+	wxDialog(parent, wxID_ANY, "World Zones", wxDefaultPosition, wxSize(980, 680),
 		wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER),
 	editor(editor),
-	currentIndex(-1)
+	currentIndex(-1),
+	updatingResourceTabs(false)
 {
 	// Copy configs and resource definitions from map
 	configs = editor.getMap().zoneConfigs;
+	if(editor.getMap().hasFile()) {
+		IOMapOTBM::loadZoneResourceDefinitions(
+			editor.getMap(), FileName(wxstr(editor.getMap().getFilename()))
+		);
+	}
 	resourceDefs = editor.getMap().zoneResourceDefs;
 
-	wxBoxSizer* topSizer = newd wxBoxSizer(wxHORIZONTAL);
+	wxBoxSizer* mainSizer = newd wxBoxSizer(wxVERTICAL);
+	wxBoxSizer* headerSizer = newd wxBoxSizer(wxVERTICAL);
+	wxStaticText* title = newd wxStaticText(this, wxID_ANY, "World zones");
+	title->SetFont(title->GetFont().Bold().Larger());
+	headerSizer->Add(title, 0, wxBOTTOM, 3);
+	wxStaticText* infoLabel = newd wxStaticText(this, wxID_ANY,
+		"Drop a waypoint onto a painted zone to create it automatically. Select a zone to edit its details, areas and resource spawns.");
+	infoLabel->SetForegroundColour(wxSystemSettings::GetColour(wxSYS_COLOUR_GRAYTEXT));
+	headerSizer->Add(infoLabel, 0);
+	mainSizer->Add(headerSizer, 0, wxEXPAND | wxLEFT | wxRIGHT | wxTOP | wxBOTTOM, 12);
 
-	// Left panel: zone list + add/remove
-	wxBoxSizer* leftSizer = newd wxBoxSizer(wxVERTICAL);
-	leftSizer->Add(newd wxStaticText(this, wxID_ANY, "Filter zones by type:"), 0, wxBOTTOM, 4);
+	wxBoxSizer* contentSizer = newd wxBoxSizer(wxHORIZONTAL);
+
+	// Compact navigation column.
+	wxStaticBoxSizer* leftSizer = newd wxStaticBoxSizer(wxVERTICAL, this, "Zones");
 	filter_choice = newd wxChoice(
-		this, ZONE_CONFIG_FILTER, wxDefaultPosition, wxSize(220, -1),
+		leftSizer->GetStaticBox(), ZONE_CONFIG_FILTER, wxDefaultPosition, wxSize(240, -1),
 		BuildZoneCategoryChoices("All types")
 	);
 	filter_choice->SetSelection(0);
-	leftSizer->Add(filter_choice, 0, wxEXPAND | wxBOTTOM, 8);
+	filter_choice->SetToolTip("Show zones of one type");
+	leftSizer->Add(filter_choice, 0, wxEXPAND | wxALL, 6);
 
-	leftSizer->Add(newd wxStaticText(this, wxID_ANY, "Zones:"), 0, wxBOTTOM, 4);
-	zone_listbox = newd wxListBox(this, ZONE_CONFIG_LIST, wxDefaultPosition, wxSize(220, 300));
-	leftSizer->Add(zone_listbox, 1, wxEXPAND);
+	zone_listbox = newd wxListBox(leftSizer->GetStaticBox(), ZONE_CONFIG_LIST,
+		wxDefaultPosition, wxSize(240, 360));
+	leftSizer->Add(zone_listbox, 1, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, 6);
 
-	leftSizer->Add(newd wxStaticText(this, wxID_ANY, "Create from marker waypoint:"), 0, wxTOP, 8);
-	waypoint_picker = newd wxChoice(this, wxID_ANY, wxDefaultPosition, wxSize(220, -1));
-	leftSizer->Add(waypoint_picker, 0, wxEXPAND | wxTOP, 2);
+	wxStaticText* fallbackLabel = newd wxStaticText(
+		leftSizer->GetStaticBox(), wxID_ANY, "Unconfigured waypoint"
+	);
+	fallbackLabel->SetForegroundColour(wxSystemSettings::GetColour(wxSYS_COLOUR_GRAYTEXT));
+	leftSizer->Add(fallbackLabel, 0, wxLEFT | wxRIGHT | wxTOP, 6);
+	waypoint_picker = newd wxChoice(leftSizer->GetStaticBox(), wxID_ANY,
+		wxDefaultPosition, wxSize(240, -1));
+	waypoint_picker->SetToolTip("Fallback for waypoints created before automatic zone creation");
+	leftSizer->Add(waypoint_picker, 0, wxEXPAND | wxALL, 6);
 
 	wxBoxSizer* btnSizer = newd wxBoxSizer(wxHORIZONTAL);
-	btnSizer->Add(newd wxButton(this, ZONE_CONFIG_ADD, "Create zone"), 1, wxRIGHT, 4);
-	btnSizer->Add(newd wxButton(this, ZONE_CONFIG_REMOVE, "Delete zone"), 1);
-	leftSizer->Add(btnSizer, 0, wxEXPAND | wxTOP, 4);
+	btnSizer->Add(newd wxButton(leftSizer->GetStaticBox(), ZONE_CONFIG_ADD, "Create"), 1, wxRIGHT, 4);
+	btnSizer->Add(newd wxButton(leftSizer->GetStaticBox(), ZONE_CONFIG_REMOVE, "Delete"), 1);
+	leftSizer->Add(btnSizer, 0, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, 6);
+	contentSizer->Add(leftSizer, 0, wxEXPAND | wxRIGHT, 10);
 
-	topSizer->Add(leftSizer, 0, wxEXPAND | wxALL, 8);
+	wxNotebook* notebook = newd wxNotebook(this, wxID_ANY);
+	wxPanel* detailsPage = newd wxPanel(notebook, wxID_ANY);
+	wxPanel* resourcesPage = newd wxPanel(notebook, wxID_ANY);
+	notebook->AddPage(detailsPage, "Details", true);
+	notebook->AddPage(resourcesPage, "Resources");
+	contentSizer->Add(notebook, 1, wxEXPAND);
+	mainSizer->Add(contentSizer, 1, wxEXPAND | wxLEFT | wxRIGHT, 12);
 
-	// Right panel: zone config fields
+	// Details page.
 	wxBoxSizer* rightSizer = newd wxBoxSizer(wxVERTICAL);
+	wxStaticBoxSizer* identityBox = newd wxStaticBoxSizer(wxVERTICAL, detailsPage, "Identity");
 	wxFlexGridSizer* grid = newd wxFlexGridSizer(2, 4, 4);
 	grid->AddGrowableCol(1);
 
-	grid->Add(newd wxStaticText(this, wxID_ANY, "Marker waypoint:"), 0, wxALIGN_CENTER_VERTICAL);
-	marker_picker = newd wxChoice(this, wxID_ANY, wxDefaultPosition, wxSize(200, -1));
+	grid->Add(newd wxStaticText(identityBox->GetStaticBox(), wxID_ANY, "Marker waypoint"), 0, wxALIGN_CENTER_VERTICAL);
+	marker_picker = newd wxChoice(identityBox->GetStaticBox(), wxID_ANY, wxDefaultPosition, wxSize(240, -1));
 	grid->Add(marker_picker, 1, wxEXPAND);
 	marker_picker->SetToolTip(
 		"Select any unassigned waypoint. Missing markers can be replaced directly here."
 	);
 	marker_picker->Bind(wxEVT_CHOICE, &ZoneConfigDialog::OnMarkerChanged, this);
 
-	grid->Add(newd wxStaticText(this, wxID_ANY, "Display Name:"), 0, wxALIGN_CENTER_VERTICAL);
-	display_name_field = newd wxTextCtrl(this, wxID_ANY, "", wxDefaultPosition, wxSize(200, -1));
+	grid->Add(newd wxStaticText(identityBox->GetStaticBox(), wxID_ANY, "Display name"), 0, wxALIGN_CENTER_VERTICAL);
+	display_name_field = newd wxTextCtrl(identityBox->GetStaticBox(), wxID_ANY, "", wxDefaultPosition, wxSize(240, -1));
 	grid->Add(display_name_field, 1, wxEXPAND);
 
-	grid->Add(newd wxStaticText(this, wxID_ANY, "Zone type:"), 0, wxALIGN_CENTER_VERTICAL);
+	grid->Add(newd wxStaticText(identityBox->GetStaticBox(), wxID_ANY, "Zone type"), 0, wxALIGN_CENTER_VERTICAL);
 	category_choice = newd wxChoice(
-		this, ZONE_CONFIG_CATEGORY, wxDefaultPosition, wxSize(200, -1),
+		identityBox->GetStaticBox(), ZONE_CONFIG_CATEGORY, wxDefaultPosition, wxSize(240, -1),
 		BuildZoneCategoryChoices("Select a type")
 	);
 	category_choice->SetSelection(0);
 	grid->Add(category_choice, 1, wxEXPAND);
 
-	grid->Add(newd wxStaticText(this, wxID_ANY, "Difficulty:"), 0, wxALIGN_CENTER_VERTICAL);
-	difficulty_field = newd wxTextCtrl(this, wxID_ANY, "", wxDefaultPosition, wxSize(200, -1));
+	grid->Add(newd wxStaticText(identityBox->GetStaticBox(), wxID_ANY, "Difficulty"), 0, wxALIGN_CENTER_VERTICAL);
+	difficulty_field = newd wxTextCtrl(identityBox->GetStaticBox(), wxID_ANY, "", wxDefaultPosition, wxSize(240, -1));
 	grid->Add(difficulty_field, 1, wxEXPAND);
 
-	grid->Add(newd wxStaticText(this, wxID_ANY, "Music:"), 0, wxALIGN_CENTER_VERTICAL);
-	music_field = newd wxTextCtrl(this, wxID_ANY, "", wxDefaultPosition, wxSize(200, -1));
+	grid->Add(newd wxStaticText(identityBox->GetStaticBox(), wxID_ANY, "Music"), 0, wxALIGN_CENTER_VERTICAL);
+	music_field = newd wxTextCtrl(identityBox->GetStaticBox(), wxID_ANY, "", wxDefaultPosition, wxSize(240, -1));
 	grid->Add(music_field, 1, wxEXPAND);
+	identityBox->Add(grid, 0, wxEXPAND | wxALL, 8);
+	rightSizer->Add(identityBox, 0, wxEXPAND | wxALL, 10);
 
-	grid->Add(newd wxStaticText(this, wxID_ANY, "Included tiles:"), 0, wxALIGN_CENTER_VERTICAL);
-	area_label = newd wxStaticText(this, wxID_ANY, "—", wxDefaultPosition, wxSize(200, -1));
-	grid->Add(area_label, 1, wxEXPAND);
-
-	rightSizer->Add(grid, 0, wxEXPAND);
-
-	rightSizer->Add(newd wxStaticText(this, wxID_ANY, "Included areas and floors:"), 0, wxTOP, 8);
-	area_list = newd wxListBox(this, ZONE_CONFIG_AREA_LIST, wxDefaultPosition, wxSize(260, 90));
-	rightSizer->Add(area_list, 0, wxEXPAND | wxTOP, 2);
+	wxStaticBoxSizer* areasBox = newd wxStaticBoxSizer(wxVERTICAL, detailsPage, "Areas and floors");
+	wxBoxSizer* areaSummary = newd wxBoxSizer(wxHORIZONTAL);
+	areaSummary->Add(newd wxStaticText(areasBox->GetStaticBox(), wxID_ANY, "Included tiles"), 0, wxALIGN_CENTER_VERTICAL);
+	areaSummary->AddStretchSpacer();
+	area_label = newd wxStaticText(areasBox->GetStaticBox(), wxID_ANY, "—");
+	area_label->SetFont(area_label->GetFont().Bold());
+	areaSummary->Add(area_label, 0, wxALIGN_CENTER_VERTICAL);
+	areasBox->Add(areaSummary, 0, wxEXPAND | wxALL, 8);
+	area_list = newd wxListBox(areasBox->GetStaticBox(), ZONE_CONFIG_AREA_LIST,
+		wxDefaultPosition, wxSize(300, 180));
+	areasBox->Add(area_list, 1, wxEXPAND | wxLEFT | wxRIGHT, 8);
 	area_remove_button = newd wxButton(
-		this, ZONE_CONFIG_AREA_REMOVE, "Remove selected additional area"
+		areasBox->GetStaticBox(), ZONE_CONFIG_AREA_REMOVE, "Remove selected area"
 	);
-	rightSizer->Add(area_remove_button, 0, wxALIGN_RIGHT | wxTOP, 4);
+	areasBox->Add(area_remove_button, 0, wxALIGN_RIGHT | wxALL, 8);
 	area_list->Bind(wxEVT_LISTBOX, [this](wxCommandEvent&) {
 		area_remove_button->Enable(area_list->GetSelection() > 0);
 	});
+	rightSizer->Add(areasBox, 1, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, 10);
+	detailsPage->SetSizer(rightSizer);
 
-	// Resources section
-	rightSizer->Add(newd wxStaticLine(this), 0, wxEXPAND | wxTOP | wxBOTTOM, 8);
-	has_resources_check = newd wxCheckBox(this, ZONE_CONFIG_HAS_RESOURCES, "Has Resources");
-	rightSizer->Add(has_resources_check, 0, wxBOTTOM, 4);
+	// Resources page.
+	wxBoxSizer* resourcePageSizer = newd wxBoxSizer(wxVERTICAL);
+	resource_type_notebook = newd wxNotebook(resourcesPage, wxID_ANY, wxDefaultPosition, wxSize(-1, 32));
+	resourcePageSizer->Add(resource_type_notebook, 0, wxEXPAND | wxLEFT | wxRIGHT | wxTOP, 10);
+	resource_type_notebook->Bind(wxEVT_NOTEBOOK_PAGE_CHANGING, [this](wxBookCtrlEvent& event) {
+		if(!updatingResourceTabs) {
+			SaveCurrentResourceType();
+		}
+		event.Skip();
+	});
+	resource_type_notebook->Bind(wxEVT_NOTEBOOK_PAGE_CHANGED, [this](wxBookCtrlEvent& event) {
+		if(!updatingResourceTabs) {
+			LoadCurrentResourceTypeToUI();
+		}
+		event.Skip();
+	});
 
-	wxFlexGridSizer* resGrid = newd wxFlexGridSizer(2, 4, 4);
+	has_resources_check = newd wxCheckBox(resourcesPage, ZONE_CONFIG_HAS_RESOURCES, "Enable this resource type in this zone");
+	has_resources_check->SetFont(has_resources_check->GetFont().Bold());
+	resourcePageSizer->Add(has_resources_check, 0, wxALL, 10);
+
+	wxStaticBoxSizer* rulesBox = newd wxStaticBoxSizer(wxVERTICAL, resourcesPage, "Spawn rules");
+	wxFlexGridSizer* resGrid = newd wxFlexGridSizer(3, 8, 10);
+	resGrid->AddGrowableCol(0);
 	resGrid->AddGrowableCol(1);
+	resGrid->AddGrowableCol(2);
 
-	resGrid->Add(newd wxStaticText(this, wxID_ANY, "Max Nodes:"), 0, wxALIGN_CENTER_VERTICAL);
-	max_nodes_spin = newd wxSpinCtrl(this, wxID_ANY, "0", wxDefaultPosition, wxSize(80, -1), wxSP_ARROW_KEYS, 0, 9999);
-	resGrid->Add(max_nodes_spin);
+	auto addSpinField = [&](const wxString& label, int minimum, int maximum, wxSpinCtrl*& control) {
+		wxBoxSizer* column = newd wxBoxSizer(wxVERTICAL);
+		column->Add(newd wxStaticText(rulesBox->GetStaticBox(), wxID_ANY, label), 0, wxBOTTOM, 3);
+		control = newd wxSpinCtrl(rulesBox->GetStaticBox(), wxID_ANY, "0", wxDefaultPosition,
+			wxDefaultSize, wxSP_ARROW_KEYS, minimum, maximum);
+		column->Add(control, 0, wxEXPAND);
+		resGrid->Add(column, 1, wxEXPAND);
+	};
+	addSpinField("Maximum nodes", 1, 9999, max_nodes_spin);
+	addSpinField("Minimum spacing", 0, 999, min_distance_spin);
+	addSpinField("Respawn interval (seconds)", 1, 99999, spawn_interval_spin);
+	rulesBox->Add(resGrid, 0, wxEXPAND | wxALL, 8);
+	resourcePageSizer->Add(rulesBox, 0, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, 10);
 
-	resGrid->Add(newd wxStaticText(this, wxID_ANY, "Min Distance:"), 0, wxALIGN_CENTER_VERTICAL);
-	min_distance_spin = newd wxSpinCtrl(this, wxID_ANY, "0", wxDefaultPosition, wxSize(80, -1), wxSP_ARROW_KEYS, 0, 999);
-	resGrid->Add(min_distance_spin);
+	wxStaticBoxSizer* tableBox = newd wxStaticBoxSizer(wxVERTICAL, resourcesPage, "Spawn table");
+	spawn_list = newd wxDataViewListCtrl(tableBox->GetStaticBox(), ZONE_CONFIG_SPAWN_LIST,
+		wxDefaultPosition, wxSize(300, 150), wxDV_ROW_LINES | wxDV_VERT_RULES | wxDV_SINGLE);
+	spawn_list->AppendTextColumn("Type", wxDATAVIEW_CELL_INERT, 125, wxALIGN_LEFT, wxDATAVIEW_COL_RESIZABLE);
+	spawn_list->AppendTextColumn("Resource", wxDATAVIEW_CELL_INERT, 150, wxALIGN_LEFT, wxDATAVIEW_COL_RESIZABLE);
+	spawn_list->AppendTextColumn("Variant", wxDATAVIEW_CELL_INERT, 190, wxALIGN_LEFT, wxDATAVIEW_COL_RESIZABLE);
+	spawn_list->AppendTextColumn("Spawn %", wxDATAVIEW_CELL_EDITABLE, 85, wxALIGN_RIGHT, wxDATAVIEW_COL_RESIZABLE);
+	tableBox->Add(spawn_list, 1, wxEXPAND | wxALL, 8);
+	spawn_list->Bind(wxEVT_DATAVIEW_ITEM_VALUE_CHANGED, [this](wxDataViewEvent& event) {
+		if(currentIndex < 0 || currentIndex >= static_cast<int>(configs.size()) || event.GetColumn() != 3) {
+			return;
+		}
+		const int row = static_cast<int>(spawn_list->ItemToRow(event.GetItem()));
+		const std::string type = GetSelectedResourceType();
+		if(type.empty()) return;
+		auto typeConfig = configs[currentIndex].resourceTypes.find(type);
+		if(typeConfig == configs[currentIndex].resourceTypes.end()) return;
+		auto& table = typeConfig->second.spawnTable;
+		if(row < 0 || row >= static_cast<int>(table.size())) {
+			return;
+		}
+		wxVariant value;
+		spawn_list->GetValue(value, static_cast<unsigned int>(row), 3);
+		wxString enteredValue = value.GetString();
+		enteredValue.Replace("%", "");
+		enteredValue.Trim(true).Trim(false);
+		double chancePercent = 0.0;
+		if(!enteredValue.ToDouble(&chancePercent)) {
+			chancePercent = table[row].chancePercent;
+		}
+		chancePercent = std::max(0.01, std::min(100.0, chancePercent));
+		chancePercent = std::round(chancePercent * 100.0) / 100.0;
+		table[row].chancePercent = chancePercent;
+		const wxString normalized = wxString::Format("%g%%", chancePercent);
+		if(value.GetString() != normalized) {
+			spawn_list->SetValue(wxVariant(normalized), static_cast<unsigned int>(row), 3);
+		}
+		RefreshSpawnPercentageStatus();
+	});
 
-	resGrid->Add(newd wxStaticText(this, wxID_ANY, "Spawn Interval (s):"), 0, wxALIGN_CENTER_VERTICAL);
-	spawn_interval_spin = newd wxSpinCtrl(this, wxID_ANY, "0", wxDefaultPosition, wxSize(80, -1), wxSP_ARROW_KEYS, 0, 99999);
-	resGrid->Add(spawn_interval_spin);
+	spawn_percentage_status = newd wxStaticText(tableBox->GetStaticBox(), wxID_ANY, "Total: 0% / 100%");
+	spawn_percentage_status->SetFont(spawn_percentage_status->GetFont().Bold());
+	tableBox->Add(spawn_percentage_status, 0, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, 8);
 
-	rightSizer->Add(resGrid, 0, wxEXPAND);
-
-	// Spawn table section
-	rightSizer->Add(newd wxStaticText(this, wxID_ANY, "Spawn Table:"), 0, wxTOP, 6);
-	spawn_list = newd wxListBox(this, ZONE_CONFIG_SPAWN_LIST, wxDefaultPosition, wxSize(200, 80));
-	rightSizer->Add(spawn_list, 0, wxEXPAND | wxTOP, 2);
-
-	resource_filter_label = newd wxStaticText(this, wxID_ANY, "");
+	resource_filter_label = newd wxStaticText(tableBox->GetStaticBox(), wxID_ANY, "");
 	resource_filter_label->SetForegroundColour(wxSystemSettings::GetColour(wxSYS_COLOUR_GRAYTEXT));
-	rightSizer->Add(resource_filter_label, 0, wxTOP | wxBOTTOM, 4);
+	tableBox->Add(resource_filter_label, 0, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, 8);
 
 	wxFlexGridSizer* resourceSelectorSizer = newd wxFlexGridSizer(2, 4, 4);
 	resourceSelectorSizer->AddGrowableCol(1);
 
 	resourceSelectorSizer->Add(
-		newd wxStaticText(this, wxID_ANY, "Resource type:"), 0, wxALIGN_CENTER_VERTICAL
+		newd wxStaticText(tableBox->GetStaticBox(), wxID_ANY, "Resource"), 0, wxALIGN_CENTER_VERTICAL
 	);
-	resource_type_picker = newd wxChoice(this, wxID_ANY, wxDefaultPosition, wxSize(220, -1));
-	resourceSelectorSizer->Add(resource_type_picker, 1, wxEXPAND);
-
-	resourceSelectorSizer->Add(
-		newd wxStaticText(this, wxID_ANY, "Resource:"), 0, wxALIGN_CENTER_VERTICAL
-	);
-	resource_group_picker = newd wxChoice(this, wxID_ANY, wxDefaultPosition, wxSize(220, -1));
+	resource_group_picker = newd wxChoice(tableBox->GetStaticBox(), wxID_ANY, wxDefaultPosition, wxSize(260, -1));
 	resourceSelectorSizer->Add(resource_group_picker, 1, wxEXPAND);
 
 	resourceSelectorSizer->Add(
-		newd wxStaticText(this, wxID_ANY, "Variant:"), 0, wxALIGN_CENTER_VERTICAL
+		newd wxStaticText(tableBox->GetStaticBox(), wxID_ANY, "Variant"), 0, wxALIGN_CENTER_VERTICAL
 	);
-	resource_variant_picker = newd wxChoice(this, wxID_ANY, wxDefaultPosition, wxSize(220, -1));
+	resource_variant_picker = newd wxChoice(tableBox->GetStaticBox(), wxID_ANY, wxDefaultPosition, wxSize(260, -1));
 	resourceSelectorSizer->Add(resource_variant_picker, 1, wxEXPAND);
-	rightSizer->Add(resourceSelectorSizer, 0, wxEXPAND | wxTOP, 4);
+	tableBox->Add(resourceSelectorSizer, 0, wxEXPAND | wxLEFT | wxRIGHT, 8);
 
 	wxBoxSizer* spawnAddSizer = newd wxBoxSizer(wxHORIZONTAL);
 	spawnAddSizer->AddStretchSpacer();
-	spawnAddSizer->Add(newd wxStaticText(this, wxID_ANY, "Weight:"), 0, wxALIGN_CENTER_VERTICAL | wxRIGHT, 2);
-	chance_spin = newd wxSpinCtrl(this, wxID_ANY, "10", wxDefaultPosition, wxSize(60, -1), wxSP_ARROW_KEYS, 1, 9999);
-	spawnAddSizer->Add(chance_spin, 0, wxRIGHT, 4);
-	spawnAddSizer->Add(newd wxButton(this, ZONE_CONFIG_SPAWN_ADD, "Add"), 0, wxRIGHT, 2);
-	spawnAddSizer->Add(newd wxButton(this, ZONE_CONFIG_SPAWN_REMOVE, "Remove"), 0);
-	rightSizer->Add(spawnAddSizer, 0, wxEXPAND | wxTOP, 4);
+	spawnAddSizer->Add(newd wxStaticText(tableBox->GetStaticBox(), wxID_ANY, "Spawn %"), 0, wxALIGN_CENTER_VERTICAL | wxRIGHT, 4);
+	chance_spin = newd wxSpinCtrlDouble(tableBox->GetStaticBox(), wxID_ANY, "10", wxDefaultPosition, wxSize(82, -1), wxSP_ARROW_KEYS, 0.01, 100.0, 10.0, 0.5);
+	chance_spin->SetDigits(2);
+	spawnAddSizer->Add(chance_spin, 0, wxRIGHT, 8);
+	spawnAddSizer->Add(newd wxButton(tableBox->GetStaticBox(), ZONE_CONFIG_SPAWN_ADD, "Add resource"), 0, wxRIGHT, 4);
+	spawnAddSizer->Add(newd wxButton(tableBox->GetStaticBox(), ZONE_CONFIG_SPAWN_REMOVE, "Remove selected"), 0);
+	tableBox->Add(spawnAddSizer, 0, wxEXPAND | wxALL, 8);
+	resourcePageSizer->Add(tableBox, 1, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, 10);
+	resourcesPage->SetSizer(resourcePageSizer);
 
-	resource_type_picker->Bind(wxEVT_CHOICE, [this](wxCommandEvent&) {
-		RefreshResourceGroups();
-	});
 	resource_group_picker->Bind(wxEVT_CHOICE, [this](wxCommandEvent&) {
 		RefreshResourceVariants();
 	});
 
-	topSizer->Add(rightSizer, 1, wxEXPAND | wxALL, 8);
-
-	// Main layout
-	wxBoxSizer* mainSizer = newd wxBoxSizer(wxVERTICAL);
-
-	wxStaticText* infoLabel = newd wxStaticText(this, wxID_ANY,
-		"A zone has one marker waypoint and may include multiple connected painted areas on any floor.\n"
-		"To extend it, paint the same type elsewhere, right-click that area, and choose "
-		"\"Add this area to a zone...\".");
-	infoLabel->SetForegroundColour(wxSystemSettings::GetColour(wxSYS_COLOUR_GRAYTEXT));
-	mainSizer->Add(infoLabel, 0, wxALL, 8);
-
-	mainSizer->Add(topSizer, 1, wxEXPAND);
-
 	wxBoxSizer* okCancelSizer = newd wxBoxSizer(wxHORIZONTAL);
 	okCancelSizer->AddStretchSpacer();
-	okCancelSizer->Add(newd wxButton(this, wxID_OK, "OK"), 0, wxRIGHT, 4);
+	okCancelSizer->Add(newd wxButton(this, wxID_OK, "Save changes"), 0, wxRIGHT, 6);
 	okCancelSizer->Add(newd wxButton(this, wxID_CANCEL, "Cancel"), 0);
-	mainSizer->Add(okCancelSizer, 0, wxEXPAND | wxALL, 8);
+	mainSizer->Add(okCancelSizer, 0, wxEXPAND | wxALL, 12);
 
 	SetSizer(mainSizer);
 
@@ -1749,20 +1830,25 @@ ZoneConfigDialog::ZoneConfigDialog(wxWindow* parent, Editor& editor) :
 	difficulty_field->Disable();
 	music_field->Disable();
 	has_resources_check->Disable();
+	resource_type_notebook->Disable();
 	max_nodes_spin->Disable();
 	min_distance_spin->Disable();
 	spawn_interval_spin->Disable();
 	spawn_list->Disable();
 	area_list->Disable();
 	area_remove_button->Disable();
-	resource_type_picker->Disable();
 	resource_group_picker->Disable();
 	resource_variant_picker->Disable();
 	chance_spin->Disable();
 
 	RefreshList();
 	RefreshWaypointPicker();
-	SetMinSize(wxSize(760, 700));
+	if(!visibleZoneIndices.empty()) {
+		currentIndex = visibleZoneIndices.front();
+		zone_listbox->SetSelection(0);
+		LoadZoneToUI(currentIndex);
+	}
+	SetMinSize(wxSize(860, 600));
 	Centre(wxBOTH);
 }
 
@@ -1889,7 +1975,8 @@ void ZoneConfigDialog::LoadZoneToUI(int index)
 		max_nodes_spin->SetValue(0);
 		min_distance_spin->SetValue(0);
 		spawn_interval_spin->SetValue(0);
-		spawn_list->Clear();
+		spawn_list->DeleteAllItems();
+		RefreshSpawnPercentageStatus();
 		area_list->Clear();
 		area_label->SetLabel(wxT("\u2014"));
 
@@ -1905,7 +1992,7 @@ void ZoneConfigDialog::LoadZoneToUI(int index)
 		spawn_list->Disable();
 		area_list->Disable();
 		area_remove_button->Disable();
-		resource_type_picker->Disable();
+		resource_type_notebook->Disable();
 		resource_group_picker->Disable();
 		resource_variant_picker->Disable();
 		chance_spin->Disable();
@@ -1920,6 +2007,7 @@ void ZoneConfigDialog::LoadZoneToUI(int index)
 	difficulty_field->Enable();
 	music_field->Enable();
 	has_resources_check->Enable();
+	resource_type_notebook->Enable();
 	area_list->Enable();
 	area_remove_button->Disable();
 
@@ -1931,26 +2019,7 @@ void ZoneConfigDialog::LoadZoneToUI(int index)
 
 	difficulty_field->SetValue(wxstr(zc.difficulty));
 	music_field->SetValue(wxstr(zc.music));
-	has_resources_check->SetValue(zc.hasResources);
-
-	max_nodes_spin->Enable(zc.hasResources);
-	min_distance_spin->Enable(zc.hasResources);
-	spawn_interval_spin->Enable(zc.hasResources);
-	spawn_list->Enable(zc.hasResources);
-	resource_type_picker->Enable(zc.hasResources);
-	resource_group_picker->Enable(zc.hasResources);
-	resource_variant_picker->Enable(zc.hasResources);
-	chance_spin->Enable(zc.hasResources);
-
-	if(zc.hasResources) {
-		max_nodes_spin->SetValue(zc.resources.maxNodes);
-		min_distance_spin->SetValue(zc.resources.minDistanceBetweenNodes);
-		spawn_interval_spin->SetValue(zc.resources.spawnIntervalSeconds);
-	} else {
-		max_nodes_spin->SetValue(0);
-		min_distance_spin->SetValue(0);
-		spawn_interval_spin->SetValue(0);
-	}
+	LoadCurrentResourceTypeToUI();
 
 	// Update area label
 	if(!zc.category.empty()) {
@@ -1960,7 +2029,6 @@ void ZoneConfigDialog::LoadZoneToUI(int index)
 		area_label->SetLabel(wxT("\u2014"));
 	}
 
-	RefreshSpawnList();
 	RefreshAreaList();
 }
 
@@ -2016,6 +2084,7 @@ void ZoneConfigDialog::SaveCurrentZone()
 {
 	if(currentIndex < 0 || currentIndex >= (int)configs.size())
 		return;
+	SaveCurrentResourceType();
 
 	ZoneConfig& zc = configs[currentIndex];
 	const int markerSelection = marker_picker->GetSelection();
@@ -2031,19 +2100,61 @@ void ZoneConfigDialog::SaveCurrentZone()
 
 	zc.difficulty = nstr(difficulty_field->GetValue());
 	zc.music = nstr(music_field->GetValue());
-	zc.hasResources = has_resources_check->GetValue();
+}
 
-	if(zc.hasResources) {
-		zc.resources.maxNodes = max_nodes_spin->GetValue();
-		zc.resources.minDistanceBetweenNodes = min_distance_spin->GetValue();
-		zc.resources.spawnIntervalSeconds = spawn_interval_spin->GetValue();
-		// spawnTable is managed directly by OnSpawnAdd/OnSpawnRemove
-	} else {
-		zc.resources.spawnTable.clear();
-		zc.resources.maxNodes = 0;
-		zc.resources.minDistanceBetweenNodes = 0;
-		zc.resources.spawnIntervalSeconds = 0;
+std::string ZoneConfigDialog::GetSelectedResourceType() const
+{
+	const int selection = resource_type_notebook->GetSelection();
+	if(selection < 0 || selection >= static_cast<int>(visibleResourceTypes.size())) {
+		return "";
 	}
+	return visibleResourceTypes[selection];
+}
+
+void ZoneConfigDialog::SaveCurrentResourceType()
+{
+	if(updatingResourceTabs || currentIndex < 0 || currentIndex >= static_cast<int>(configs.size())) {
+		return;
+	}
+	const std::string type = GetSelectedResourceType();
+	if(type.empty()) return;
+
+	ZoneConfig& zone = configs[currentIndex];
+	if(!has_resources_check->GetValue()) {
+		zone.resourceTypes.erase(type);
+		return;
+	}
+
+	ZoneResourceConfig& config = zone.resourceTypes[type];
+	config.maxNodes = max_nodes_spin->GetValue();
+	config.minDistanceBetweenNodes = min_distance_spin->GetValue();
+	config.spawnIntervalSeconds = spawn_interval_spin->GetValue();
+}
+
+void ZoneConfigDialog::LoadCurrentResourceTypeToUI()
+{
+	const std::string type = GetSelectedResourceType();
+	const bool hasZone = currentIndex >= 0 && currentIndex < static_cast<int>(configs.size());
+	const auto typeConfig = hasZone && !type.empty() ?
+		configs[currentIndex].resourceTypes.find(type) : std::map<std::string, ZoneResourceConfig>::const_iterator();
+	const bool enabled = hasZone && !type.empty() &&
+		typeConfig != configs[currentIndex].resourceTypes.end();
+
+	has_resources_check->SetValue(enabled);
+	max_nodes_spin->SetValue(enabled ? typeConfig->second.maxNodes : 0);
+	min_distance_spin->SetValue(enabled ? typeConfig->second.minDistanceBetweenNodes : 0);
+	spawn_interval_spin->SetValue(enabled ? typeConfig->second.spawnIntervalSeconds : 0);
+
+	has_resources_check->Enable(hasZone && !type.empty());
+	max_nodes_spin->Enable(enabled);
+	min_distance_spin->Enable(enabled);
+	spawn_interval_spin->Enable(enabled);
+	spawn_list->Enable(enabled);
+	resource_group_picker->Enable(enabled);
+	resource_variant_picker->Enable(enabled);
+	chance_spin->Enable(enabled);
+	RefreshResourceGroups();
+	RefreshSpawnList();
 }
 
 void ZoneConfigDialog::OnListSelect(wxCommandEvent& event)
@@ -2186,11 +2297,18 @@ void ZoneConfigDialog::OnAreaRemove(wxCommandEvent& event)
 void ZoneConfigDialog::OnResourcesCheck(wxCommandEvent& event)
 {
 	bool checked = has_resources_check->GetValue();
+	const std::string type = GetSelectedResourceType();
+	if(currentIndex >= 0 && currentIndex < static_cast<int>(configs.size()) && !type.empty()) {
+		if(checked) {
+			configs[currentIndex].resourceTypes.try_emplace(type);
+		} else {
+			configs[currentIndex].resourceTypes.erase(type);
+		}
+	}
 	max_nodes_spin->Enable(checked);
 	min_distance_spin->Enable(checked);
 	spawn_interval_spin->Enable(checked);
 	spawn_list->Enable(checked);
-	resource_type_picker->Enable(checked);
 	resource_group_picker->Enable(checked);
 	resource_variant_picker->Enable(checked);
 	chance_spin->Enable(checked);
@@ -2198,35 +2316,85 @@ void ZoneConfigDialog::OnResourcesCheck(wxCommandEvent& event)
 
 void ZoneConfigDialog::RefreshSpawnList()
 {
-	spawn_list->Clear();
-	if(currentIndex < 0 || currentIndex >= (int)configs.size())
+	spawn_list->DeleteAllItems();
+	if(currentIndex < 0 || currentIndex >= (int)configs.size()) {
+		RefreshSpawnPercentageStatus();
 		return;
+	}
 
-	const auto& table = configs[currentIndex].resources.spawnTable;
+	const std::string type = GetSelectedResourceType();
+	const auto typeConfig = configs[currentIndex].resourceTypes.find(type);
+	if(typeConfig == configs[currentIndex].resourceTypes.end()) {
+		RefreshSpawnPercentageStatus();
+		return;
+	}
+	const auto& table = typeConfig->second.spawnTable;
 	for(const auto& se : table) {
-		wxString label = wxstr(se.resourceId);
+		wxString type = "Missing";
+		wxString resource = wxstr(se.resourceId);
+		wxString variant;
+		bool found = false;
 		for(const auto& def : resourceDefs) {
 			if(def.id == se.resourceId) {
-				label = "[" + GetResourceTypeDisplayName(GetResourceType(def)) + "] " +
-					wxstr(def.name) + " - " +
-					GetResourceVariantDisplayName(GetResourceVariant(def));
+				found = true;
+				type = GetResourceTypeDisplayName(GetResourceType(def));
+				resource = wxstr(def.name);
+				variant = wxstr(def.variant);
 				break;
 			}
 		}
-		label += wxString::Format(" - weight %d", se.weight);
-		spawn_list->Append(label);
+		if(!found) {
+			variant = "Missing from resource catalog";
+		}
+		wxVector<wxVariant> values;
+		values.push_back(wxVariant(type));
+		values.push_back(wxVariant(resource));
+		values.push_back(wxVariant(variant));
+		values.push_back(wxVariant(wxString::Format("%g%%", se.chancePercent)));
+		spawn_list->AppendItem(values);
+	}
+	RefreshSpawnPercentageStatus();
+}
+
+void ZoneConfigDialog::RefreshSpawnPercentageStatus()
+{
+	double total = 0.0;
+	if(currentIndex >= 0 && currentIndex < static_cast<int>(configs.size())) {
+		const auto typeConfig = configs[currentIndex].resourceTypes.find(GetSelectedResourceType());
+		if(typeConfig != configs[currentIndex].resourceTypes.end()) {
+			for(const ZoneResourceSpawnEntry& entry : typeConfig->second.spawnTable) {
+				total += entry.chancePercent;
+			}
+		}
+	}
+
+	const double remaining = 100.0 - total;
+	if(std::fabs(remaining) < 0.005) {
+		spawn_percentage_status->SetLabel("Total: 100% (complete)");
+		spawn_percentage_status->SetForegroundColour(wxColour(32, 128, 64));
+	} else if(remaining > 0.0) {
+		spawn_percentage_status->SetLabel(wxString::Format(
+			"Total: %g%% / 100%%  -  %g%% remaining", total, remaining
+		));
+		spawn_percentage_status->SetForegroundColour(wxColour(190, 70, 55));
+	} else {
+		spawn_percentage_status->SetLabel(wxString::Format(
+			"Total: %g%% / 100%%  -  %g%% over", total, -remaining
+		));
+		spawn_percentage_status->SetForegroundColour(wxColour(190, 70, 55));
 	}
 }
 
 void ZoneConfigDialog::RefreshResourceControls()
 {
-	std::string selectedType;
-	const int oldSelection = resource_type_picker->GetSelection();
+	std::string selectedType = GetSelectedResourceType();
+	const int oldSelection = resource_type_notebook->GetSelection();
 	if(oldSelection >= 0 && oldSelection < static_cast<int>(visibleResourceTypes.size())) {
 		selectedType = visibleResourceTypes[oldSelection];
 	}
 
-	resource_type_picker->Clear();
+	updatingResourceTabs = true;
+	resource_type_notebook->DeleteAllPages();
 	visibleResourceTypes.clear();
 
 	std::string category;
@@ -2234,10 +2402,12 @@ void ZoneConfigDialog::RefreshResourceControls()
 		category = configs[currentIndex].category;
 	}
 	resource_filter_label->SetLabel(
-		category.empty() ?
-			wxString("Showing all resources. Select a zone type to apply compatibility filtering.") :
-			wxString("Compatible with this ") + wxstr(getZoneCategoryDisplayName(category)) +
-				" zone. Global resources are also included."
+		resourceDefs.empty() ?
+			wxString("No profession resources found in data/professions/gathering.json.") :
+			wxString::Format(
+				"%zu resource nodes loaded directly from the Data Editor profession catalog.",
+				resourceDefs.size()
+			)
 	);
 
 	int newSelection = wxNOT_FOUND;
@@ -2251,17 +2421,21 @@ void ZoneConfigDialog::RefreshResourceControls()
 			visibleResourceTypes.end()) {
 			continue;
 		}
-		resource_type_picker->Append(GetResourceTypeDisplayName(type));
+		resource_type_notebook->AddPage(
+			newd wxPanel(resource_type_notebook, wxID_ANY),
+			GetResourceTypeDisplayName(type)
+		);
 		visibleResourceTypes.push_back(type);
 		if(type == selectedType) {
 			newSelection = static_cast<int>(visibleResourceTypes.size()) - 1;
 		}
 	}
 
-	if(resource_type_picker->GetCount() > 0) {
-		resource_type_picker->SetSelection(newSelection == wxNOT_FOUND ? 0 : newSelection);
+	if(resource_type_notebook->GetPageCount() > 0) {
+		resource_type_notebook->SetSelection(newSelection == wxNOT_FOUND ? 0 : newSelection);
 	}
-	RefreshResourceGroups();
+	updatingResourceTabs = false;
+	LoadCurrentResourceTypeToUI();
 }
 
 void ZoneConfigDialog::RefreshResourceGroups()
@@ -2275,12 +2449,11 @@ void ZoneConfigDialog::RefreshResourceGroups()
 	resource_group_picker->Clear();
 	visibleResourceGroups.clear();
 
-	const int typeSelection = resource_type_picker->GetSelection();
-	if(typeSelection < 0 || typeSelection >= static_cast<int>(visibleResourceTypes.size())) {
+	const std::string selectedType = GetSelectedResourceType();
+	if(selectedType.empty()) {
 		RefreshResourceVariants();
 		return;
 	}
-	const std::string& selectedType = visibleResourceTypes[typeSelection];
 	const std::string category =
 		currentIndex >= 0 && currentIndex < static_cast<int>(configs.size()) ?
 			configs[currentIndex].category : "";
@@ -2321,14 +2494,13 @@ void ZoneConfigDialog::RefreshResourceVariants()
 	resource_variant_picker->Clear();
 	visibleResourceIndices.clear();
 
-	const int typeSelection = resource_type_picker->GetSelection();
 	const int groupSelection = resource_group_picker->GetSelection();
-	if(typeSelection < 0 || typeSelection >= static_cast<int>(visibleResourceTypes.size()) ||
-		groupSelection < 0 || groupSelection >= static_cast<int>(visibleResourceGroups.size())) {
+	const std::string selectedType = GetSelectedResourceType();
+	if(selectedType.empty() || groupSelection < 0 ||
+		groupSelection >= static_cast<int>(visibleResourceGroups.size())) {
 		return;
 	}
 
-	const std::string& selectedType = visibleResourceTypes[typeSelection];
 	const std::string& selectedGroup = visibleResourceGroups[groupSelection];
 	const std::string category =
 		currentIndex >= 0 && currentIndex < static_cast<int>(configs.size()) ?
@@ -2343,9 +2515,7 @@ void ZoneConfigDialog::RefreshResourceVariants()
 			continue;
 		}
 
-		resource_variant_picker->Append(
-			GetResourceVariantDisplayName(GetResourceVariant(def))
-		);
+		resource_variant_picker->Append(wxstr(def.variant));
 		visibleResourceIndices.push_back(static_cast<int>(index));
 		if(def.id == selectedId) {
 			newSelection = static_cast<int>(visibleResourceIndices.size()) - 1;
@@ -2372,8 +2542,10 @@ void ZoneConfigDialog::OnSpawnAdd(wxCommandEvent& event)
 
 	ZoneResourceSpawnEntry se;
 	se.resourceId = resourceDefs[resourceIndex].id;
-	se.weight = chance_spin->GetValue();
-	configs[currentIndex].resources.spawnTable.push_back(se);
+	se.chancePercent = chance_spin->GetValue();
+	const std::string type = GetSelectedResourceType();
+	if(type.empty() || !has_resources_check->GetValue()) return;
+	configs[currentIndex].resourceTypes[type].spawnTable.push_back(se);
 	RefreshSpawnList();
 }
 
@@ -2382,11 +2554,15 @@ void ZoneConfigDialog::OnSpawnRemove(wxCommandEvent& event)
 	if(currentIndex < 0 || currentIndex >= (int)configs.size())
 		return;
 
-	int sel = spawn_list->GetSelection();
-	if(sel == wxNOT_FOUND)
+	const wxDataViewItem selection = spawn_list->GetSelection();
+	if(!selection.IsOk())
 		return;
+	const int sel = static_cast<int>(spawn_list->ItemToRow(selection));
 
-	auto& table = configs[currentIndex].resources.spawnTable;
+	const std::string type = GetSelectedResourceType();
+	auto typeConfig = configs[currentIndex].resourceTypes.find(type);
+	if(typeConfig == configs[currentIndex].resourceTypes.end()) return;
+	auto& table = typeConfig->second.spawnTable;
 	if(sel >= 0 && sel < (int)table.size()) {
 		table.erase(table.begin() + sel);
 	}
@@ -2411,6 +2587,69 @@ void ZoneConfigDialog::OnClickOK(wxCommandEvent& event)
 				wxOK | wxICON_ERROR
 			);
 			return;
+		}
+		for(const auto& typedResources : configs[i].resourceTypes) {
+			const std::string& resourceType = typedResources.first;
+			const ZoneResourceConfig& resourceConfig = typedResources.second;
+			double totalChancePercent = 0.0;
+			for(const ZoneResourceSpawnEntry& spawn : resourceConfig.spawnTable) {
+				if(spawn.chancePercent <= 0.0 || spawn.chancePercent > 100.0) {
+					wxMessageBox(
+						"Every " + GetResourceTypeDisplayName(resourceType).Lower() + " resource in zone \"" +
+							wxstr(configs[i].displayName.empty() ? configs[i].name : configs[i].displayName) +
+							"\" must have an individual spawn percentage greater than 0% and no more than 100%.",
+						"Invalid Spawn Percentage",
+						wxOK | wxICON_ERROR
+					);
+					return;
+				}
+				totalChancePercent += spawn.chancePercent;
+			}
+			if(std::fabs(totalChancePercent - 100.0) >= 0.005) {
+				wxMessageBox(
+					"The " + GetResourceTypeDisplayName(resourceType).Lower() + " spawn percentages for zone \"" +
+						wxstr(configs[i].displayName.empty() ? configs[i].name : configs[i].displayName) +
+						"\" total " + wxString::Format("%g%%", totalChancePercent) +
+						". Adjust the individual percentages so they total exactly 100%.",
+					"Spawn Percentages Must Total 100%",
+					wxOK | wxICON_ERROR
+				);
+				return;
+			}
+			for(const ZoneResourceSpawnEntry& spawn : resourceConfig.spawnTable) {
+			const auto resource = std::find_if(resourceDefs.begin(), resourceDefs.end(),
+				[&spawn](const ZoneResourceDef& definition) {
+					return definition.id == spawn.resourceId;
+				});
+			if(resource == resourceDefs.end()) {
+				wxMessageBox(
+					"Zone \"" + wxstr(configs[i].displayName.empty() ? configs[i].name : configs[i].displayName) +
+						"\" references missing resource \"" + wxstr(spawn.resourceId) +
+						"\". Add that resource item in the Data Editor Profession Center or remove this spawn entry.",
+					"Resource Catalog Out of Sync",
+					wxOK | wxICON_ERROR
+				);
+				return;
+			}
+			if(!IsResourceCompatibleWithZone(*resource, configs[i].category)) {
+				wxMessageBox(
+					"Resource \"" + wxstr(resource->name) + "\" is not compatible with the " +
+						wxstr(getZoneCategoryDisplayName(configs[i].category)) +
+						" zone type according to the profession catalog.",
+					"Resource Type Mismatch",
+					wxOK | wxICON_ERROR
+				);
+				return;
+			}
+			if(GetResourceType(*resource) != resourceType) {
+				wxMessageBox(
+					"Resource \"" + wxstr(resource->name) + "\" is stored under the wrong resource type tab.",
+					"Resource Type Mismatch",
+					wxOK | wxICON_ERROR
+				);
+				return;
+			}
+			}
 		}
 		bool markerFound = false;
 		const std::string markerName = as_lower_str(configs[i].name);

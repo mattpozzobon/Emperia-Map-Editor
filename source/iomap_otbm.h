@@ -54,6 +54,10 @@ enum OTBM_ItemAttribute
 	OTBM_ATTR_EMPERIA_NOBLE_ONLY = 24,
 	OTBM_ATTR_EMPERIA_QUESTS = 25,
 	OTBM_ATTR_EMPERIA_STORAGE = 26,
+	OTBM_ATTR_EMPERIA_REWARD_ID = 27,
+	OTBM_ATTR_EMPERIA_REWARD_SEQUENCE = 28,
+	OTBM_ATTR_EMPERIA_MATERIAL_ID = 29,
+	OTBM_ATTR_EMPERIA_MATERIAL_COMPOSITION = 30,
 
 	OTBM_ATTR_ATTRIBUTE_MAP = 128
 };
@@ -130,6 +134,9 @@ public:
 	~IOMapOTBM() {}
 
 	static bool getVersionInfo(const FileName& identifier, MapVersion& out_ver);
+	// Refreshes the zone resource picker directly from the Profession Center's
+	// authoritative gathering catalog beside the map data.
+	static bool loadZoneResourceDefinitions(Map& map, const FileName& dir);
 
 	virtual bool loadMap(Map& map, const FileName& identifier);
 	virtual bool saveMap(Map& map, const FileName& identifier);

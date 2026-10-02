@@ -23,6 +23,13 @@
 #include "editor.h"
 #include "gui.h"
 
+namespace {
+	struct ZoneConfigChangeData {
+		ZoneConfig config;
+		bool add;
+	};
+}
+
 Change::Change() : type(CHANGE_NONE), data(nullptr)
 {
 	////
@@ -50,6 +57,23 @@ Change* Change::Create(Waypoint* waypoint, const Position& position)
 	return change;
 }
 
+Change* Change::CreateZoneAreas(const std::string& zoneName,
+	const std::vector<Position>& anchors)
+{
+	Change* change = new Change();
+	change->type = CHANGE_ZONE_AREAS;
+	change->data = new ZoneAreasData { zoneName, anchors };
+	return change;
+}
+
+Change* Change::CreateZoneConfig(const ZoneConfig& config)
+{
+	Change* change = new Change();
+	change->type = CHANGE_ZONE_CONFIG;
+	change->data = new ZoneConfigChangeData { config, true };
+	return change;
+}
+
 Change::~Change()
 {
 	clear();
@@ -70,6 +94,14 @@ void Change::clear()
 			ASSERT(data);
 			delete reinterpret_cast<WaypointData*>(data);
 			break;
+		case CHANGE_ZONE_AREAS:
+			ASSERT(data);
+			delete reinterpret_cast<ZoneAreasData*>(data);
+			break;
+		case CHANGE_ZONE_CONFIG:
+			ASSERT(data);
+			delete reinterpret_cast<ZoneConfigChangeData*>(data);
+			break;
 		case CHANGE_NONE:
 			break;
 		default:
@@ -89,6 +121,14 @@ uint32_t Change::memsize() const
 	uint32_t mem = sizeof(*this);
 	if(type == CHANGE_TILE) {
 		mem += reinterpret_cast<Tile*>(data)->memsize();
+	} else if(type == CHANGE_ZONE_AREAS) {
+		const ZoneAreasData* zoneData = reinterpret_cast<ZoneAreasData*>(data);
+		mem += static_cast<uint32_t>(zoneData->id.size() +
+			zoneData->anchors.size() * sizeof(Position));
+	} else if(type == CHANGE_ZONE_CONFIG) {
+		const ZoneConfigChangeData* zoneData = reinterpret_cast<ZoneConfigChangeData*>(data);
+		mem += static_cast<uint32_t>(zoneData->config.name.size() +
+			zoneData->config.displayName.size() + zoneData->config.category.size());
 	}
 	return mem;
 }
@@ -251,6 +291,44 @@ void Action::commit(DirtyList* dirty_list)
 				break;
 			}
 
+			case CHANGE_ZONE_AREAS: {
+				ZoneAreasData* zoneData = reinterpret_cast<ZoneAreasData*>(change->data);
+				const std::string zoneName = as_lower_str(zoneData->id);
+				for(ZoneConfig& config : map.zoneConfigs) {
+					if(as_lower_str(config.name) == zoneName) {
+						config.additionalAreas.swap(zoneData->anchors);
+						break;
+					}
+				}
+				break;
+			}
+
+			case CHANGE_ZONE_CONFIG: {
+				ZoneConfigChangeData* zoneData = reinterpret_cast<ZoneConfigChangeData*>(change->data);
+				const std::string zoneName = as_lower_str(zoneData->config.name);
+				if(zoneData->add) {
+					const auto existing = std::find_if(map.zoneConfigs.begin(), map.zoneConfigs.end(),
+						[&zoneName](const ZoneConfig& config) {
+							return as_lower_str(config.name) == zoneName;
+						});
+					if(existing == map.zoneConfigs.end()) {
+						map.zoneConfigs.push_back(zoneData->config);
+					}
+					zoneData->add = false;
+				} else {
+					const auto existing = std::find_if(map.zoneConfigs.begin(), map.zoneConfigs.end(),
+						[&zoneName](const ZoneConfig& config) {
+							return as_lower_str(config.name) == zoneName;
+						});
+					if(existing != map.zoneConfigs.end()) {
+						zoneData->config = *existing;
+						map.zoneConfigs.erase(existing);
+					}
+					zoneData->add = true;
+				}
+				break;
+			}
+
 			default:
 				break;
 		}
@@ -363,6 +441,44 @@ void Action::undo(DirtyList* dirty_list)
 					Position old_pos = waypoint->pos;
 					waypoint->pos = data->position;
 					data->position = old_pos;
+				}
+				break;
+			}
+
+			case CHANGE_ZONE_AREAS: {
+				ZoneAreasData* zoneData = reinterpret_cast<ZoneAreasData*>(change->data);
+				const std::string zoneName = as_lower_str(zoneData->id);
+				for(ZoneConfig& config : map.zoneConfigs) {
+					if(as_lower_str(config.name) == zoneName) {
+						config.additionalAreas.swap(zoneData->anchors);
+						break;
+					}
+				}
+				break;
+			}
+
+			case CHANGE_ZONE_CONFIG: {
+				ZoneConfigChangeData* zoneData = reinterpret_cast<ZoneConfigChangeData*>(change->data);
+				const std::string zoneName = as_lower_str(zoneData->config.name);
+				if(zoneData->add) {
+					const auto existing = std::find_if(map.zoneConfigs.begin(), map.zoneConfigs.end(),
+						[&zoneName](const ZoneConfig& config) {
+							return as_lower_str(config.name) == zoneName;
+						});
+					if(existing == map.zoneConfigs.end()) {
+						map.zoneConfigs.push_back(zoneData->config);
+					}
+					zoneData->add = false;
+				} else {
+					const auto existing = std::find_if(map.zoneConfigs.begin(), map.zoneConfigs.end(),
+						[&zoneName](const ZoneConfig& config) {
+							return as_lower_str(config.name) == zoneName;
+						});
+					if(existing != map.zoneConfigs.end()) {
+						zoneData->config = *existing;
+						map.zoneConfigs.erase(existing);
+					}
+					zoneData->add = true;
 				}
 				break;
 			}

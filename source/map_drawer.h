@@ -31,8 +31,8 @@ struct MapTooltip
 		MAX_CHARS = 255,
 	};
 
-	MapTooltip(int x, int y, std::string text, uint8_t r, uint8_t g, uint8_t b) :
-		x(x), y(y), text(text), r(r), g(g), b(b) {
+	MapTooltip(int x, int y, std::string text, uint8_t r, uint8_t g, uint8_t b, bool zoneLabel = false) :
+		x(x), y(y), text(text), r(r), g(g), b(b), zoneLabel(zoneLabel) {
 		ellipsis = (text.length() - 3) > MAX_CHARS;
 	}
 
@@ -45,6 +45,7 @@ struct MapTooltip
 	std::string text;
 	uint8_t r, g, b;
 	bool ellipsis;
+	bool zoneLabel;
 };
 
 // Storage during drawing, for option caching
@@ -138,6 +139,7 @@ public:
 	void DrawSecondaryMap(int mapz);
 	void DrawDraggingShadow();
 	void DrawHigherFloors();
+	void DrawZoneBorders();
 	void DrawSelectionBox();
 	void DrawLiveCursors();
 	void DrawBrush();
@@ -176,7 +178,7 @@ protected:
 	void WriteTooltip(const Item* item, std::ostringstream& stream);
 	void WriteTooltip(const Waypoint* item, std::ostringstream& stream);
 	void WriteTooltip(const Creature* creature, std::ostringstream& stream);
-	void MakeTooltip(int screenx, int screeny, const std::string& text, uint8_t r = 255, uint8_t g = 255, uint8_t b = 255);
+	void MakeTooltip(int screenx, int screeny, const std::string& text, uint8_t r = 255, uint8_t g = 255, uint8_t b = 255, bool zoneLabel = false);
 	void AddLight(TileLocation* location);
 
 	enum BrushColor {
@@ -204,8 +206,21 @@ private:
 	void getDrawPosition(const Position& position, int &x, int &y);
 
 	// Per-zone-instance color cache (rebuilt each frame when show_zones is on)
-	struct ZoneColor { uint8_t r, g, b; };
+	struct ZoneColor {
+		uint8_t r, g, b;
+		uint64_t identity;
+	};
+	struct ZoneIdentity {
+		uint32_t category;
+		uint64_t value;
+	};
+	struct ZoneLabel {
+		std::string text;
+		uint8_t r, g, b;
+	};
 	std::unordered_map<uint64_t, ZoneColor> zone_color_cache;
+	std::unordered_map<uint64_t, ZoneIdentity> zone_identity_cache;
+	std::unordered_map<uint64_t, ZoneLabel> zone_label_cache;
 	void BuildZoneColorCache();
 	static uint64_t packPos(int x, int y, int z) { return (uint64_t(z) << 48) | (uint64_t(y & 0xFFFFFF) << 24) | uint64_t(x & 0xFFFFFF); }
 };

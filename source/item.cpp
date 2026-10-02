@@ -352,6 +352,30 @@ void Item::setRequiredStorage(const std::string& storage)
 		setAttribute("storage", storage);
 }
 
+void Item::setRewardId(uint32_t rewardId)
+{
+	if(rewardId == 0 || rewardId > 0x7FFFFFFF)
+		eraseAttribute("rewardid");
+	else
+		setAttribute("rewardid", static_cast<int32_t>(rewardId));
+}
+
+void Item::setMaterialId(uint8_t materialId)
+{
+	if(materialId == 0)
+		eraseAttribute("materialid");
+	else
+		setAttribute("materialid", static_cast<int32_t>(materialId));
+}
+
+void Item::setMaterialComposition(uint32_t materialComposition)
+{
+	if(materialComposition == 0 || materialComposition > 0xFFFFFF)
+		eraseAttribute("materialcomposition");
+	else
+		setAttribute("materialcomposition", static_cast<int32_t>(materialComposition));
+}
+
 void Item::copyAccessRequirementsFrom(const Item& item)
 {
 	setMinimumLevel(item.getMinimumLevel());

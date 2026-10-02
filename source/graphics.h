@@ -197,6 +197,7 @@ public:
 	uint8_t height;
 	uint8_t width;
 	uint8_t layers;
+	uint8_t material_mask_layer;
 	uint8_t pattern_x;
 	uint8_t pattern_y;
 	uint8_t pattern_z;
@@ -349,6 +350,7 @@ private:
 	std::map<uint16_t, uint16_t> item_appearances;
 	std::map<uint16_t, uint8_t> item_slot_types;
 	std::map<uint16_t, uint8_t> item_identities;
+	std::map<uint16_t, uint8_t> material_mask_layers;
 	std::map<uint16_t, uint16_t> outfit_appearances;
 	std::map<uint16_t, uint16_t> equipment_default_appearances;
 	std::map<uint16_t, uint16_t> equipment_left_appearances;

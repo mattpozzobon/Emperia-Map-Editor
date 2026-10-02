@@ -25,6 +25,7 @@
 #include "gui.h"
 #include "complexitem.h"
 #include "container_properties_window.h"
+#include "item_materials.h"
 
 #include <wx/grid.h>
 
@@ -48,6 +49,8 @@ PropertiesWindow::PropertiesWindow(wxWindow* parent, const Map* map, const Tile*
 	noble_only_field(nullptr),
 	required_quests_field(nullptr),
 	required_storage_field(nullptr),
+	reward_container_field(nullptr),
+	reward_id(item->getRewardId()),
 	currentPanel(nullptr)
 {
 	ASSERT(edit_item);
@@ -104,6 +107,16 @@ wxWindow* PropertiesWindow::createGeneralPanel(wxWindow* parent)
 	unique_id_field = newd wxSpinCtrl(panel, wxID_ANY, i2ws(edit_item->getUniqueID()), wxDefaultPosition, wxSize(-1, 20), wxSP_ARROW_KEYS, 0, 0xFFFF, edit_item->getUniqueID());
 	gridsizer->Add(unique_id_field, wxSizerFlags(1).Expand());
 
+	const char* material_labels[ITEM_MATERIAL_GROUP_COUNT] = {"Metal", "Leather", "Cloth", "Wood"};
+	for(size_t group = 0; group < ITEM_MATERIAL_GROUP_COUNT; ++group) {
+		gridsizer->Add(newd wxStaticText(panel, wxID_ANY, material_labels[group]));
+		material_fields[group] = newd wxChoice(panel, wxID_ANY);
+		material_fields[group]->SetToolTip("The recipe selects required groups automatically at Tier 1. Change the tier here to override it.");
+		gridsizer->Add(material_fields[group], wxSizerFlags(1).Expand());
+	}
+	material_choice_data = PopulateItemMaterialChoices(
+		material_fields, edit_map, edit_item->getID(), edit_item->getMaterialId(), edit_item->getMaterialComposition());
+
 	gridsizer->Add(newd wxStaticText(panel, wxID_ANY, "Minimum level"));
 	minimum_level_field = newd wxSpinCtrl(panel, wxID_ANY, i2ws(edit_item->getMinimumLevel()), wxDefaultPosition, wxDefaultSize, wxSP_ARROW_KEYS, 0, 0xFFFF, edit_item->getMinimumLevel());
 	gridsizer->Add(minimum_level_field, wxSizerFlags(1).Expand());
@@ -124,6 +137,14 @@ wxWindow* PropertiesWindow::createGeneralPanel(wxWindow* parent)
 	required_storage_field->SetMaxLength(0xFFFF);
 	required_storage_field->SetToolTip("Comma/semicolon-separated key=value checks. A bare key only needs to exist.");
 	gridsizer->Add(required_storage_field, wxSizerFlags(1).Expand());
+
+	if(dynamic_cast<Container*>(edit_item)) {
+		gridsizer->Add(newd wxStaticText(panel, wxID_ANY, "Reward container"));
+		reward_container_field = newd wxCheckBox(panel, wxID_ANY, "");
+		reward_container_field->SetValue(reward_id != 0);
+		reward_container_field->SetToolTip("Deliver the authored contents once per player. Overflow is sent to the inbox.");
+		gridsizer->Add(reward_container_field, wxSizerFlags(1).Expand());
+	}
 
 	panel->SetSizerAndFit(gridsizer);
 
@@ -296,6 +317,19 @@ void PropertiesWindow::saveGeneralPanel()
 	edit_item->setNobleOnly(noble_only_field && noble_only_field->GetValue());
 	edit_item->setRequiredQuests(required_quests_field ? nstr(required_quests_field->GetValue()) : "");
 	edit_item->setRequiredStorage(required_storage_field ? nstr(required_storage_field->GetValue()) : "");
+	uint8_t material_id = 0;
+	uint32_t material_composition = 0;
+	GetSelectedItemMaterials(material_fields, material_choice_data, material_id, material_composition);
+	edit_item->setMaterialId(material_id);
+	edit_item->setMaterialComposition(material_composition);
+	if(reward_container_field && reward_container_field->GetValue()) {
+		if(reward_id == 0 || g_gui.GetCurrentMap().hasRewardId(reward_id, edit_item))
+			reward_id = g_gui.GetCurrentMap().allocateRewardId();
+		edit_item->setRewardId(reward_id);
+	} else {
+		reward_id = 0;
+		edit_item->setRewardId(0);
+	}
 }
 
 void PropertiesWindow::saveContainerPanel()

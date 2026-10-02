@@ -45,6 +45,7 @@ ${CMAKE_CURRENT_LIST_DIR}/iomap_otbm.h
 ${CMAKE_CURRENT_LIST_DIR}/iominimap.h
 ${CMAKE_CURRENT_LIST_DIR}/item.h
 ${CMAKE_CURRENT_LIST_DIR}/item_attributes.h
+${CMAKE_CURRENT_LIST_DIR}/item_materials.h
 ${CMAKE_CURRENT_LIST_DIR}/items.h
 ${CMAKE_CURRENT_LIST_DIR}/light_drawer.h
 ${CMAKE_CURRENT_LIST_DIR}/live_action.h
@@ -153,6 +154,7 @@ ${CMAKE_CURRENT_LIST_DIR}/iominimap.cpp
 #${CMAKE_CURRENT_LIST_DIR}/iomap_otmm.cpp
 ${CMAKE_CURRENT_LIST_DIR}/item_attributes.cpp
 ${CMAKE_CURRENT_LIST_DIR}/item.cpp
+${CMAKE_CURRENT_LIST_DIR}/item_materials.cpp
 ${CMAKE_CURRENT_LIST_DIR}/items.cpp
 ${CMAKE_CURRENT_LIST_DIR}/light_drawer.cpp
 ${CMAKE_CURRENT_LIST_DIR}/live_action.cpp

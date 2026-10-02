@@ -26,6 +26,7 @@
 
 #include <fstream>
 #include <algorithm>
+#include <limits>
 #include <unordered_map>
 #include <unordered_set>
 
@@ -154,6 +155,30 @@ bool Item::readItemAttribute_OTBM(const IOMap& maphandle, OTBM_ItemAttribute att
 			setRequiredStorage(storage);
 			break;
 		}
+		case OTBM_ATTR_EMPERIA_REWARD_ID: {
+			uint32_t rewardId;
+			if(!stream->getU32(rewardId)) {
+				return false;
+			}
+			setRewardId(rewardId);
+			break;
+		}
+		case OTBM_ATTR_EMPERIA_MATERIAL_ID: {
+			uint8_t materialId;
+			if(!stream->getU8(materialId)) {
+				return false;
+			}
+			setMaterialId(materialId);
+			break;
+		}
+		case OTBM_ATTR_EMPERIA_MATERIAL_COMPOSITION: {
+			uint32_t materialComposition;
+			if(!stream->getU32(materialComposition)) {
+				return false;
+			}
+			setMaterialComposition(materialComposition);
+			break;
+		}
 		case OTBM_ATTR_TEXT: {
 			std::string text;
 			if(!stream->getString(text)) {
@@ -276,6 +301,24 @@ void Item::serializeItemAttributes_OTBM(const IOMap& maphandle, NodeFileWriteHan
 		if(!requiredStorage.empty()) {
 			stream.addU8(OTBM_ATTR_EMPERIA_STORAGE);
 			stream.addString(requiredStorage);
+		}
+
+		const uint32_t rewardId = getRewardId();
+		if(rewardId != 0) {
+			stream.addU8(OTBM_ATTR_EMPERIA_REWARD_ID);
+			stream.addU32(rewardId);
+		}
+
+		const uint8_t materialId = getMaterialId();
+		if(materialId != 0) {
+			stream.addU8(OTBM_ATTR_EMPERIA_MATERIAL_ID);
+			stream.addU8(materialId);
+		}
+
+		const uint32_t materialComposition = getMaterialComposition();
+		if(materialComposition != 0) {
+			stream.addU8(OTBM_ATTR_EMPERIA_MATERIAL_COMPOSITION);
+			stream.addU32(materialComposition);
 		}
 	}
 }
@@ -769,6 +812,12 @@ bool IOMapOTBM::loadMap(Map& map, NodeFileReadHandle& f)
 				}
 				break;
 			}
+			case OTBM_ATTR_EMPERIA_REWARD_SEQUENCE: {
+				if(!mapHeaderNode->getU32(map.rewardIdSequence)) {
+					warning("Invalid map reward sequence tag");
+				}
+				break;
+			}
 			default: {
 				warning("Unknown header node.");
 				break;
@@ -1207,6 +1256,11 @@ bool IOMapOTBM::loadHouses(Map& map, pugi::xml_document& doc)
 
 bool IOMapOTBM::saveMap(Map& map, const FileName& identifier)
 {
+	std::string rewardValidationError;
+	if(!map.validateRewardIds(rewardValidationError)) {
+		error("Cannot save map: %s", rewardValidationError.c_str());
+		return false;
+	}
 #if OTGZ_SUPPORT > 0
 	if(identifier.GetExt() == "otgz") {
 		// Create the archive
@@ -1369,6 +1423,9 @@ bool IOMapOTBM::saveMap(Map& map, NodeFileWriteHandle& f)
 			tmpName.Assign(wxstr(map.housefile));
 			f.addU8(OTBM_ATTR_EXT_HOUSE_FILE);
 			f.addString(nstr(tmpName.GetFullName()));
+
+			f.addU8(OTBM_ATTR_EMPERIA_REWARD_SEQUENCE);
+			f.addU32(map.rewardIdSequence);
 
 			// Start writing tiles
 			uint32_t tiles_saved = 0;
@@ -1617,6 +1674,103 @@ bool IOMapOTBM::saveHouses(Map& map, pugi::xml_document& doc)
 	return true;
 }
 
+bool IOMapOTBM::loadZoneResourceDefinitions(Map& map, const FileName& dir)
+{
+	using json = nlohmann::json;
+
+	std::string basePath = (const char*)(dir.GetPath(wxPATH_GET_SEPARATOR | wxPATH_GET_VOLUME).mb_str(wxConvUTF8));
+	map.zoneResourceDefs.clear();
+
+	// Profession Center writes this file atomically. Reading it whenever the
+	// zone dialog opens means newly-added resources require no duplicated zone
+	// catalog or manual synchronization step.
+	wxFileName gatheringFile(wxstr(basePath + "../professions/gathering.json"));
+	gatheringFile.Normalize();
+	std::ifstream input(nstr(gatheringFile.GetFullPath()));
+	if(!input.is_open()) {
+		wxLogWarning("Could not open the profession gathering catalog");
+		return false;
+	}
+
+	auto itemName = [](uint32_t itemId) {
+		if(itemId <= std::numeric_limits<uint16_t>::max()) {
+			const std::string& name = g_items.getItemType(static_cast<uint16_t>(itemId)).name;
+			if(!name.empty()) {
+				return name;
+			}
+		}
+		return std::string("Item ") + std::to_string(itemId);
+	};
+
+	try {
+		const json catalog = json::parse(input);
+		if(!catalog.contains("resources") || !catalog["resources"].is_array()) {
+			wxLogWarning("Invalid gathering.json: resources must be an array");
+			return false;
+		}
+
+		for(const auto& resource : catalog["resources"]) {
+			if(!resource.is_object() || !resource.contains("itemId") ||
+				!resource["itemId"].is_number_unsigned() ||
+				!resource.contains("resultItemId") ||
+				!resource["resultItemId"].is_number_unsigned() ||
+				!resource.contains("type") || !resource["type"].is_string()) {
+				continue;
+			}
+
+			ZoneResourceDef def;
+			def.itemId = resource["itemId"].get<uint32_t>();
+			def.resultItemId = resource["resultItemId"].get<uint32_t>();
+			def.type = as_lower_str(resource["type"].get<std::string>());
+			// Skinning targets are monster corpses, not persistent world nodes
+			// managed by a zone resource spawner.
+			if(def.type == "skinning") {
+				continue;
+			}
+			def.id = std::to_string(def.itemId);
+			def.groupId = def.type + ":" + std::to_string(def.resultItemId);
+			def.name = itemName(def.resultItemId);
+			def.variant = itemName(def.itemId);
+			def.tier = resource.contains("tier") && resource["tier"].is_number_unsigned() ?
+				resource["tier"].get<uint32_t>() : 0;
+			def.sizeMultiplierBps =
+				resource.contains("sizeMultiplierBps") && resource["sizeMultiplierBps"].is_number_unsigned() ?
+					resource["sizeMultiplierBps"].get<uint32_t>() : 10000;
+			def.size = resource.contains("size") && resource["size"].is_string() ?
+				as_lower_str(resource["size"].get<std::string>()) :
+				def.sizeMultiplierBps >= 20000 ? "large" : def.sizeMultiplierBps >= 15000 ? "medium" : "small";
+			if(resource.contains("zoneTypes") && resource["zoneTypes"].is_array()) {
+				for(const auto& zoneType : resource["zoneTypes"]) {
+					if(zoneType.is_string()) {
+						def.zoneTypes.push_back(as_lower_str(zoneType.get<std::string>()));
+					}
+				}
+			}
+			map.zoneResourceDefs.push_back(def);
+		}
+	} catch(const json::exception&) {
+		wxLogWarning("Failed to parse the profession gathering catalog");
+		map.zoneResourceDefs.clear();
+		return false;
+	}
+
+	std::sort(map.zoneResourceDefs.begin(), map.zoneResourceDefs.end(),
+		[](const ZoneResourceDef& left, const ZoneResourceDef& right) {
+			auto typeOrder = [](const std::string& type) {
+				if(type == "mining") return 0;
+				if(type == "herbalism") return 1;
+				if(type == "fishing") return 2;
+				if(type == "chopping") return 3;
+				return 4;
+			};
+			if(left.type != right.type) return typeOrder(left.type) < typeOrder(right.type);
+			if(left.tier != right.tier) return left.tier < right.tier;
+			if(left.resultItemId != right.resultItemId) return left.resultItemId < right.resultItemId;
+			return left.itemId < right.itemId;
+		});
+	return !map.zoneResourceDefs.empty();
+}
+
 bool IOMapOTBM::loadZones(Map& map, const FileName& dir)
 {
 	using json = nlohmann::json;
@@ -1629,62 +1783,31 @@ bool IOMapOTBM::loadZones(Map& map, const FileName& dir)
 		return false;
 
 	map.zoneConfigs.clear();
-	map.zoneResourceDefs.clear();
+	loadZoneResourceDefinitions(map, dir);
 
-	// Load resource definitions from resources.json
-	std::string resourcesPath = zonesDir + "/resources.json";
-	std::ifstream resIfs(resourcesPath);
-	if(resIfs.is_open()) {
+	// One-time compatibility for zones saved against the retired duplicated
+	// catalog. They are rewritten with the authoritative node item id next save.
+	std::unordered_map<std::string, std::string> legacyResourceIds;
+	std::ifstream legacyInput(zonesDir + "/resources.json");
+	if(legacyInput.is_open()) {
 		try {
-			json rj = json::parse(resIfs);
-			if(rj.contains("schemaVersion") && rj["schemaVersion"].is_number_integer() &&
-				rj["schemaVersion"].get<int>() == 2 &&
-				rj.contains("resources") && rj["resources"].is_array()) {
-				for(const auto& group : rj["resources"]) {
-					if(!group.is_object() || !group.contains("variants") ||
-						!group["variants"].is_array()) {
-						continue;
-					}
-
-					const std::string groupId =
-						group.contains("id") && group["id"].is_string() ?
-							group["id"].get<std::string>() : "";
-					const std::string groupName =
-						group.contains("name") && group["name"].is_string() ?
-							group["name"].get<std::string>() : groupId;
-					const std::string resourceType =
-						group.contains("type") && group["type"].is_string() ?
-							group["type"].get<std::string>() : "other";
-
+			const json legacyCatalog = json::parse(legacyInput);
+			if(legacyCatalog.contains("resources") && legacyCatalog["resources"].is_array()) {
+				for(const auto& group : legacyCatalog["resources"]) {
+					if(!group.is_object() || !group.contains("variants") || !group["variants"].is_array()) continue;
 					for(const auto& variant : group["variants"]) {
-						if(!variant.is_object() || !variant.contains("id") ||
-							!variant["id"].is_string()) {
-							continue;
+						if(variant.is_object() && variant.contains("id") && variant["id"].is_string() &&
+							variant.contains("itemId") && variant["itemId"].is_number_unsigned()) {
+							legacyResourceIds.emplace(
+								variant["id"].get<std::string>(),
+								std::to_string(variant["itemId"].get<uint32_t>())
+							);
 						}
-
-						ZoneResourceDef def;
-						def.id = variant["id"].get<std::string>();
-						def.name = groupName.empty() ? def.id : groupName;
-						def.type = resourceType;
-						def.groupId = groupId.empty() ? def.id : groupId;
-						def.variant =
-							variant.contains("variant") && variant["variant"].is_string() ?
-								variant["variant"].get<std::string>() : "default";
-						if(variant.contains("zoneTypes") && variant["zoneTypes"].is_array()) {
-							for(const auto& zoneType : variant["zoneTypes"]) {
-								if(zoneType.is_string()) {
-									def.zoneTypes.push_back(zoneType.get<std::string>());
-								}
-							}
-						}
-						map.zoneResourceDefs.push_back(def);
 					}
 				}
-			} else {
-				warning("Unsupported resources.json schema (expected schemaVersion 2)");
 			}
 		} catch(const json::exception&) {
-			warning("Failed to parse resources.json");
+			warning("Failed to read legacy zone resource aliases");
 		}
 	}
 
@@ -1742,17 +1865,65 @@ bool IOMapOTBM::loadZones(Map& map, const FileName& dir)
 				zc.music = j["music"].get<std::string>();
 
 			if(j.contains("resources") && j["resources"].is_object()) {
-				zc.hasResources = true;
 				auto& res = j["resources"];
-				if(res.contains("maxNodes")) zc.resources.maxNodes = res["maxNodes"].get<int>();
-				if(res.contains("minDistanceBetweenNodes")) zc.resources.minDistanceBetweenNodes = res["minDistanceBetweenNodes"].get<int>();
-				if(res.contains("spawnIntervalSeconds")) zc.resources.spawnIntervalSeconds = res["spawnIntervalSeconds"].get<int>();
-				if(res.contains("spawnTable") && res["spawnTable"].is_array()) {
-					for(auto& entry : res["spawnTable"]) {
+				auto readTypeConfig = [&](const std::string& type, const json& value) {
+					if(!value.is_object()) return;
+					ZoneResourceConfig& config = zc.resourceTypes[type];
+					if(value.contains("maxNodes")) config.maxNodes = value["maxNodes"].get<int>();
+					if(value.contains("minDistanceBetweenNodes")) config.minDistanceBetweenNodes = value["minDistanceBetweenNodes"].get<int>();
+					if(value.contains("spawnIntervalSeconds")) config.spawnIntervalSeconds = value["spawnIntervalSeconds"].get<int>();
+					if(value.contains("spawnTable") && value["spawnTable"].is_array()) {
+						for(const auto& entry : value["spawnTable"]) {
 						ZoneResourceSpawnEntry se;
 						if(entry.contains("resourceId")) se.resourceId = entry["resourceId"].get<std::string>();
-						if(entry.contains("chance")) se.weight = entry["chance"].get<int>();
-						zc.resources.spawnTable.push_back(se);
+						const auto migratedId = legacyResourceIds.find(se.resourceId);
+						if(migratedId != legacyResourceIds.end()) se.resourceId = migratedId->second;
+						if(entry.contains("chance")) se.chancePercent = entry["chance"].get<double>();
+						config.spawnTable.push_back(se);
+						}
+					}
+				};
+
+				if(res.contains("spawnTable")) {
+					// Migrate the original shared table into one independent table per
+					// gathering type, preserving the relative odds within each type.
+					const int maxNodes = res.value("maxNodes", 0);
+					const int minDistance = res.value("minDistanceBetweenNodes", 0);
+					const int interval = res.value("spawnIntervalSeconds", 0);
+					if(res["spawnTable"].is_array()) {
+						for(const auto& entry : res["spawnTable"]) {
+							if(!entry.is_object() || !entry.contains("resourceId")) continue;
+							ZoneResourceSpawnEntry spawn;
+							spawn.resourceId = entry["resourceId"].get<std::string>();
+							const auto migratedId = legacyResourceIds.find(spawn.resourceId);
+							if(migratedId != legacyResourceIds.end()) spawn.resourceId = migratedId->second;
+							spawn.chancePercent = entry.value("chance", 0.0);
+							std::string type = "other";
+							for(const ZoneResourceDef& definition : map.zoneResourceDefs) {
+								if(definition.id == spawn.resourceId) {
+									type = as_lower_str(definition.type);
+									break;
+								}
+							}
+							ZoneResourceConfig& config = zc.resourceTypes[type];
+							config.maxNodes = maxNodes;
+							config.minDistanceBetweenNodes = minDistance;
+							config.spawnIntervalSeconds = interval;
+							config.spawnTable.push_back(spawn);
+						}
+					}
+					for(auto& typedConfig : zc.resourceTypes) {
+						double total = 0.0;
+						for(const ZoneResourceSpawnEntry& spawn : typedConfig.second.spawnTable) total += spawn.chancePercent;
+						if(total > 0.0) {
+							for(ZoneResourceSpawnEntry& spawn : typedConfig.second.spawnTable) {
+								spawn.chancePercent = spawn.chancePercent * 100.0 / total;
+							}
+						}
+					}
+				} else {
+					for(auto typedConfig = res.begin(); typedConfig != res.end(); ++typedConfig) {
+						readTypeConfig(as_lower_str(typedConfig.key()), typedConfig.value());
 					}
 				}
 			}
@@ -2168,19 +2339,23 @@ bool IOMapOTBM::saveZones(Map& map, const FileName& dir)
 		if(!zc.difficulty.empty()) j["difficulty"] = zc.difficulty;
 		if(!zc.music.empty()) j["music"] = zc.music;
 
-		if(zc.hasResources) {
+		if(!zc.resourceTypes.empty()) {
 			json res;
-			res["maxNodes"] = zc.resources.maxNodes;
-			res["minDistanceBetweenNodes"] = zc.resources.minDistanceBetweenNodes;
-			res["spawnIntervalSeconds"] = zc.resources.spawnIntervalSeconds;
-			json table = json::array();
-			for(const auto& se : zc.resources.spawnTable) {
-				json entry;
-				entry["resourceId"] = se.resourceId;
-				entry["chance"] = se.weight;
-				table.push_back(entry);
+			for(const auto& typedConfig : zc.resourceTypes) {
+				json typeConfig;
+				typeConfig["maxNodes"] = typedConfig.second.maxNodes;
+				typeConfig["minDistanceBetweenNodes"] = typedConfig.second.minDistanceBetweenNodes;
+				typeConfig["spawnIntervalSeconds"] = typedConfig.second.spawnIntervalSeconds;
+				json table = json::array();
+				for(const auto& se : typedConfig.second.spawnTable) {
+					json entry;
+					entry["resourceId"] = se.resourceId;
+					entry["chance"] = se.chancePercent;
+					table.push_back(entry);
+				}
+				typeConfig["spawnTable"] = table;
+				res[typedConfig.first] = typeConfig;
 			}
-			res["spawnTable"] = table;
 			j["resources"] = res;
 		} else {
 			j["resources"] = nullptr;

@@ -260,6 +260,13 @@ public:
 	std::string getRequiredQuests() const;
 	void setRequiredStorage(const std::string& storage);
 	std::string getRequiredStorage() const;
+	void setRewardId(uint32_t rewardId);
+	uint32_t getRewardId() const;
+	bool isRewardContainer() const;
+	void setMaterialId(uint8_t materialId);
+	uint8_t getMaterialId() const;
+	void setMaterialComposition(uint32_t materialComposition);
+	uint32_t getMaterialComposition() const;
 	void copyAccessRequirementsFrom(const Item& item);
 
 	void setText(const std::string& str);
@@ -336,6 +343,25 @@ inline std::string Item::getRequiredQuests() const {
 inline std::string Item::getRequiredStorage() const {
 	const std::string* value = getStringAttribute("storage");
 	return value ? *value : "";
+}
+
+inline uint32_t Item::getRewardId() const {
+	const int32_t* value = getIntegerAttribute("rewardid");
+	return value && *value > 0 ? static_cast<uint32_t>(*value) : 0;
+}
+
+inline bool Item::isRewardContainer() const {
+	return getRewardId() != 0;
+}
+
+inline uint8_t Item::getMaterialId() const {
+	const int32_t* value = getIntegerAttribute("materialid");
+	return value && *value > 0 && *value <= 0xFF ? static_cast<uint8_t>(*value) : 0;
+}
+
+inline uint32_t Item::getMaterialComposition() const {
+	const int32_t* value = getIntegerAttribute("materialcomposition");
+	return value && *value > 0 && *value <= 0xFFFFFF ? static_cast<uint32_t>(*value) : 0;
 }
 
 inline std::string Item::getText() const {

@@ -22,6 +22,7 @@
 #include "editor.h"
 #include "common_windows.h"
 #include "palette_window.h"
+#include "view_overlay_panel.h"
 #include "preferences.h"
 #include "result_window.h"
 #include "minimap_window.h"
@@ -454,6 +455,20 @@ MainFrame::MainFrame(const wxString& title, const wxPoint& pos, const wxSize& si
 	tool_bar = newd MainToolBar(this, g_gui.aui_manager);
 
 	g_gui.aui_manager->AddPane(g_gui.tabbook, wxAuiPaneInfo().CenterPane().Floatable(false).CloseButton(false).PaneBorder(false));
+	g_gui.view_overlay_panel = newd ViewOverlayPanel(this);
+	g_gui.aui_manager->AddPane(
+		g_gui.view_overlay_panel,
+		wxAuiPaneInfo()
+			.Name("map_overlays")
+			.Caption("Map Overlays")
+			.Right()
+			.Layer(1)
+			.Position(0)
+			.BestSize(FROM_DIP(this, wxSize(250, 330)))
+			.MinSize(FROM_DIP(this, wxSize(220, 260)))
+			.CloseButton(false)
+			.Floatable(true)
+	);
 	g_gui.aui_manager->Update();
 
 	UpdateMenubar();

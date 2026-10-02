@@ -212,6 +212,9 @@
     <ClInclude Include="..\..\source\palette_window.h">
       <Filter>gui\palette</Filter>
     </ClInclude>
+    <ClInclude Include="..\..\source\view_overlay_panel.h">
+      <Filter>gui</Filter>
+    </ClInclude>
     <ClInclude Include="..\..\source\position.h">
       <Filter>objects</Filter>
     </ClInclude>
@@ -310,6 +313,9 @@
       <Filter>gui\dialogs</Filter>
     </ClInclude>
     <ClInclude Include="..\..\source\properties_window.h">
+      <Filter>gui\dialogs</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\source\item_materials.h">
       <Filter>gui\dialogs</Filter>
     </ClInclude>
     <ClInclude Include="..\..\source\extension_window.h">
@@ -544,6 +550,9 @@
     <ClCompile Include="..\..\source\palette_window.cpp">
       <Filter>gui\palette</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\source\view_overlay_panel.cpp">
+      <Filter>gui</Filter>
+    </ClCompile>
     <ClCompile Include="..\..\source\application.cpp">
       <Filter>gui</Filter>
     </ClCompile>
@@ -605,6 +614,9 @@
       <Filter>gui\dialogs</Filter>
     </ClCompile>
     <ClCompile Include="..\..\source\properties_window.cpp">
+      <Filter>gui\dialogs</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\source\item_materials.cpp">
       <Filter>gui\dialogs</Filter>
     </ClCompile>
     <ClCompile Include="..\..\source\templatemapclassic.cpp">

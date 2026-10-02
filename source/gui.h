@@ -55,6 +55,7 @@ class MinimapWindow;
 class ActionsHistoryWindow;
 class TileInspectorWindow;
 class PaletteWindow;
+class ViewOverlayPanel;
 class OldPropertiesWindow;
 class EditTownsDialog;
 class ItemButton;
@@ -364,6 +365,7 @@ public:
 	void ShowPalette();
 	// Select a particular page on the primary palette
 	void SelectPalettePage(PaletteType pt);
+	void RefreshViewOverlayPanel();
 
 	// Returns primary palette
 	PaletteWindow* GetPalette();
@@ -394,6 +396,7 @@ public:
 	DuplicatedItemsWindow* duplicated_items_window;
 	ActionsHistoryWindow* actions_history_window;
 	TileInspectorWindow* inspector_window;
+	ViewOverlayPanel* view_overlay_panel;
 	GraphicManager gfx;
 
 	BaseMap* secondary_map; // A buffer map

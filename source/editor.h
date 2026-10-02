@@ -121,6 +121,13 @@ public: // Functions
 	void clearInvalidHouseTiles(bool showdialog);
 	void clearModifiedTileState(bool showdialog);
 
+	// A selected world zone keeps its logical identity while its category brush
+	// is used, including when painting disconnected areas on another floor.
+	void selectWorldZone(const std::string& zoneName);
+	void clearSelectedWorldZone();
+	ZoneConfig* getSelectedWorldZone();
+	const ZoneConfig* getSelectedWorldZone() const;
+
 	// Draw using the current brush to the target position
 	// alt is whether the ALT key is pressed
 	void draw(const Position& offset, bool alt);
@@ -134,6 +141,8 @@ protected:
 	void drawInternal(const Position offset, bool alt, bool dodraw);
 	void drawInternal(const PositionVector& posvec, bool alt, bool dodraw);
 	void drawInternal(const PositionVector& todraw, PositionVector& toborder, bool alt, bool dodraw);
+	void updateSelectedWorldZone(const PositionVector& positions, bool drawing,
+		const std::set<Position>& previousTiles);
 
 	Editor(const Editor&);
 	Editor& operator=(const Editor&);
@@ -142,6 +151,7 @@ private:
 	Map map;
 	Selection selection;
 	ActionQueue* actionQueue;
+	std::string selected_world_zone;
 };
 
 inline void Editor::draw(const Position& offset, bool alt) { drawInternal(offset, alt, true); }

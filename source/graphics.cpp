@@ -140,6 +140,7 @@ void GraphicManager::clear()
 	item_appearances.clear();
 	item_slot_types.clear();
 	item_identities.clear();
+	material_mask_layers.clear();
 	outfit_appearances.clear();
 	equipment_default_appearances.clear();
 	equipment_left_appearances.clear();
@@ -663,9 +664,9 @@ bool GraphicManager::loadSpriteMetadata(const FileName& datafile, wxString& erro
 		file.getU8(fileType);
 		file.getU16(emperiaFormatVersion);
 		file.skip(9);
-		if(emperiaFormatVersion > 11) {
+		if(emperiaFormatVersion > 15) {
 			error = wxString::Format(
-				"EOBJ format v%u is newer than the maximum supported version v11.",
+				"EOBJ format v%u is newer than the maximum supported version v15.",
 				emperiaFormatVersion
 			);
 			return false;
@@ -751,7 +752,7 @@ bool GraphicManager::loadSpriteMetadata(const FileName& datafile, wxString& erro
 			file.getU16(itemId);
 			file.getU8(slotType);
 			// Codes are one-based indexes into the shared ItemSlotType contract.
-			if(slotType == 0 || slotType > 26) {
+			if(slotType == 0 || slotType > 28) {
 				error = wxString::Format("EOBJ item %u has unknown slot type code %u.", itemId, slotType);
 				return false;
 			}
@@ -777,6 +778,31 @@ bool GraphicManager::loadSpriteMetadata(const FileName& datafile, wxString& erro
 				return false;
 			}
 			item_identities[itemId] = identity;
+		}
+	}
+	material_mask_layers.clear();
+	if(emperiaFormatVersion >= 12) {
+		uint16_t materialMaskCount = 0;
+		if(!file.getU16(materialMaskCount)) {
+			error = "EOBJ material mask table header is truncated.";
+			return false;
+		}
+		const size_t entryBytes = emperiaFormatVersion >= 15
+			? 2
+			: emperiaFormatVersion == 13 ? 4 : 3;
+		if(file.tell() + static_cast<size_t>(materialMaskCount) * entryBytes > file.size()) {
+			error = "EOBJ material mask table is truncated.";
+			return false;
+		}
+		for(uint16_t index = 0; index < materialMaskCount; ++index) {
+			uint16_t appearanceId = 0;
+			file.getU16(appearanceId);
+			uint8_t layer = 1;
+			if(emperiaFormatVersion < 15)
+				file.getU8(layer);
+			if(emperiaFormatVersion == 13)
+				file.skip(1); // Legacy per-item material kind.
+			material_mask_layers[appearanceId] = layer;
 		}
 	}
 	if(emperiaFormatVersion >= 4) {
@@ -924,6 +950,9 @@ bool GraphicManager::loadSpriteMetadata(const FileName& datafile, wxString& erro
 		sprite_space[id] = sType;
 
 		sType->id = id;
+		const auto materialMask = material_mask_layers.find(id);
+		if(materialMask != material_mask_layers.end())
+			sType->material_mask_layer = materialMask->second;
 
 		// Load the sprite flags
 		if(!loadSpriteMetadataFlags(file, sType, error, warnings)) {
@@ -1482,6 +1511,7 @@ GameSprite::GameSprite() :
 	height(0),
 	width(0),
 	layers(0),
+	material_mask_layer(0),
 	pattern_x(0),
 	pattern_y(0),
 	pattern_z(0),
@@ -1589,7 +1619,7 @@ GLuint GameSprite::getHardwareID(int _x, int _y, int _dir, int _addon, int _patt
 			v %= numsprites;
 		}
 	}
-	if(layers > 1) { // Template
+	if(layers > 1 && material_mask_layer == 0) { // Outfit color template
 		TemplateImage* img = getTemplateImage(v, _outfit);
 		return img->getHardwareID();
 	}
@@ -1616,6 +1646,7 @@ wxMemoryDC* GameSprite::getDC(SpriteSize size)
 		image.Clear(bgshade);
 
 		for(uint8_t l = 0; l < layers; l++) {
+			if(material_mask_layer > 0 && l == material_mask_layer) continue;
 			for(uint8_t w = 0; w < width; w++) {
 				for(uint8_t h = 0; h < height; h++) {
 					const int i = getIndex(w, h, l, 0, 0, 0, 0);
@@ -1665,7 +1696,7 @@ wxMemoryDC* GameSprite::getDC(const Outfit& outfit)
 		for(uint8_t h = 0; h < height; h++) {
 			const int index = getIndex(w, h, 0, direction, 0, 0, 0);
 			uint8_t* data = nullptr;
-			if(layers == 1) {
+			if(layers == 1 || material_mask_layer > 0) {
 				data = spriteList[index]->getRGBData();
 			} else {
 				auto img = getTemplateImage(index, outfit);

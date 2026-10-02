@@ -21,6 +21,7 @@
 #include "main.h"
 
 #include "common_windows.h"
+#include "item_materials.h"
 
 class ContainerItemButton;
 class ContainerItemPopupMenu;
@@ -51,6 +52,10 @@ protected:
 	wxCheckBox* noble_only_field;
 	wxTextCtrl* required_quests_field;
 	wxTextCtrl* required_storage_field;
+	wxCheckBox* reward_container_field;
+	uint32_t reward_id;
+	wxChoice* material_fields[ITEM_MATERIAL_GROUP_COUNT] = {};
+	ItemMaterialChoiceData material_choice_data;
 	wxWindow* createGeneralPanel(wxWindow* parent);
 	void saveGeneralPanel();
 

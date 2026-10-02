@@ -30,25 +30,33 @@
 #include <vector>
 #include <string>
 #include <set>
+#include <map>
 
 struct ZoneResourceDef {
-	std::string id;        // e.g. "copper_mountain_small"
-	std::string name;      // e.g. "Copper Vein"
-	std::string type;      // ore, crystal, plant, fungus, other
-	std::string groupId;   // e.g. "copper"
-	std::string variant;   // small, medium, large, default
+	// The profession catalog's resource node item id, serialized as text in a
+	// zone spawn table so it remains stable across Data Editor updates.
+	std::string id;
+	std::string name;      // Result item name, e.g. "copper ore"
+	std::string type;      // skinning, mining, herbalism, fishing, chopping
+	std::string groupId;   // profession + result item id
+	std::string variant;   // Resource node name, e.g. "small copper vein"
+	std::string size;      // small, medium, large
+	uint32_t itemId = 0;   // Resource node/corpse item id
+	uint32_t resultItemId = 0;
+	uint32_t tier = 0;
+	uint32_t sizeMultiplierBps = 10000;
 	std::vector<std::string> zoneTypes; // Empty means usable in every zone type
 };
 
 struct ZoneResourceSpawnEntry {
 	std::string resourceId;
-	int weight;
+	double chancePercent = 0.0;
 };
 
 struct ZoneResourceConfig {
-	int maxNodes;
-	int minDistanceBetweenNodes;
-	int spawnIntervalSeconds;
+	int maxNodes = 0;
+	int minDistanceBetweenNodes = 0;
+	int spawnIntervalSeconds = 0;
 	std::vector<ZoneResourceSpawnEntry> spawnTable;
 };
 
@@ -64,14 +72,8 @@ struct ZoneConfig {
 	std::vector<Position> additionalAreas;
 	std::string difficulty;
 	std::string music;
-	bool hasResources;
-	ZoneResourceConfig resources;
-
-	ZoneConfig() : hasResources(false) {
-		resources.maxNodes = 0;
-		resources.minDistanceBetweenNodes = 0;
-		resources.spawnIntervalSeconds = 0;
-	}
+	// Each gathering profession has independent spawn rules and probabilities.
+	std::map<std::string, ZoneResourceConfig> resourceTypes;
 };
 
 class Map;
@@ -148,6 +150,10 @@ public:
 	void flagAsNamed() noexcept { unnamed = false; }
 
 	bool hasUniqueId(uint16_t uid) const;
+	bool ensureZoneForWaypoint(const Waypoint& waypoint);
+	bool hasRewardId(uint32_t rewardId, const Item* except = nullptr);
+	uint32_t allocateRewardId();
+	bool validateRewardIds(std::string& validationError);
 
 protected:
 	// Loads a map
@@ -170,6 +176,7 @@ protected:
 
 	std::string spawnfile; // The maps spawnfile
 	std::string housefile; // The housefile
+	uint32_t rewardIdSequence; // Monotonic identity allocator for reward containers
 
 public:
 	Towns towns;

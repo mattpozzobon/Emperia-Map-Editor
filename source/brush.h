@@ -218,6 +218,7 @@ public:
 	virtual bool canDrag() const { return true; }
 	virtual int getLookID() const;
 	virtual std::string getName() const;
+	uint32_t getFlag() const noexcept { return flag; }
 
 protected:
 	uint32_t flag;

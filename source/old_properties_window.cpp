@@ -28,6 +28,7 @@
 
 #include "tile.h"
 #include "item.h"
+#include "item_materials.h"
 #include "complexitem.h"
 #include "town.h"
 #include "house.h"
@@ -246,6 +247,8 @@ OldPropertiesWindow::OldPropertiesWindow(wxWindow* win_parent, const Map* map, c
 	noble_only_field(nullptr),
 	required_quests_field(nullptr),
 	required_storage_field(nullptr),
+	reward_container_field(nullptr),
+	reward_id(item->getRewardId()),
 	door_id_field(nullptr),
 	depot_id_field(nullptr),
 	destination_field(nullptr),
@@ -279,6 +282,12 @@ OldPropertiesWindow::OldPropertiesWindow(wxWindow* win_parent, const Map* map, c
 		subsizer->Add(newd wxStaticText(this, wxID_ANY, "Unique ID"));
 		unique_id_field = newd wxSpinCtrl(this, wxID_ANY, i2ws(edit_item->getUniqueID()), wxDefaultPosition, wxSize(-1, 20), wxSP_ARROW_KEYS, 0, 0xFFFF, edit_item->getUniqueID());
 		subsizer->Add(unique_id_field, wxSizerFlags(1).Expand());
+
+		subsizer->Add(newd wxStaticText(this, wxID_ANY, "Reward container"));
+		reward_container_field = newd wxCheckBox(this, wxID_ANY, "");
+		reward_container_field->SetValue(reward_id != 0);
+		reward_container_field->SetToolTip("Deliver the authored contents once per player. Overflow is sent to the inbox.");
+		subsizer->Add(reward_container_field, wxSizerFlags(1).Expand());
 
 		boxsizer->Add(subsizer, wxSizerFlags(0).Expand());
 
@@ -587,6 +596,21 @@ OldPropertiesWindow::OldPropertiesWindow(wxWindow* win_parent, const Map* map, c
 	access_sizer->Add(access_grid, wxSizerFlags(1).Expand());
 	topsizer->Add(access_sizer, wxSizerFlags(0).Expand().Border(wxLEFT | wxRIGHT | wxBOTTOM, 20));
 
+	wxStaticBoxSizer* material_sizer = newd wxStaticBoxSizer(wxVERTICAL, this, "Item Material");
+	wxFlexGridSizer* material_grid = newd wxFlexGridSizer(2, 5, 10);
+	material_grid->AddGrowableCol(1);
+	const char* material_labels[ITEM_MATERIAL_GROUP_COUNT] = {"Metal", "Leather", "Cloth", "Wood"};
+	for(size_t group = 0; group < ITEM_MATERIAL_GROUP_COUNT; ++group) {
+		material_grid->Add(newd wxStaticText(this, wxID_ANY, material_labels[group]));
+		material_fields[group] = newd wxChoice(this, wxID_ANY);
+		material_fields[group]->SetToolTip("The recipe selects required groups automatically at Tier 1. Change the tier here to override it.");
+		material_grid->Add(material_fields[group], wxSizerFlags(1).Expand());
+	}
+	material_choice_data = PopulateItemMaterialChoices(
+		material_fields, edit_map, edit_item->getID(), edit_item->getMaterialId(), edit_item->getMaterialComposition());
+	material_sizer->Add(material_grid, wxSizerFlags(1).Expand());
+	topsizer->Add(material_sizer, wxSizerFlags(0).Expand().Border(wxLEFT | wxRIGHT | wxBOTTOM, 20));
+
 	// Others attributes
 	const ItemType& type = g_items.getItemType(edit_item->getID());
 	wxStaticBoxSizer* others_sizer = newd wxStaticBoxSizer(wxVERTICAL, this, "Others");
@@ -628,6 +652,8 @@ OldPropertiesWindow::OldPropertiesWindow(wxWindow* win_parent, const Map* map, c
 	noble_only_field(nullptr),
 	required_quests_field(nullptr),
 	required_storage_field(nullptr),
+	reward_container_field(nullptr),
+	reward_id(0),
 	door_id_field(nullptr),
 	depot_id_field(nullptr),
 	splash_type_field(nullptr),
@@ -684,6 +710,8 @@ OldPropertiesWindow::OldPropertiesWindow(wxWindow* win_parent, const Map* map, c
 	noble_only_field(nullptr),
 	required_quests_field(nullptr),
 	required_storage_field(nullptr),
+	reward_container_field(nullptr),
+	reward_id(0),
 	door_id_field(nullptr),
 	depot_id_field(nullptr),
 	splash_type_field(nullptr),
@@ -775,7 +803,6 @@ void OldPropertiesWindow::OnClickOK(wxCommandEvent& WXUNUSED(event))
 			g_gui.PopupDialog(this, "Invalid access requirements", wxstr(access_error), wxOK);
 			return;
 		}
-
 		if(!edit_item->getDepot()) {
 			uid_changed = new_uid != edit_item->getUniqueID();
 			aid_changed = new_aid != edit_item->getActionID();
@@ -932,6 +959,19 @@ void OldPropertiesWindow::OnClickOK(wxCommandEvent& WXUNUSED(event))
 		edit_item->setNobleOnly(noble_only_field && noble_only_field->GetValue());
 		edit_item->setRequiredQuests(required_quests);
 		edit_item->setRequiredStorage(required_storage);
+		uint8_t material_id = 0;
+		uint32_t material_composition = 0;
+		GetSelectedItemMaterials(material_fields, material_choice_data, material_id, material_composition);
+		edit_item->setMaterialId(material_id);
+		edit_item->setMaterialComposition(material_composition);
+		if(reward_container_field && reward_container_field->GetValue()) {
+			if(reward_id == 0 || g_gui.GetCurrentMap().hasRewardId(reward_id, edit_item))
+				reward_id = g_gui.GetCurrentMap().allocateRewardId();
+			edit_item->setRewardId(reward_id);
+		} else {
+			reward_id = 0;
+			edit_item->setRewardId(0);
+		}
 		
 	} else if(edit_creature) {
 		int new_spawntime = count_field->GetValue();

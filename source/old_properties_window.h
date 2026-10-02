@@ -21,6 +21,7 @@
 #include "main.h"
 
 #include "common_windows.h"
+#include "item_materials.h"
 #include <wx/webrequest.h>
 
 class ContainerItemButton;
@@ -53,6 +54,10 @@ protected:
 	wxCheckBox* noble_only_field;
 	wxTextCtrl* required_quests_field;
 	wxTextCtrl* required_storage_field;
+	wxCheckBox* reward_container_field;
+	uint32_t reward_id;
+	wxChoice* material_fields[ITEM_MATERIAL_GROUP_COUNT] = {};
+	ItemMaterialChoiceData material_choice_data;
 	wxSpinCtrl* door_id_field;
 	wxChoice* depot_id_field;
 	PositionCtrl* destination_field;

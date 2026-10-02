@@ -1979,11 +1979,12 @@ void MapCanvas::OnSelectZoneArea(wxCommandEvent& WXUNUSED(event))
 	if(!brush || !g_gui.SelectBrush(brush, TILESET_TERRAIN)) {
 		return;
 	}
+	editor.selectWorldZone(owner->name);
 
 	const std::string ownerLabel = owner->displayName.empty() ? owner->name : owner->displayName;
 	g_gui.SetStatusText(
-		"Selected " + wxstr(getZoneCategoryDisplayName(category)) +
-		" Zone brush for area " + wxstr(ownerLabel) + "."
+		"Selected world zone " + wxstr(ownerLabel) + ". New painted areas on any floor "
+		"will belong to this zone."
 	);
 	g_gui.RefreshView();
 }
@@ -2513,8 +2514,8 @@ void MapPopupMenu::Update(const Position& contextPosition)
 			const std::string ownerLabel = owner->displayName.empty() ? owner->name : owner->displayName;
 			Append(
 				MAP_POPUP_MENU_SELECT_ZONE_AREA,
-				"Select area: " + wxstr(ownerLabel),
-				"Use this area's zone brush so it can be repainted or expanded"
+				"Select world zone: " + wxstr(ownerLabel),
+				"Select this named zone for painting or erasing, including on other floors"
 			);
 		} else {
 			wxMenuItem* addAreaItem = Append(

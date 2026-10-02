@@ -21,6 +21,8 @@
 #include "main.h"
 
 #include <wx/spinctrl.h>
+#include <wx/dataview.h>
+#include <wx/notebook.h>
 
 #include "dcbutton.h"
 #include "positionctrl.h"
@@ -364,9 +366,13 @@ private:
 	void RefreshWaypointPicker();
 	void RefreshMarkerPicker(int index);
 	void RefreshSpawnList();
+	void RefreshSpawnPercentageStatus();
 	void RefreshResourceControls();
 	void RefreshResourceGroups();
 	void RefreshResourceVariants();
+	void SaveCurrentResourceType();
+	void LoadCurrentResourceTypeToUI();
+	std::string GetSelectedResourceType() const;
 	void RefreshAreaList();
 	int CountZoneTiles(const ZoneConfig& config) const;
 
@@ -379,6 +385,7 @@ private:
 	std::vector<int> visibleZoneIndices;
 	std::vector<std::string> markerWaypointNames;
 	int currentIndex;
+	bool updatingResourceTabs;
 
 	wxChoice* filter_choice;
 	wxListBox* zone_listbox;
@@ -389,17 +396,18 @@ private:
 	wxTextCtrl* difficulty_field;
 	wxTextCtrl* music_field;
 	wxCheckBox* has_resources_check;
+	wxNotebook* resource_type_notebook;
 	wxSpinCtrl* max_nodes_spin;
 	wxSpinCtrl* min_distance_spin;
 	wxSpinCtrl* spawn_interval_spin;
-	wxListBox* spawn_list;
+	wxDataViewListCtrl* spawn_list;
 	wxListBox* area_list;
 	wxButton* area_remove_button;
-	wxChoice* resource_type_picker;
 	wxChoice* resource_group_picker;
 	wxChoice* resource_variant_picker;
 	wxStaticText* resource_filter_label;
-	wxSpinCtrl* chance_spin;
+	wxStaticText* spawn_percentage_status;
+	wxSpinCtrlDouble* chance_spin;
 	wxStaticText* area_label;
 
 	DECLARE_EVENT_TABLE();

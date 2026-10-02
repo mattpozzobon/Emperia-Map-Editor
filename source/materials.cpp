@@ -88,9 +88,9 @@ void Materials::populateEquipmentTilesetFromSlotTypes()
 	for(const auto& entry : itemSlotTypes) {
 		const uint8_t slotType = entry.second;
 		// The shared contract reserves 1-14 for ordinary equipment slots and
-		// 25-26 for the torch and pet equipment slots. Codes 15-24 describe
-		// tools and consumable categories rather than wearable equipment.
-		if(!((slotType >= 1 && slotType <= 14) || slotType == 25 || slotType == 26)) {
+		// 25-28 for torch, pet, cape and mask. Codes 15-24 describe tools and
+		// consumable categories rather than wearable equipment.
+		if(!((slotType >= 1 && slotType <= 14) || (slotType >= 25 && slotType <= 28))) {
 			continue;
 		}
 

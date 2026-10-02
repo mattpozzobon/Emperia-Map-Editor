@@ -30,6 +30,7 @@ class Change;
 class Action;
 class BatchAction;
 class ActionQueue;
+struct ZoneConfig;
 
 enum ActionIdentifier {
 	ACTION_MOVE,
@@ -54,6 +55,8 @@ enum ChangeType {
 	CHANGE_TILE,
 	CHANGE_MOVE_HOUSE_EXIT,
 	CHANGE_MOVE_WAYPOINT,
+	CHANGE_ZONE_AREAS,
+	CHANGE_ZONE_CONFIG,
 };
 
 struct HouseData {
@@ -66,6 +69,11 @@ struct WaypointData {
 	Position position;
 };
 
+struct ZoneAreasData {
+	std::string id;
+	std::vector<Position> anchors;
+};
+
 class Change
 {
 	Change();
@@ -76,6 +84,9 @@ public:
 
 	static Change* Create(House* house, const Position& position);
 	static Change* Create(Waypoint* waypoint, const Position& position);
+	static Change* CreateZoneAreas(const std::string& zoneName,
+		const std::vector<Position>& anchors);
+	static Change* CreateZoneConfig(const ZoneConfig& config);
 
 	void clear();
 

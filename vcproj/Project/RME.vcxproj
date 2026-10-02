@@ -223,6 +223,7 @@
     <ClCompile Include="..\..\source\artprovider.cpp" />
     <ClCompile Include="..\..\source\brush_tables.cpp" />
     <ClCompile Include="..\..\source\container_properties_window.cpp" />
+    <ClCompile Include="..\..\source\item_materials.cpp" />
     <ClCompile Include="..\..\source\duplicated_items_window.cpp" />
     <ClCompile Include="..\..\source\find_item_window.cpp" />
     <ClCompile Include="..\..\source\light_drawer.cpp" />
@@ -249,6 +250,7 @@
     <ClInclude Include="..\..\source\command_palette.h" />
     <ClCompile Include="..\..\source\command_palette.cpp" />
     <ClInclude Include="..\..\source\container_properties_window.h" />
+    <ClInclude Include="..\..\source\item_materials.h" />
     <ClInclude Include="..\..\source\con_vector.h" />
     <ClInclude Include="..\..\source\creature_brush.h" />
     <ClCompile Include="..\..\source\creature_brush.cpp" />
@@ -341,6 +343,8 @@
     <ClCompile Include="..\..\source\palette_waypoints.cpp" />
     <ClInclude Include="..\..\source\palette_window.h" />
     <ClCompile Include="..\..\source\palette_window.cpp" />
+    <ClInclude Include="..\..\source\view_overlay_panel.h" />
+    <ClCompile Include="..\..\source\view_overlay_panel.cpp" />
     <ClInclude Include="..\..\source\about_window.h" />
     <ClCompile Include="..\..\source\about_window.cpp" />
     <ClInclude Include="..\..\source\common_windows.h" />
