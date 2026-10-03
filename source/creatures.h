@@ -70,6 +70,8 @@ public:
 	bool standard;
 	std::string name;
 	std::string title;
+	int professionLevel;
+	std::string city;
 	Outfit outfit;
 	CreatureBrush* brush;
 

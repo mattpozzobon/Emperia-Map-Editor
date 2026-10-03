@@ -353,7 +353,10 @@ OldPropertiesWindow::OldPropertiesWindow(wxWindow* win_parent, const Map* map, c
 		unique_id_field = newd wxSpinCtrl(this, wxID_ANY, i2ws(edit_item->getUniqueID()), wxDefaultPosition, wxSize(-1, 20), wxSP_ARROW_KEYS, 0, 0xFFFF, edit_item->getUniqueID());
 		subsizer->Add(unique_id_field, wxSizerFlags(1).Expand());
 
-		boxsizer->Add(subsizer, wxSizerFlags(1).Expand());
+		// Keep the metadata rows at their natural height. Giving this section a
+		// proportion makes wxBoxSizer reserve vertical space to match the much
+		// taller localized-text editor below it.
+		boxsizer->Add(subsizer, wxSizerFlags().Expand());
 
 		const LocalizedMapText localized = loadLocalizedMapText(edit_map, item->getText());
 		map_text_key = localized.key;
@@ -398,7 +401,7 @@ OldPropertiesWindow::OldPropertiesWindow(wxWindow* win_parent, const Map* map, c
 		translation_controls->Add(translate_text_button, wxSizerFlags().Align(wxALIGN_RIGHT));
 		textsizer->Add(translation_controls, wxSizerFlags().Expand().Border(wxTOP, 6));
 
-		boxsizer->Add(textsizer, wxSizerFlags(2).Expand());
+		boxsizer->Add(textsizer, wxSizerFlags().Expand());
 
 		topsizer->Add(boxsizer, wxSizerFlags(0).Expand().Border(wxALL, 20));
 

@@ -47,7 +47,7 @@ public:
 	void OnUpdate();
 
 protected:
-	void SelectTileset(size_t index);
+	void SelectTileset(size_t index, bool rebuildCityChoices = true);
 	void SelectCreature(size_t index);
 	void SelectCreature(std::string name);
 public:
@@ -56,23 +56,35 @@ public:
 	void OnChangeSpawnSize(wxSpinEvent& event);
 
 	void OnTilesetChange(wxCommandEvent& event);
+	void OnCityChange(wxCommandEvent& event);
 	void OnListBoxChange(wxListEvent& event);
+	void OnListColumnClick(wxListEvent& event);
+	void OnSize(wxSizeEvent& event);
 	void OnClickCreatureBrushButton(wxCommandEvent& event);
 	void OnClickSpawnBrushButton(wxCommandEvent& event);
 protected:
 	void SelectCreatureBrush();
 	void SelectSpawnBrush();
+	void SortCreatureBrushes();
+	void PopulateCreatureList(const std::string& selectedCreature = std::string());
+	void UpdateSortColumnLabels();
 	void ResizeCreatureListColumns();
 	Brush* GetCreatureBrush(size_t index) const;
 
 	wxChoice* tileset_choice;
+	wxStaticText* city_label;
+	wxChoice* city_choice;
 	wxListCtrl* creature_list;
 	std::vector<Brush*> creature_brushes;
+	std::vector<std::string> city_filter_values;
 	wxToggleButton* creature_brush_button;
 	wxToggleButton* spawn_brush_button;
 	wxSpinCtrl* creature_spawntime_spin;
 	wxSpinCtrl* spawn_size_spin;
 
+	int sort_column;
+	bool sort_ascending;
+	bool rebuilding_list;
 	bool handling_event;
 
 	DECLARE_EVENT_TABLE();

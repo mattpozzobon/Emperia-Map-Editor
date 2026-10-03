@@ -140,6 +140,8 @@ CreatureType::CreatureType() :
 	standard(false),
 	name(""),
 	title(""),
+	professionLevel(-1),
+	city(""),
 	brush(nullptr)
 {
 	////
@@ -152,6 +154,8 @@ CreatureType::CreatureType(const CreatureType& ct) :
 	standard(ct.standard),
 	name(ct.name),
 	title(ct.title),
+	professionLevel(ct.professionLevel),
+	city(ct.city),
 	outfit(ct.outfit),
 	brush(ct.brush)
 {
@@ -165,6 +169,8 @@ CreatureType& CreatureType::operator=(const CreatureType& ct)
 	standard = ct.standard;
 	name = ct.name;
 	title = ct.title;
+	professionLevel = ct.professionLevel;
+	city = ct.city;
 	outfit = ct.outfit;
 	return *this;
 }
@@ -199,6 +205,12 @@ CreatureType* CreatureType::loadFromXML(pugi::xml_node node, wxArrayString& warn
 
 	if((attribute = node.attribute("title"))) {
 		ct->title = attribute.as_string();
+	}
+	if((attribute = node.attribute("professionlevel"))) {
+		ct->professionLevel = attribute.as_int(-1);
+	}
+	if((attribute = node.attribute("city"))) {
+		ct->city = attribute.as_string();
 	}
 
 	if((attribute = node.attribute("looktype"))) {
@@ -287,6 +299,12 @@ CreatureType* CreatureType::loadFromOTXML(const FileName& filename, pugi::xml_do
 
 	if((attribute = node.attribute("title"))) {
 		ct->title = attribute.as_string();
+	}
+	if((attribute = node.attribute("professionlevel"))) {
+		ct->professionLevel = attribute.as_int(-1);
+	}
+	if((attribute = node.attribute("city"))) {
+		ct->city = attribute.as_string();
 	}
 
 	for(pugi::xml_node optionNode = node.first_child(); optionNode; optionNode = optionNode.next_sibling()) {
@@ -533,6 +551,12 @@ bool CreatureDatabase::saveToXML(const FileName& filename)
 			creatureNode.append_attribute("type") = creatureType->isNpc ? "npc" : "monster";
 			if(!creatureType->title.empty()) {
 				creatureNode.append_attribute("title") = creatureType->title.c_str();
+			}
+			if(creatureType->isNpc && creatureType->professionLevel >= 0) {
+				creatureNode.append_attribute("professionlevel") = creatureType->professionLevel;
+			}
+			if(creatureType->isNpc && !creatureType->city.empty()) {
+				creatureNode.append_attribute("city") = creatureType->city.c_str();
 			}
 
 			const Outfit& outfit = creatureType->outfit;

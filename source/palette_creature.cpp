@@ -49,6 +49,28 @@ bool IsVisibleCreatureBrush(Brush* brush)
 	return creatureType && !creatureType->missing;
 }
 
+wxString GetCityDisplayName(const std::string& city)
+{
+	if(city.empty()) {
+		return "Unassigned";
+	}
+	std::string display = city;
+	bool capitalize = true;
+	for(char& character : display) {
+		if(character == '-' || character == '_') {
+			character = ' ';
+			capitalize = true;
+		} else if(capitalize) {
+			character = static_cast<char>(std::toupper(static_cast<unsigned char>(character)));
+			capitalize = false;
+		}
+	}
+	if(as_lower_str(display) == "gm island") {
+		return "GM Island";
+	}
+	return wxstr(display);
+}
+
 } // namespace
 
 // ============================================================================
@@ -56,8 +78,6 @@ bool IsVisibleCreatureBrush(Brush* brush)
 
 BEGIN_EVENT_TABLE(CreaturePalettePanel, PalettePanel)
 	EVT_CHOICE(PALETTE_CREATURE_TILESET_CHOICE, CreaturePalettePanel::OnTilesetChange)
-
-	EVT_LIST_ITEM_SELECTED(PALETTE_CREATURE_LISTBOX, CreaturePalettePanel::OnListBoxChange)
 
 	EVT_TOGGLEBUTTON(PALETTE_CREATURE_BRUSH_BUTTON, CreaturePalettePanel::OnClickCreatureBrushButton)
 	EVT_TOGGLEBUTTON(PALETTE_SPAWN_BRUSH_BUTTON, CreaturePalettePanel::OnClickSpawnBrushButton)
@@ -68,6 +88,17 @@ END_EVENT_TABLE()
 
 CreaturePalettePanel::CreaturePalettePanel(wxWindow* parent, wxWindowID id) :
 	PalettePanel(parent, id),
+	tileset_choice(nullptr),
+	city_label(nullptr),
+	city_choice(nullptr),
+	creature_list(nullptr),
+	creature_brush_button(nullptr),
+	spawn_brush_button(nullptr),
+	creature_spawntime_spin(nullptr),
+	spawn_size_spin(nullptr),
+	sort_column(0),
+	sort_ascending(true),
+	rebuilding_list(false),
 	handling_event(false)
 {
 	wxSizer* topsizer = newd wxBoxSizer(wxVERTICAL);
@@ -75,10 +106,24 @@ CreaturePalettePanel::CreaturePalettePanel(wxWindow* parent, wxWindowID id) :
 	wxSizer* sidesizer = newd wxStaticBoxSizer(wxVERTICAL, this, "Creatures");
 	tileset_choice = newd wxChoice(this, PALETTE_CREATURE_TILESET_CHOICE, wxDefaultPosition, wxDefaultSize, (int)0, (const wxString*)nullptr);
 	sidesizer->Add(tileset_choice, 0, wxEXPAND);
+	wxBoxSizer* citySizer = newd wxBoxSizer(wxHORIZONTAL);
+	city_label = newd wxStaticText(this, wxID_ANY, "City");
+	city_choice = newd wxChoice(this, PALETTE_CREATURE_CITY_CHOICE);
+	city_choice->Bind(wxEVT_CHOICE, &CreaturePalettePanel::OnCityChange, this);
+	citySizer->Add(city_label, 0, wxALIGN_CENTER_VERTICAL | wxRIGHT, 5);
+	citySizer->Add(city_choice, 1, wxEXPAND);
+	sidesizer->Add(citySizer, 0, wxEXPAND | wxTOP, 4);
+	city_label->Hide();
+	city_choice->Hide();
 
 	creature_list = newd wxListCtrl(this, PALETTE_CREATURE_LISTBOX, wxDefaultPosition, wxDefaultSize, wxLC_REPORT | wxLC_SINGLE_SEL);
+	creature_list->Bind(wxEVT_SIZE, &CreaturePalettePanel::OnSize, this);
+	creature_list->Bind(wxEVT_LIST_ITEM_SELECTED, &CreaturePalettePanel::OnListBoxChange, this);
+	creature_list->Bind(wxEVT_LIST_COL_CLICK, &CreaturePalettePanel::OnListColumnClick, this);
 	creature_list->InsertColumn(0, "Name", wxLIST_FORMAT_LEFT, 110);
 	creature_list->InsertColumn(1, "Title", wxLIST_FORMAT_LEFT, 110);
+	creature_list->InsertColumn(2, "Level", wxLIST_FORMAT_LEFT, 55);
+	creature_list->InsertColumn(3, "City", wxLIST_FORMAT_LEFT, 90);
 	sidesizer->Add(creature_list, 1, wxEXPAND);
 	topsizer->Add(sidesizer, 1, wxEXPAND);
 
@@ -156,6 +201,11 @@ bool CreaturePalettePanel::SelectBrush(const Brush* whatbrush)
 			// Select first house
 			for(BrushVector::const_iterator iter = tsc->brushlist.begin(); iter != tsc->brushlist.end(); ++iter) {
 				if(*iter == whatbrush) {
+					if(std::find(creature_brushes.begin(), creature_brushes.end(), *iter) == creature_brushes.end() &&
+						city_choice->IsShown() && city_choice->GetCount() > 0) {
+						city_choice->SetSelection(0);
+						SelectTileset(static_cast<size_t>(current_index), false);
+					}
 					SelectCreature(whatbrush->getName());
 					return true;
 				}
@@ -218,16 +268,19 @@ void CreaturePalettePanel::OnSwitchIn()
 	g_gui.SetBrushSize(spawn_size_spin->GetValue());
 }
 
-void CreaturePalettePanel::SelectTileset(size_t index)
+void CreaturePalettePanel::SelectTileset(size_t index, bool rebuildCityChoices)
 {
 	if(index >= tileset_choice->GetCount()) {
 		creature_list->DeleteAllItems();
 		creature_brushes.clear();
+		city_filter_values.clear();
+		city_choice->Clear();
+		city_label->Hide();
+		city_choice->Hide();
 		creature_brush_button->Enable(false);
 		return;
 	}
 
-	creature_list->DeleteAllItems();
 	creature_brushes.clear();
 	if(tileset_choice->GetCount() == 0) {
 		// No tilesets :(
@@ -238,33 +291,78 @@ void CreaturePalettePanel::SelectTileset(size_t index)
 			creature_brush_button->Enable(false);
 			return;
 		}
+		const bool npcTileset = tileset_choice->GetString(index).CmpNoCase("NPCs") == 0;
+		std::string selectedCity;
+		const int oldCitySelection = city_choice->GetSelection();
+		if(oldCitySelection >= 0 && oldCitySelection < static_cast<int>(city_filter_values.size())) {
+			selectedCity = city_filter_values[oldCitySelection];
+		}
 
-		// Select first house
+		if(rebuildCityChoices) {
+			city_choice->Clear();
+			city_filter_values.clear();
+			if(npcTileset) {
+				std::vector<std::string> cities;
+				bool hasUnassigned = false;
+				for(Brush* brush : tsc->brushlist) {
+					const CreatureType* type = GetCreatureType(brush);
+					if(!type || type->missing) continue;
+					if(type->city.empty()) {
+						hasUnassigned = true;
+					} else if(std::find(cities.begin(), cities.end(), type->city) == cities.end()) {
+						cities.push_back(type->city);
+					}
+				}
+				std::sort(cities.begin(), cities.end(), [](const std::string& left, const std::string& right) {
+					return GetCityDisplayName(left).CmpNoCase(GetCityDisplayName(right)) < 0;
+				});
+				city_choice->Append("All cities");
+				city_filter_values.push_back("");
+				for(const std::string& city : cities) {
+					city_choice->Append(GetCityDisplayName(city));
+					city_filter_values.push_back(city);
+				}
+				if(hasUnassigned) {
+					city_choice->Append("Unassigned");
+					city_filter_values.push_back("__unassigned__");
+				}
+				int selection = 0;
+				for(size_t cityIndex = 0; cityIndex < city_filter_values.size(); ++cityIndex) {
+					if(as_lower_str(city_filter_values[cityIndex]) == as_lower_str(selectedCity)) {
+						selection = static_cast<int>(cityIndex);
+						break;
+					}
+				}
+				city_choice->SetSelection(selection);
+				selectedCity = city_filter_values[selection];
+			}
+		}
+
+		city_label->Show(npcTileset);
+		city_choice->Show(npcTileset);
+		if(npcTileset && !rebuildCityChoices) {
+			const int selection = city_choice->GetSelection();
+			selectedCity = selection >= 0 && selection < static_cast<int>(city_filter_values.size()) ?
+				city_filter_values[selection] : "";
+		}
+
 		for(BrushVector::const_iterator iter = tsc->brushlist.begin();
 				iter != tsc->brushlist.end();
 				++iter)
 		{
-			if(IsVisibleCreatureBrush(*iter)) {
+			const CreatureType* type = GetCreatureType(*iter);
+			const bool cityMatches = !npcTileset || selectedCity.empty() ||
+				(selectedCity == "__unassigned__" ? type && type->city.empty() :
+					type && as_lower_str(type->city) == as_lower_str(selectedCity));
+			if(IsVisibleCreatureBrush(*iter) && cityMatches) {
 				creature_brushes.push_back(*iter);
 			}
 		}
-		std::sort(creature_brushes.begin(), creature_brushes.end(), [](Brush* a, Brush* b) {
-			const CreatureType* typeA = GetCreatureType(a);
-			const CreatureType* typeB = GetCreatureType(b);
-			const wxString nameA = typeA ? wxstr(typeA->name) : wxString();
-			const wxString nameB = typeB ? wxstr(typeB->name) : wxString();
-			return nameA.CmpNoCase(nameB) < 0;
-		});
-
-		for(size_t i = 0; i < creature_brushes.size(); ++i) {
-			const CreatureType* creatureType = GetCreatureType(creature_brushes[i]);
-			const long item = creature_list->InsertItem(i, wxstr(creatureType->name));
-			creature_list->SetItem(item, 1, wxstr(creatureType->title));
-		}
-		ResizeCreatureListColumns();
-		SelectCreature(0);
+		SortCreatureBrushes();
+		PopulateCreatureList();
 
 		tileset_choice->SetSelection(index);
+		Layout();
 	}
 }
 
@@ -320,12 +418,105 @@ void CreaturePalettePanel::SelectSpawnBrush()
 	spawn_brush_button->SetValue(true);
 }
 
+void CreaturePalettePanel::SortCreatureBrushes()
+{
+	const int column = sort_column;
+	const bool ascending = sort_ascending;
+	std::sort(creature_brushes.begin(), creature_brushes.end(), [column, ascending](Brush* left, Brush* right) {
+		const CreatureType* leftType = GetCreatureType(left);
+		const CreatureType* rightType = GetCreatureType(right);
+		if(!leftType || !rightType) {
+			return ascending ? leftType != nullptr : rightType != nullptr;
+		}
+
+		if(column == 2) {
+			const bool leftMissing = leftType->professionLevel < 0;
+			const bool rightMissing = rightType->professionLevel < 0;
+			if(leftMissing != rightMissing) {
+				return !leftMissing;
+			}
+			if(leftType->professionLevel != rightType->professionLevel) {
+				return ascending ? leftType->professionLevel < rightType->professionLevel : leftType->professionLevel > rightType->professionLevel;
+			}
+		}
+
+		auto columnValue = [column](const CreatureType* type) {
+			switch(column) {
+				case 1: return wxstr(type->title);
+				case 3: return GetCityDisplayName(type->city);
+				default: return wxstr(type->name);
+			}
+		};
+
+		int comparison = columnValue(leftType).CmpNoCase(columnValue(rightType));
+		if(comparison == 0) {
+			comparison = wxstr(leftType->name).CmpNoCase(wxstr(rightType->name));
+		}
+		if(comparison == 0) {
+			comparison = wxstr(leftType->title).CmpNoCase(wxstr(rightType->title));
+		}
+		return ascending ? comparison < 0 : comparison > 0;
+	});
+}
+
+void CreaturePalettePanel::PopulateCreatureList(const std::string& selectedCreature)
+{
+	rebuilding_list = true;
+	creature_list->DeleteAllItems();
+	for(size_t i = 0; i < creature_brushes.size(); ++i) {
+		const CreatureType* creatureType = GetCreatureType(creature_brushes[i]);
+		if(!creatureType) {
+			continue;
+		}
+		const long item = creature_list->InsertItem(i, wxstr(creatureType->name));
+		creature_list->SetItem(item, 1, wxstr(creatureType->title));
+		creature_list->SetItem(item, 2, creatureType->professionLevel >= 0 ? i2ws(creatureType->professionLevel) : wxString());
+		creature_list->SetItem(item, 3, GetCityDisplayName(creatureType->city));
+	}
+	UpdateSortColumnLabels();
+	ResizeCreatureListColumns();
+	if(!selectedCreature.empty()) {
+		SelectCreature(selectedCreature);
+	} else {
+		SelectCreature(0);
+	}
+	rebuilding_list = false;
+	creature_list->Refresh();
+}
+
+void CreaturePalettePanel::UpdateSortColumnLabels()
+{
+	static const wxString labels[] = { "Name", "Title", "Level", "City" };
+	for(int columnIndex = 0; columnIndex < 4; ++columnIndex) {
+		wxListItem column;
+		wxString label = labels[columnIndex];
+		if(columnIndex == sort_column) {
+			label += sort_ascending ? " ^" : " v";
+		}
+		column.SetText(label);
+		creature_list->SetColumn(columnIndex, column);
+	}
+}
+
 void CreaturePalettePanel::ResizeCreatureListColumns()
 {
-	const int width = std::max(160, creature_list->GetClientSize().GetWidth());
-	const int nameWidth = std::max(80, width / 2);
+	if(!creature_list) {
+		return;
+	}
+
+	const int width = creature_list->GetClientSize().GetWidth() - 2;
+	if(width < 60) {
+		return;
+	}
+	const bool showCity = city_choice->IsShown();
+	const int nameWidth = showCity ? width * 28 / 100 : width * 45 / 100;
+	const int titleWidth = showCity ? width * 32 / 100 : width - nameWidth;
+	const int levelWidth = showCity ? width * 16 / 100 : 0;
+	const int cityWidth = showCity ? width - nameWidth - titleWidth - levelWidth : 0;
 	creature_list->SetColumnWidth(0, nameWidth);
-	creature_list->SetColumnWidth(1, std::max(80, width - nameWidth - 6));
+	creature_list->SetColumnWidth(1, titleWidth);
+	creature_list->SetColumnWidth(2, levelWidth);
+	creature_list->SetColumnWidth(3, cityWidth);
 }
 
 Brush* CreaturePalettePanel::GetCreatureBrush(size_t index) const
@@ -346,8 +537,21 @@ void CreaturePalettePanel::OnTilesetChange(wxCommandEvent& event)
 	g_gui.SelectBrush();
 }
 
+void CreaturePalettePanel::OnCityChange(wxCommandEvent& event)
+{
+	const int tilesetSelection = tileset_choice->GetSelection();
+	if(tilesetSelection != wxNOT_FOUND) {
+		SelectTileset(static_cast<size_t>(tilesetSelection), false);
+	}
+	g_gui.ActivatePalette(GetParentPalette());
+	g_gui.SelectBrush();
+}
+
 void CreaturePalettePanel::OnListBoxChange(wxListEvent& event)
 {
+	if(rebuilding_list) {
+		return;
+	}
 	if(event.GetIndex() < 0 || event.GetIndex() >= static_cast<long>(creature_brushes.size())) {
 		return;
 	}
@@ -355,6 +559,40 @@ void CreaturePalettePanel::OnListBoxChange(wxListEvent& event)
 	SelectCreatureBrush();
 	g_gui.ActivatePalette(GetParentPalette());
 	g_gui.SelectBrush();
+}
+
+void CreaturePalettePanel::OnListColumnClick(wxListEvent& event)
+{
+	const int column = event.GetColumn();
+	if(column < 0 || column > 3) {
+		return;
+	}
+
+	std::string selectedCreature;
+	const long selection = creature_list->GetNextItem(-1, wxLIST_NEXT_ALL, wxLIST_STATE_SELECTED);
+	const CreatureType* selectedType = GetCreatureType(GetCreatureBrush(selection));
+	if(selectedType) {
+		selectedCreature = selectedType->name;
+	}
+
+	if(sort_column == column) {
+		sort_ascending = !sort_ascending;
+	} else {
+		sort_column = column;
+		sort_ascending = true;
+	}
+	SortCreatureBrushes();
+	PopulateCreatureList(selectedCreature);
+}
+
+void CreaturePalettePanel::OnSize(wxSizeEvent& event)
+{
+	event.Skip();
+	if(creature_list) {
+		// This handler is bound to the list itself, so its client width is already
+		// final and the columns can be adjusted without a delayed repaint.
+		ResizeCreatureListColumns();
+	}
 }
 
 void CreaturePalettePanel::OnClickCreatureBrushButton(wxCommandEvent& event)
