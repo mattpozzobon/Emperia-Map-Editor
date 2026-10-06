@@ -69,6 +69,9 @@ GraphicManager::GraphicManager() :
 	outfit_count(0),
 	equipment_count(0),
 	hair_count(0),
+	effect_count(0),
+	distance_count(0),
+	beard_count(0),
 	otfi_found(false),
 	is_extended(false),
 	has_transparency(false),
@@ -137,6 +140,9 @@ void GraphicManager::clear()
 	outfit_count = 0;
 	equipment_count = 0;
 	hair_count = 0;
+	effect_count = 0;
+	distance_count = 0;
+	beard_count = 0;
 	item_appearances.clear();
 	item_slot_types.clear();
 	item_identities.clear();
@@ -147,6 +153,7 @@ void GraphicManager::clear()
 	equipment_right_appearances.clear();
 	visual_equipment_appearances.clear();
 	hair_appearances.clear();
+	beard_appearances.clear();
 	loaded_textures = 0;
 	lastclean = time(nullptr);
 	spritefile = "";
@@ -203,6 +210,11 @@ GameSprite* GraphicManager::getOutfitSlotSprite(int slot, int sourceId, bool dir
 		if(appearance != hair_appearances.end()) {
 			appearanceId = outfit_count + equipment_count + appearance->second;
 		}
+	} else if(slot == OUTFIT_SLOT_BEARD) {
+		const auto appearance = beard_appearances.find(static_cast<uint16_t>(sourceId));
+		if(appearance != beard_appearances.end()) {
+			appearanceId = outfit_count + equipment_count + hair_count + effect_count + distance_count + appearance->second;
+		}
 	} else if(directAppearance) {
 		const auto appearance = visual_equipment_appearances.find(static_cast<uint16_t>(sourceId));
 		if(appearance != visual_equipment_appearances.end()) {
@@ -240,6 +252,12 @@ GameSprite* GraphicManager::getOutfitSlotSprite(int slot, int sourceId, bool dir
 	return getCreatureSprite(appearanceId > 0 ? appearanceId : sourceId);
 }
 
+bool GraphicManager::isMaskItem(int itemId) const
+{
+	const auto slotType = item_slot_types.find(static_cast<uint16_t>(itemId));
+	return slotType != item_slot_types.end() && slotType->second == 28;
+}
+
 void GraphicManager::drawOutfitTo(wxDC& dc, const wxRect& rect, const Outfit& outfit)
 {
 	struct PreviewLayer {
@@ -269,6 +287,7 @@ void GraphicManager::drawOutfitTo(wxDC& dc, const wxRect& rect, const Outfit& ou
 		OUTFIT_SLOT_BODY,
 		OUTFIT_SLOT_BELT,
 		OUTFIT_SLOT_BACKPACK,
+		OUTFIT_SLOT_BEARD,
 		OUTFIT_SLOT_HEAD,
 		OUTFIT_SLOT_HAIR,
 		OUTFIT_SLOT_LEFT_HAND,
@@ -278,6 +297,8 @@ void GraphicManager::drawOutfitTo(wxDC& dc, const wxRect& rect, const Outfit& ou
 		const OutfitSpriteSlot& spriteSlot = outfit.sprites[slot];
 		if(spriteSlot.id <= 0 ||
 				(slot == OUTFIT_SLOT_HEAD && !outfit.renderHelmet) ||
+				(slot == OUTFIT_SLOT_BEARD && outfit.renderHelmet &&
+				 isMaskItem(outfit.sprites[OUTFIT_SLOT_HEAD].id)) ||
 				(slot == OUTFIT_SLOT_HAIR && outfit.renderHelmet && outfit.sprites[OUTFIT_SLOT_HEAD].id > 0)) {
 			continue;
 		}
@@ -288,7 +309,7 @@ void GraphicManager::drawOutfitTo(wxDC& dc, const wxRect& rect, const Outfit& ou
 		}
 		layers.push_back({
 			layerSprite,
-			slot == OUTFIT_SLOT_HAIR ? baseOutfit : outfit.getColorizedSlotOutfit(slot),
+			(slot == OUTFIT_SLOT_HAIR || slot == OUTFIT_SLOT_BEARD) ? baseOutfit : outfit.getColorizedSlotOutfit(slot),
 			0,
 			true,
 		});
@@ -643,10 +664,12 @@ bool GraphicManager::loadSpriteMetadata(const FileName& datafile, wxString& erro
 		return false;
 	}
 
-	uint16_t effect_count, distance_count;
 	outfit_count = 0;
 	equipment_count = 0;
 	hair_count = 0;
+	effect_count = 0;
+	distance_count = 0;
+	beard_count = 0;
 
 	// Detect Emperia header: first 8 bytes = "EMPERIA\0"
 	uint32_t magic1, magic2;
@@ -664,9 +687,9 @@ bool GraphicManager::loadSpriteMetadata(const FileName& datafile, wxString& erro
 		file.getU8(fileType);
 		file.getU16(emperiaFormatVersion);
 		file.skip(9);
-		if(emperiaFormatVersion > 15) {
+		if(emperiaFormatVersion > 17) {
 			error = wxString::Format(
-				"EOBJ format v%u is newer than the maximum supported version v15.",
+				"EOBJ format v%u is newer than the maximum supported version v17.",
 				emperiaFormatVersion
 			);
 			return false;
@@ -697,6 +720,8 @@ bool GraphicManager::loadSpriteMetadata(const FileName& datafile, wxString& erro
 		file.getU16(hair_count);
 		file.getU16(effect_count);
 		file.getU16(distance_count);
+		if(emperiaFormatVersion >= 17)
+			file.getU16(beard_count);
 		creature_count = outfit_count + equipment_count + hair_count;
 	} else {
 		file.getU16(creature_count);
@@ -805,12 +830,30 @@ bool GraphicManager::loadSpriteMetadata(const FileName& datafile, wxString& erro
 			material_mask_layers[appearanceId] = layer;
 		}
 	}
+	if(emperiaFormatVersion >= 16) {
+		uint16_t colorRegionCount = 0;
+		if(!file.getU16(colorRegionCount)) {
+			error = "EOBJ color region table header is truncated.";
+			return false;
+		}
+		for(uint16_t index = 0; index < colorRegionCount; ++index) {
+			uint16_t appearanceId = 0;
+			uint8_t sourceCount = 0;
+			if(!file.getU16(appearanceId) || !file.getU8(sourceCount) || sourceCount < 1 || sourceCount > 4 ||
+				file.tell() + sourceCount > file.size()) {
+				error = "EOBJ color region table is truncated or invalid.";
+				return false;
+			}
+			file.skip(sourceCount);
+		}
+	}
 	if(emperiaFormatVersion >= 4) {
 		equipment_default_appearances.clear();
 		equipment_left_appearances.clear();
 		equipment_right_appearances.clear();
 		visual_equipment_appearances.clear();
 		hair_appearances.clear();
+		beard_appearances.clear();
 		uint32_t equipmentCount = 0;
 		file.getU32(equipmentCount);
 		for(uint32_t index = 0; index < equipmentCount; ++index) {
@@ -891,6 +934,32 @@ bool GraphicManager::loadSpriteMetadata(const FileName& datafile, wxString& erro
 			}
 			file.skip(nameLength);
 		}
+		if(emperiaFormatVersion >= 17) {
+			uint16_t beardDefinitionCount = 0;
+			if(!file.getU16(beardDefinitionCount)) {
+				error = "EOBJ beard catalog header is truncated.";
+				return false;
+			}
+			for(uint16_t index = 0; index < beardDefinitionCount; ++index) {
+				if(file.tell() + 11 > file.size()) {
+					error = "EOBJ beard catalog is truncated.";
+					return false;
+				}
+				uint16_t beardId = 0;
+				uint16_t localAppearanceId = 0;
+				file.getU16(beardId);
+				file.getU16(localAppearanceId);
+				beard_appearances[beardId] = localAppearanceId + 1;
+				file.skip(5);
+				uint16_t nameLength = 0;
+				file.getU16(nameLength);
+				if(file.tell() + nameLength > file.size()) {
+					error = "EOBJ beard catalog name is truncated.";
+					return false;
+				}
+				file.skip(nameLength);
+			}
+		}
 	}
 
 	// Seating metadata is stored between the visual catalogs and the sprite
@@ -936,6 +1005,8 @@ bool GraphicManager::loadSpriteMetadata(const FileName& datafile, wxString& erro
 	uint32_t minID = 100; // items start with id 100
 	// We don't load distance/effects, if we would, just add effect_count & distance_count here
 	uint32_t maxID = item_count + creature_count;
+	if(emperiaFormatVersion >= 17)
+		maxID += effect_count + distance_count + beard_count;
 
 	if(!otfi_found) {
 		is_extended = dat_format >= DAT_FORMAT_96;
@@ -963,7 +1034,9 @@ bool GraphicManager::loadSpriteMetadata(const FileName& datafile, wxString& erro
 
 		// Reads the group count
 		uint8_t group_count = 1;
-		if(has_frame_groups && id > item_count) {
+		const bool groupedAppearance = id > item_count &&
+			(id <= item_count + creature_count || id > item_count + creature_count + effect_count + distance_count);
+		if(has_frame_groups && groupedAppearance) {
 			file.getU8(group_count);
 		}
 
@@ -979,7 +1052,7 @@ bool GraphicManager::loadSpriteMetadata(const FileName& datafile, wxString& erro
 
 		for(uint32_t k = 0; k < group_count; ++k) {
 			// Skipping the group type
-			if(has_frame_groups && id > item_count) {
+			if(has_frame_groups && groupedAppearance) {
 				file.skip(1);
 			}
 

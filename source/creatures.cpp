@@ -40,6 +40,7 @@ const char* outfitSlotAttributeNames[OUTFIT_SLOT_COUNT] = {
 	"righthand",
 	"backpack",
 	"belt",
+	"beard",
 };
 
 void loadOutfitSlotColors(pugi::xml_attribute attribute, OutfitSlotColors& colors)

@@ -293,6 +293,7 @@ public:
 	GameSprite* getCreatureSprite(int id);
 	GameSprite* getOutfitSprite(int publicOutfitId);
 	GameSprite* getOutfitSlotSprite(int slot, int sourceId, bool directAppearance = false);
+	bool isMaskItem(int itemId) const;
 	void drawOutfitTo(wxDC& dc, const wxRect& rect, const Outfit& outfit);
 	GameSprite* getEditorSprite(int id);
 
@@ -347,6 +348,9 @@ private:
 	uint16_t outfit_count;
 	uint16_t equipment_count;
 	uint16_t hair_count;
+	uint16_t effect_count;
+	uint16_t distance_count;
+	uint16_t beard_count;
 	std::map<uint16_t, uint16_t> item_appearances;
 	std::map<uint16_t, uint8_t> item_slot_types;
 	std::map<uint16_t, uint8_t> item_identities;
@@ -357,6 +361,7 @@ private:
 	std::map<uint16_t, uint16_t> equipment_right_appearances;
 	std::map<uint16_t, uint16_t> visual_equipment_appearances;
 	std::map<uint16_t, uint16_t> hair_appearances;
+	std::map<uint16_t, uint16_t> beard_appearances;
 	bool otfi_found;
 	bool is_extended;
 	bool has_transparency;

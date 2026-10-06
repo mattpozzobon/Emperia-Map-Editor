@@ -1868,6 +1868,7 @@ void MapDrawer::BlitCreature(int screenx, int screeny, const Outfit& outfit, Dir
 				OUTFIT_SLOT_BODY,
 				OUTFIT_SLOT_BELT,
 				OUTFIT_SLOT_BACKPACK,
+				OUTFIT_SLOT_BEARD,
 				OUTFIT_SLOT_HEAD,
 				OUTFIT_SLOT_HAIR,
 				OUTFIT_SLOT_LEFT_HAND,
@@ -1879,6 +1880,7 @@ void MapDrawer::BlitCreature(int screenx, int screeny, const Outfit& outfit, Dir
 				OUTFIT_SLOT_BODY,
 				OUTFIT_SLOT_BELT,
 				OUTFIT_SLOT_RIGHT_HAND,
+				OUTFIT_SLOT_BEARD,
 				OUTFIT_SLOT_HEAD,
 				OUTFIT_SLOT_HAIR,
 				OUTFIT_SLOT_BACKPACK,
@@ -1892,6 +1894,7 @@ void MapDrawer::BlitCreature(int screenx, int screeny, const Outfit& outfit, Dir
 				OUTFIT_SLOT_RIGHT_HAND,
 				OUTFIT_SLOT_LEFT_HAND,
 				OUTFIT_SLOT_BACKPACK,
+				OUTFIT_SLOT_BEARD,
 				OUTFIT_SLOT_HEAD,
 				OUTFIT_SLOT_HAIR,
 			};
@@ -1903,7 +1906,7 @@ void MapDrawer::BlitCreature(int screenx, int screeny, const Outfit& outfit, Dir
 				order = northWestOrder;
 			}
 
-			for(int i = 0; i < 9; ++i) {
+			for(int i = 0; i < OUTFIT_SLOT_COUNT; ++i) {
 				int slot = order[i];
 				const OutfitSpriteSlot& spriteSlot = outfit.sprites[slot];
 				if(spriteSlot.id <= 0) {
@@ -1911,6 +1914,10 @@ void MapDrawer::BlitCreature(int screenx, int screeny, const Outfit& outfit, Dir
 				}
 
 				if(slot == OUTFIT_SLOT_HEAD && !outfit.renderHelmet) {
+					continue;
+				}
+				if(slot == OUTFIT_SLOT_BEARD && outfit.renderHelmet &&
+					g_gui.gfx.isMaskItem(outfit.sprites[OUTFIT_SLOT_HEAD].id)) {
 					continue;
 				}
 
@@ -1923,7 +1930,7 @@ void MapDrawer::BlitCreature(int screenx, int screeny, const Outfit& outfit, Dir
 					continue;
 				}
 
-				Outfit slotOutfit = slot == OUTFIT_SLOT_HAIR
+				Outfit slotOutfit = (slot == OUTFIT_SLOT_HAIR || slot == OUTFIT_SLOT_BEARD)
 					? baseOutfit
 					: outfit.getColorizedSlotOutfit(slot);
 				blitCreatureSprite(layerSprite, slotOutfit, true);
