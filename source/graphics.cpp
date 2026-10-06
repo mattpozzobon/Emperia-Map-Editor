@@ -1261,6 +1261,9 @@ bool GraphicManager::loadSpriteMetadataFlags(FileReadHandle& file, GameSprite* s
 			case DatFlagWrappable:
 			case DatFlagUnwrappable:
 			case DatFlagTopEffect:
+			case DatFlagOpacity:
+			case DatFlagNotPreWalkable:
+			case DatFlagRenderBelowCreatures:
 			case DatFlagFloorChange:
 			case DatFlagNoMoveAnimation:
 			case DatFlagChargeable:

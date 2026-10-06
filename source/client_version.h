@@ -173,6 +173,9 @@ enum DatFlags : uint8_t
 	DatFlagWrappable = 35,
 	DatFlagUnwrappable = 36,
 	DatFlagTopEffect = 37,
+	DatFlagOpacity = 100,
+	DatFlagNotPreWalkable = 101,
+	DatFlagRenderBelowCreatures = 102,
 
 	DatFlagFloorChange = 252,
 	DatFlagNoMoveAnimation = 253, // 10.10: real value is 16, but we need to do this for backwards compatibility
